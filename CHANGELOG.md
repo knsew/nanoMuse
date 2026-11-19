@@ -4,6 +4,8 @@ All notable changes to nanoMuse. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+- Removed the hosted service from the source: telemetry uploads, the four update checkers, the multi-tenant relay modules (invites, allowances, review codes, GitHub stats, GeoIP, Aliyun SMS, star nudges, the DashScope media proxy), and the demo, docs-site and showcase directories are gone; the relay and the model defaults now point at a self-hosted relay and a local endpoint. The audit is PRIVATE-DEPLOY-ANALYSIS.md.
+
 - Kept completed sensitive actions and file writes in view after message or token limits removed their tool exchanges, helping long tasks avoid repeats. For #938.
 - Asked before repeating an identical sensitive action in the same conversation, including concurrent calls and retries after cancellation left an unknown outcome. For #938.
 - Added the Levea video editor to the connector catalogue for desktop and phones, with OAuth sign-in.
