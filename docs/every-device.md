@@ -365,30 +365,14 @@ reaching the RiskGate card, a *Devices* entry in the drawer (both done in
 0.1.19, see [The phone, in 0.1.19](#the-phone-in-0-1-19)), and the desk's
 Hands events shown while it works. None of it blocks the desktop work.
 
-## The browser: a demo on a simulated phone
+## The browser: nanoMuse Web
 
-[nanomuse.cn/web](https://nanomuse.cn/web/) leads to the showcase: a simulated
-phone in the browser (MobileGym, with the nanoMuse app brought to the front:
-`demo/mobilegym/apps/nanoMuse`) and, behind it, a private nanoMuse of the
-visitor's own that the showcase gateway starts for the visit, the
-`ghcr.io/nano-muse/nanomuse` image on a network with no way out but the
-gateway, talking with the showcase's model, gone when the visit ends. A visitor
-signs in to nanoMuse Cloud first (a code to a phone or an inbox, or the
-account's password; `demo/showcase/gateway/showcase_gateway/visitors.py`), so
-the project knows who is trying it and the same account is there on the day
-the app is installed. The page says so plainly: this is a demo, a long way from
-the Android app, and where the apps are. The homepage at
-[nanomuse.cn](https://nanomuse.cn/) shows the same page in a frame (`?embed=1`,
-no header of its own). The phone turns itself on; the Muse behind it is started
-once the page has reason to think a person is looking (a few seconds in view,
-or a pointer, key or wheel), never for a scripted browser, and never before the
-sign-in the showcase asks for.
-
-The earlier shape of the web (a kept Muse per Cloud account, with named
-volumes and a seat on the hub like any other device; `accounts.py`,
-`WEB_ENABLED=1`) is still in the gateway for anyone who runs one, and off on
-the project's server since 0.1.26. Details and the settings in
-[demo/showcase/README.md](../demo/showcase/README.md).
+The browser runs nanoMuse Web, the runtime's web app: the same agent in a
+browser tab, served by the runtime server itself from `nanomuse/server/static/`
+when that build is present. The showcase demo is gone: no simulated phone,
+no per-visitor container, no gateway. The `WEB_ENABLED` switch that used to
+gate the web app is gone too; the server serves the app whenever the build
+is there.
 
 ## iOS, the web console, glasses
 
@@ -417,9 +401,9 @@ the hands elsewhere; the hub is already enough for them.
 
 ## Status
 
-| | Phone | Computer | nanoMuse Web (`WEB_ENABLED=1`; the demo phone since 0.1.26) | Web console | iOS |
+| | Phone | Computer | nanoMuse Web | Web console | iOS |
 |---|---|---|---|---|---|
-| Local shell / files / browser | yes | yes (runtime) | yes, inside its container | no hands | no |
+| Local shell / files / browser | yes | yes (runtime) | yes, on the server | no hands | no |
 | Screen as a hand | Hands (0.1.12) | `computer_*` (0.1.19) | — | — | — |
 | Drives other devices | `nanomuse-pc`, hub | `device_*`, `delegate` (0.1.19) | the same runtime | picks a device, sends a task | — |
 | Answers other devices | yes | in a visible side chat (0.1.19) | yes | — | info / open / notify / task |
@@ -428,8 +412,8 @@ the hands elsewhere; the hub is already enough for them.
 
 Released with 0.1.19: the APK, the desktop installers (`nanoMuse-Desktop-…`,
 [`.github/workflows/desktop-app.yml`](../.github/workflows/desktop-app.yml)),
-the terminal binary (dropped in 0.1.39), and nanoMuse Web at nanomuse.cn/web (the demo on a
-simulated phone since 0.1.26).
+the terminal binary (dropped in 0.1.39), and nanoMuse Web (a demo on a
+simulated phone since 0.1.26; the demo is gone now).
 
 ## Debugging it all on one machine
 

@@ -36,4 +36,4 @@ nanoMuse 默认使用内置的小龙形象，只有你主动更换时才会改�
 
 自选视频只保存在选择它的设备上，不会上传到 nanoMuse Cloud，也不会像工作室的静态图那样同步到其他设备。每台设备可以各自选择视频。Android 将它保存在 `minis-global/nanomuse/avatar/own-clip.mp4`，第一帧保存在旁边的 `own-clip.png`，与当前账号的其他文件放在一起。iOS 的路径是应用内的 `Application Support/nanomuse/avatar/own-clip.mp4`，桌面版是 `$DSH_HOME/nanomuse/avatar/own-clip.mp4`。更换工作室形象或恢复内置形象后，自选视频仍会保留。
 
-Android 的这个目录位于应用私有存储中，文件管理器和 shell（执行命令的终端环境）无法访问。因此，工作台菜单提供「保存到相册」：它会将底图、各状态静态图、上次生成的四张候选图、状态视频和自选视频复制到 `Pictures/nanoMuse/avatar` 和 `Movies/nanoMuse/avatar`。每批文件按保存时的分钟命名，完成后显示图片和视频数量。文件只会复制到这台手机的相册。清除应用数据或换手机前，可以用它保留形象和视频。([#664](https://github.com/nano-muse/nanoMuse/issues/664))
+Android 的这个目录位于应用私有存储中，文件管理器和 shell（执行命令的终端环境）无法访问。因此，工作台菜单提供「保存到相册」：它会将底图、各状态静态图、上次生成的四张候选图、状态视频和自选视频复制到 `Pictures/nanoMuse/avatar` 和 `Movies/nanoMuse/avatar`。每批文件按保存时的分钟命名，完成后显示图片和视频数量。文件只会复制到这台手机的相册。清除应用数据或换手机前，可以用它保留形象和视频。([#664](https://github.com/knsew/nanoMuse/issues/664))

@@ -34,9 +34,9 @@ nanoMuse 从一个 TOML 配置文件读取设置。TOML 是一种用键和值、
 | `NANOMUSE_GUI_ENABLED=1`、`NANOMUSE_GUI_PROVIDER`、`NANOMUSE_GUI_MODEL`、`NANOMUSE_GUI_BASE_URL`、`NANOMUSE_GUI_API_KEY` | `[gui]`，控制手机操作及使用的模型 |
 | `NANOMUSE_IMAGE_PROVIDER`、`NANOMUSE_IMAGE_MODEL`、`NANOMUSE_IMAGE_BASE_URL`、`NANOMUSE_IMAGE_API_KEY`；将 `IMAGE` 换为 `VIDEO` 同样适用 | [`[image]` 和 `[video]` 配置](#image-and-video)，指定图片和视频的生成服务 |
 | `NANOMUSE_VAULT_KEY` | 保险库使用的 Fernet 加密密钥，默认保存在 `<data_dir>/vault.key` |
-| `NANOMUSE_CLOUD_BASE_URL`、`NANOMUSE_CLOUD_REQUIRED`、`NANOMUSE_CLOUD_SYNC` | `[cloud]`，分别指定托管运行时登录的中继、是否必须登录 nanoMuse Cloud，以及「在我的设备之间同步对话」的默认状态。中继是负责账号和设备消息转发的服务。`sync` 未设为 `0` 时默认开启，但用户在设置 → 数据控制中选择后，以用户选择为准，见 [every-device.md](every-device.md#the-same-conversations-everywhere)。另见 [cloud.md](cloud.md)，中继自身的变量见 [cloud/README.md](../../cloud/README.md) |
+| `NANOMUSE_CLOUD_BASE_URL`、`NANOMUSE_CLOUD_REQUIRED`、`NANOMUSE_CLOUD_SYNC` | `[cloud]`，分别指定运行时登录的中继、是否必须登录 nanoMuse Cloud，以及「在我的设备之间同步对话」的默认状态。中继是负责账号和设备消息转发的服务。`sync` 未设为 `0` 时默认开启，但用户在设置 → 数据控制中选择后，以用户选择为准，见 [every-device.md](every-device.md#the-same-conversations-everywhere)。另见 [cloud.md](cloud.md)，中继自身的变量见 [cloud/README.md](../../cloud/README.md) |
 | `NANOMUSE_HUB_NAME` | `hub.name`，其他设备看到的本机名称 |
-| `NANOMUSE_CLOUD_KEY`、`NANOMUSE_CLOUD_HINT`、`NANOMUSE_CLOUD_CHANNEL`、`NANOMUSE_ONBOARDED` | 让托管运行时 nanoMuse Web 启动即登录。创建容器的网关传入账号 key、脱敏账号标识、账号渠道及首次引导完成状态。key 与手动输入时一样存入保险库；保险库已有 key 时不再处理 |
+| `NANOMUSE_CLOUD_KEY`、`NANOMUSE_CLOUD_HINT`、`NANOMUSE_CLOUD_CHANNEL`、`NANOMUSE_ONBOARDED` | 容器启动时传入这些变量，运行时直接登录：账号 key、脱敏账号标识、账号渠道及首次引导完成状态。key 与手动输入时一样存入保险库；保险库已有 key 时不再处理 |
 | `NANOMUSE_IN_CONTAINER=1` | 表示运行时位于容器内。镜像会设置，程序也会检查 `/.dockerenv`。此时 `sandbox.mode = auto` 将容器本身视为隔离环境，不再因缺少 bubblewrap 报告问题 |
 | `NANOMUSE_CODING_HOME` | 查找编程 CLI（命令行程序）数据目录的位置，例如 `~/.codex`、`~/.claude`，默认从用户主目录查找，见 [coding-agents.md](coding-agents.md) |
 | `NANOMUSE_LOG_LEVEL` | `log_level` |
@@ -220,7 +220,7 @@ side_chats = false   # off: only the main conversation travels between devices
 
 ```toml
 [cloud]
-base_url = "https://cloud.nanomuse.cn"   # 自己架的中继写在这里
+base_url = "https://cloud.example.com"   # 自己中继的地址；没有内置中继
 required = true
 sync = true
 models = true        # 账号的模型是否作为来源；控制台里的「使用 nanoMuse Cloud 模型」
@@ -233,7 +233,7 @@ name = ""            # 空：用主机名
 
 `[cloud]` 指定运行时登录的中继，见 [cloud.md](cloud.md)。`base_url` 填写中继的公网地址，自己部署后可按 [self-hosting.md](self-hosting.md) 修改。`required = false` 允许不登录账号就完成首次引导，适合完全不使用中继的运行时。`sync` 是账号级「数据控制 → 同步」的默认值，用户选择过后以用户设置为准。
 
-`models = false` 对应控制台的「使用 nanoMuse Cloud 模型」开关，应用中的值保存在 app-settings。关闭后，中继声明的所有模型都会退出自动选择顺序和服务商列表，但账号保持登录。除非主动选择「这次改用 nanoMuse Cloud」，否则不会消耗账号额度。公开的 nanoMuse Cloud 目前只提供对话和界面操作模型，生成图片和视频需要自己的服务商；自建中继可声明其他能力。账号密钥保存在保险库的 `NANOMUSE_CLOUD_KEY`。
+`models = false` 对应控制台的「使用 nanoMuse Cloud 模型」开关，应用中的值保存在 app-settings。关闭后，中继声明的所有模型都会退出自动选择顺序和服务商列表，但账号保持登录。除非主动选择「这次改用 nanoMuse Cloud」，否则不会向中继模型发请求。中继目前只提供对话和界面操作模型，生成图片和视频需要自己的服务商。账号密钥保存在保险库的 `NANOMUSE_CLOUD_KEY`。
 
 `[hub]` 将本机作为账号设备加入设备互联，见 [hub.md](hub.md)。`enabled` 开启后，账号一登录就连接 hub；`remote_control = false` 时，对其他设备只应答 `info`，不允许其他动作；`name` 是其他设备看到的名称，留空使用主机名。`device_id` 每次安装各自生成，由应用写入。
 
@@ -459,7 +459,7 @@ reconnect_grace_s = 30.0             # 手机掉线后，进行中的任务等�
 sensitive_words  = ["确认支付", "立即付款", "转账", "提交订单", "发送", "删除", "pay now", "place order", "send", "delete"]  # a tap on these asks first; 这里是节选，默认列表有 22 个词
 ```
 
-`base_url`、`api_key` 为空时沿用 `[llm]`。`model` 为空时遵循 0.1.41 模型约定：对话使用中继时，选择 `/v1/models` 为 `gui` 推荐的模型，公开 Cloud 目前推荐与对话相同的多模态 `Qwen/Qwen3.6-27B-FP8`；对话使用自有服务商且目录标有 `vision` 时，使用该服务商的 `defaults.hands`，百炼为 `qwen3.8-27b`，智谱为 `glm-4.6v`，沿用对话 key；对话服务商不能识图，例如按目录 id 或主机判断为本地服务器，而账号已登录，则用账号 key 调用中继的屏幕操作模型，对话模型保持原处；其他情况沿用对话模型，未收录服务地址也如此。
+`base_url`、`api_key` 为空时沿用 `[llm]`。`model` 为空时遵循 0.1.41 模型约定：对话使用中继时，选择 `/v1/models` 为 `gui` 推荐的模型，中继目前推荐与对话相同的多模态 `halogen-qwen3.8-flash-next`；对话使用自有服务商且目录标有 `vision` 时，使用该服务商的 `defaults.hands`，百炼为 `qwen3.8-27b`，智谱为 `glm-4.6v`，沿用对话 key；对话服务商不能识图，例如按目录 id 或主机判断为本地服务器，而账号已登录，则用账号 key 调用中继的屏幕操作模型，对话模型保持原处；其他情况沿用对话模型，未收录服务地址也如此。
 
 明确填写 `model` 时始终优先。只有操作器的 `base_url` 指向另一项服务时才需单独 key。每次手机任务的轨迹保存在 `<data_dir>/phone-traces/`，保留最近 200 条，可用 `nanomuse phone traces` 查看。
 
@@ -514,13 +514,10 @@ token            = ""            # empty → generated once, stored in <data_dir
 approval_timeout = 3600          # seconds an approval card waits before counting as "deny"
 cors_origins     = []            # only for the Vite dev server, e.g. ["http://localhost:5173"]
 max_upload_mb    = 25            # largest file the app may attach to a message
-update_check     = true          # Settings → About says when a newer release is out (the download index, then GitHub Releases; once a day)
 start_grace      = 4             # seconds the services may take before the app answers anyway
 ```
 
-`update_check` 每天检查一次最新版本，优先访问下载镜像索引 `nanomuse.cn/dl/index.json`，没有响应时再访问 `api.github.com`。点击「现在检查」可以提前检查；失败时，例如运行时先于网络启动，会在一小时后重试。结果显示在设置 → 关于，包含版本号和发布页链接。检查不会下载安装文件，也不会发送安装信息，请求的 `User-Agent` 只携带运行时版本号。设置 `NANOMUSE_NO_UPDATE_CHECK=1` 也能关闭。通过 `NANOMUSE_CLOUD_KEY` 启动的托管网页会话从不检查，由运营者负责更新。
-
-这些设置仅适用于 Python 运行时。Windows 桌面外壳会在启动后及每六小时独立检查。它默认开启自动下载并保存开关状态，但计费或未知网络需要用户主动下载，见[桌面版](desktop.md#updating-on-windows)。
+运行时不检查新版本，也不下载新版本。需要更新时，从 fork 的 GitHub Releases 页手动下载安装包。桌面版也是手动更新，见[桌面版](desktop.md#updating-on-windows)。
 
 ## 数据保存在哪里 {#where-things-live}
 

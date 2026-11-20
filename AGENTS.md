@@ -13,11 +13,7 @@ harness/desktop/        the Electron shell around dsh + the plugin; ships the Py
 android/                OpenMinis 1.13 subtree (GPL-3.0); do not restructure
 android/src/android     the Android app; ours lives in io.github.nanomuse.* and res/values*/nm_strings.xml
 android/src/ios         the iOS app; ours lives in NanoMuse/ (Swift), strings in Localizable.xcstrings
-demo/                   the showcase (recorded traces, pages under site/)
-docs/                   user and contributor docs; the VitePress site in website/ projects this directory
-scripts/                release, rebrand, icon and catalogue generators; self-host.sh
-tests/                  pytest for the Python runtime (MockLLM only, no network)
-website/                VitePress config for the docs site (srcDir ../docs)
+docs/                   user and contributor docs, in English and in Chinese under docs/zh/
 ```
 
 ## Commands
@@ -53,9 +49,6 @@ cd android/src/android && ./gradlew :app:assembleDebug --console=plain --no-daem
 
 # iOS (android/src/ios); macOS only; the device build must finish with zero warnings in NanoMuse/
 xcodebuild build -project Minis.xcodeproj -scheme Minis -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
-
-# Docs site (website/)
-cd website && npm ci && npm run docs:build       # also the dead-link check; `npm run docs:dev` serves it
 ```
 
 ## Conventions
@@ -64,7 +57,7 @@ cd website && npm ci && npm run docs:build       # also the dead-link check; `np
 - **Our Android strings** live in `res/values*/nm_strings.xml` with `nm_` keys; upstream's `strings.xml` stays theirs.
 - **Generated files are regenerated, not edited.** The connectors catalogue is `harness/dsh-nanomuse/src/connectors-catalogue.ts`; `node scripts/connectors-json.mjs` writes the phones' `connectors.json` and CI runs `--check`. The own-key provider catalogue is `nanomuse/llm/providers.json` (ids, base URLs, key pages, capabilities, defaults, verified against the vendors' docs); `node scripts/providers-json.mjs` writes the desktop's and the phones' `providers.json` and CI runs `--check`. The ideas lists `ideas.en.json`/`ideas.zh.json` under `harness/dsh-nanomuse/assets/` must be byte-identical to the Android app's copies under `app/src/main/assets/nanomuse/` and the iPhone app's under `NanoMuse/Resources/` (`tests/fences.test.mjs` checks). The web build writes `nanomuse/server/static/`; commit it with the change.
 - **Lock files resolve against the public registry only.** After any `npm install`, every `resolved` URL in the lock file must point at `https://registry.npmjs.org/`; CI greps for anything else. A private mirror's host never lands in the repository.
-- **Every string in every locale.** A user-visible string is added in English first, then 简体中文, then every other locale the file already has: `nm_strings.xml` per `values-*`, `Localizable.xcstrings`, `locales.ts` (`en` and `zh`), the relay's console and e-mail templates. Never assume a +86 number, a Chinese app or Beijing time; SMS codes reach mainland-China numbers only, so a sign-in screen says so and points to e-mail.
+- **Every string in every locale.** A user-visible string is added in English first, then 简体中文, then every other locale the file already has: `nm_strings.xml` per `values-*`, `Localizable.xcstrings`, `locales.ts` (`en` and `zh`), the relay's console and e-mail templates. Never assume a +86 number, a Chinese app or Beijing time; sign-in codes go by e-mail, so a sign-in screen says so.
 - **Voice.** Plain, specific, human sentences; say what a thing does. No marketing words, no exclamation marks, no superlatives. No em or en dashes in new text: commas, colons and full stops instead (a dash stays where it is data: a number range in a table, code). Chinese copy is written as Chinese, not word for word from the English, follows the same rule, avoids 颠覆, 王炸, 保姆级, 一键 and 赋能, and uses the terms of the [glossary in CONTRIBUTING.md](CONTRIBUTING.md#translating-the-docs) (非营利, never 非盈利; `nanoMuse Cloud` is never translated). Never copy Meta's UI text verbatim; describe the same behaviour in our words.
 - **Facts come from the repository.** Every feature, number and provider count in a README, a page or a release note must be verifiable in the code or a catalogue; a shipped feature is never called a demo or coming soon; copy about the avatar does not say how many pictures or poses it has.
 - **The ten READMEs move together.** `README.md` and the nine under `docs/readme/` share one structure and change in the same commit; the badge row is two lines, the longer first; a *News* line is one short sentence with the date in inline code and at most one emoji, newest first, and only a milestone release gets one ([CONTRIBUTING.md](CONTRIBUTING.md#the-ten-readmes)).

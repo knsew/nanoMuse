@@ -104,7 +104,7 @@ the rail, the pinned face, our Settings and first run, the harness's own pages u
 *Advanced*. `dsh` here is the command the desktop app installs (*Manage dsh Command…* in
 its menu) or any dsh of the same version with `DSH_HOME` pointing at the app's home;
 `dsh plugin --profile desktop remove dsh-nanomuse` takes it out again. Hands need the
-runtime on this computer too (`pipx install "git+https://github.com/nano-muse/nanoMuse"`,
+runtime on this computer too (`pipx install "git+https://github.com/knsew/nanoMuse"`,
 or `NANOMUSE_PY` pointing at it) — the preset starts `nanomuse mcp` for them. The app's
 name, icon and About are DeepSeek Harness's there; the app below is ours.
 

@@ -53,7 +53,7 @@ decorative, every surface a flat tone one step from its neighbour. It comes from
   in* / *thinking…* / *Hands · step N · what it is doing* / *Reach · step N · on Laptop
   B: …* / *waiting for you*; a *Stop* button beside it while a turn runs. The chip tints
   while the agent works and while it waits for an answer. Clicking the face opens the
-  profile panel. At the top right, *Invite* (with an account), then the harness's
+  profile panel. At the top right is the harness's
   right-sidebar toggle; the harness's own title row, tabs (*Conversation* / *Trace*)
   and session actions are hidden: the chat rows carry rename, pin and archive.
 - The conversation is monochrome, as on the phone: your messages are ink pills on the
@@ -97,8 +97,8 @@ skipped on a fresh install and never shown twice:
    one blue *Sign in* pill and *Use your own API key instead*, which goes to the models page
    with no account (the sign-in can come later; *Skip for now* there with no key saved is
    Welcome again). Sign-in
-   is the phone's: *Phone number or e-mail* with the line that a mainland China number
-   gets an SMS and anything else an e-mail, the code boxes that verify themselves on the
+   is the phone's: *E-mail address*, with the line that the code goes to your e-mail
+   and a phone number's code is in the relay log, the code boxes that verify themselves on the
    sixth digit, *Try another way* for a password (`/v1/auth/code`, `/v1/auth/verify`,
    `/v1/auth/login`).
 2. **Set a password** (a fresh account only; *Later* skips it).
@@ -392,11 +392,9 @@ page it opened, named for the page you came from; a pick in the sidebar starts f
   and the composer focused; pressed while it is in front, it steps aside), all kept in
   `desktop.json` under the app's home; **Shortcuts** (*Quick Chat* with its combination:
   *Change* records the next one you press, Esc cancels, *Default* puts the platform's back,
-  and a line says so when another app already holds it; and the keyboard reference); **About** (nanoMuse, built on DeepSeek Harness, the licence, and two version
-  lines that are always there: *nanoMuse Desktop <app> · harness <bundle>: installed*
-  and *Latest 0.1.x: you have it* / *0.1.x is out · Update* / *Could not check · tap to
-  try again*; the check reads `nanomuse.cn/dl/index.json` first and GitHub's releases
-  second, once a day); and *Developer*: *Show DeepSeek
+  and a line says so when another app already holds it; and the keyboard reference); **About** (nanoMuse, built on DeepSeek Harness, the licence, and one version
+  line that is always there: *nanoMuse Desktop <app> · harness <bundle>: installed*.
+  There is no update check); and *Developer*: *Show DeepSeek
   Harness controls* (the modes and the workspace browser in place of the chats column; the
   compact model and reasoning control is already beside the composer). The harness's other
   rows (permission presets, font size, link opening,
@@ -418,7 +416,7 @@ page it opened, named for the page you came from; a pick in the sidebar starts f
   provider*, which opens the ways on under Account. When you have not chosen, a row
   follows the provider new chats answer through (its catalogue default for the job) when
   that is one of your own, else nanoMuse Cloud while signed in only when its live menu
-  offers the job, else the first of your providers that can. The hosted Cloud offers
+  offers the job, else the first of your providers that can. The relay offers
   chat and screen operation, not media generation.
 - **Account** (under *Advanced*), the nanoMuse account: sign in or the masked
   identifier, the allowance, the look, *Open Devices*, a line that opens Settings → Models
@@ -459,7 +457,7 @@ page it opened, named for the page you came from; a pick in the sidebar starts f
   clips are not covered by it.
   Below: *Animate the avatar after a change*, *Make / Redo clips* with the state of each
   of the four, and the cost note. When a picture or clip through your own key fails, the
-  failure line asks you to fix or choose a provider of your own; hosted Cloud is not a
+  failure line asks you to fix or choose a provider of your own; the relay is not a
   media retry.
 - **Models**, **Agents**: the harness's pages, unchanged, under *Advanced*.
 - **Connectors**, a catalogue: a search field, category chips (*All*,
@@ -547,8 +545,8 @@ page it opened, named for the page you came from; a pick in the sidebar starts f
   checkout and the usage lives under General); which files on this computer hold what
   (the account's login, the agent's profile, the rooms and documents, the faces; each
   with its path, *Show the folder*) and what is never kept (the system keychain, your
-  passwords); which channels reach the agent (this desktop, the browser, the invite link
-  when signed in, your other devices) and that no third-party messenger is wired in.
+  passwords); which channels reach the agent (this desktop, the browser,
+  your other devices) and that no third-party messenger is wired in.
 - **Data controls**: *We take your privacy seriously* with the privacy policy, *Sync
   conversations between my devices* (the account's switch, with how many chats and
   messages the relay keeps and *Delete synced conversations*) and under it *Also sync
@@ -558,7 +556,7 @@ page it opened, named for the page you came from; a pick in the sidebar starts f
   account's record (what the relay keeps of the account's turns in full, those on your own
   keys and the pictures among them, how long this relay keeps a turn; relay 0.29, see
   [cloud.md](cloud.md#the-record)), *Help improve nanoMuse's AI models* (the relay's switch,
-  with how many turns joined the training set) and one *Delete* that removes the record and
+  with how many turns were kept before the removal; the switch records nothing now) and one *Delete* that removes the record and
   the training turns together, as on every other app. From 1.0.7 this computer takes part in
   the record itself: its chat requests to the account carry `X-NanoMuse-Device` and
   `X-NanoMuse-Conversation`, and a turn answered on a key of your own goes up afterwards with
@@ -570,7 +568,7 @@ page it opened, named for the page you came from; a pick in the sidebar starts f
   look go, the account signs out; the chats stay).
 - **Help & support**: the docs, the site, discussions, report an issue, the version.
 - **Legal**: the licence, the Meta trademark notice, the acknowledgements (DeepSeek
-  Harness, OpenMinis) and the privacy policy (`nanomuse.cn/privacy/`, the page every
+  Harness, OpenMinis) and the privacy policy (`github.com/knsew/nanoMuse`, the page every
   client links).
 - **Advanced**: every page another plugin registers (the harness's plugin manager,
   archived sessions…), grouped at the bottom so they are there and out of the way.
@@ -657,9 +655,7 @@ uniqueness when separate requests create tasks concurrently.
 
 ## The hamburger
 
-Settings (with its shortcut; a dot on it and on the ••• button
-when a newer release is out), **Update to 0.1.x** when there is one (opens the release
-page), **About nanoMuse** (the version line *nanoMuse Desktop <app> · harness <bundle>*,
+Settings (with its shortcut), **About nanoMuse** (the version line *nanoMuse Desktop <app> · harness <bundle>*,
 the licence, GitHub / Releases / Docs / Issues), Keyboard shortcuts, Schedules and
 the harness's other panels (Plugins and whatever else is installed), collapse / expand
 the chats column, *Report a problem*: under the desktop shell a screenshot of the
@@ -677,8 +673,8 @@ nowhere else.
 - **Any model, your key.** The relay's models for members, a DeepSeek key, or any
   OpenAI-compatible provider the harness supports. Settings → Models shows four rows:
   **Chat** (the relay's `/v1/models` entries marked and recommended for `chat`),
-  **Operating the screen** (recommended for `gui`; hosted Cloud currently recommends
-  `Qwen/Qwen3.6-27B-FP8` for both), **Making pictures** and **Making clips**; a DeepSeek entry is shown as
+  **Operating the screen** (recommended for `gui`; the relay currently recommends
+  `halogen-qwen3.8-flash-next` for both), **Making pictures** and **Making clips**; a DeepSeek entry is shown as
   sighted only when its id says `v4.1`, `vision` or `ocr`. The hands model is written to
   `$DSH_HOME/nanomuse/hands.json` (mode 0600) and handed to `nanomuse mcp` as its
   environment by the plugin's own MCP client, which it restarts when the model changes.
@@ -693,15 +689,7 @@ nowhere else.
 - **Ways to get a model, by region.** With a Chinese UI, a phone sign-in or a relay
   account in the mainland, the account page lists Bailian first and OpenRouter second;
   elsewhere the other way round, each with *Get a key*.
-- **Updates.** Once a day, and on *Check for updates* in About, the host reads the
-  mirror's index at `nanomuse.cn/dl/index.json` first (reachable from the mainland, no
-  rate limit) and GitHub's releases API when the index does not answer, then compares
-  versions; a newer one shows as a dot, an *Update to 0.1.x* menu item and a *Download*
-  button for this platform's asset in About (on Linux the `.deb`, or the AppImage when
-  the running app is one). The result is kept for a day and read against the version
-  that runs now, so an update installed in the meantime is not offered to itself. A check
-  that could read neither source (the network down at start, say) is kept for an hour
-  only: the host tries again by itself an hour later, and *Check for updates* asks at once
-  whatever the cache says.
+- **Updates.** There is no update check. A new release is installed by downloading
+  the installer from the fork's GitHub Releases page by hand.
 - **Open source, no closed component.** The bundle is GPL-3.0-or-later; the harness is
   MIT and travels with its notice; the About row says so.

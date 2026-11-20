@@ -89,7 +89,7 @@ Models contract (0.1.41), one card each under the chat model. The value is
 `image` / `video`: the slot as set and its `effective_*`): an explicit choice,
 else the chat provider's own media model when it has one, else the first
 provider of yours that covers the job, else the one sentence and an *Add a
-provider* button. The hosted nanoMuse Cloud account is not a media provider.
+provider* button. The nanoMuse Cloud account is not a media provider.
 The picker offers *Automatic* first, *The chat model's provider* when it has
 the capability (its key serves, nothing to paste), and under *Add a provider*
 every catalogue provider with the capability for your region, plus *Other
@@ -137,14 +137,14 @@ to the runtime (`POST /api/chatgpt/callback {url}`; a stale link is 400
 there in every case, with a sentence saying why when the port could not be
 bound ([configuration.md](configuration.md#a-chatgpt-plan-instead-of-a-key)).
 
-**The allowance card** (Account, and in the chat on `allowance_exhausted`) has
-three ways on: *Use your own model key* with the region's first pick, a *Set it
+**The allowance card** (Account, and in the chat if a turn is ever refused for lack of pool) has
+two ways on: *Use your own model key* with the region's first pick, a *Set it
 up* that opens Connections on that provider, *Get a key from …*, the guide, and
 under *Other providers and what each key covers* the rest of the region's list
-(the relay's `guidance.providers` when the relay sends it, relay 0.21; else the
-catalogue's) each with its covers line, its own *Set it up* and key link;
-*Sign in with a plan you already pay for* with the ChatGPT card inline; and
-the invitation. The 80 % heads-up and the first-sign-in sheet point the same
+(the catalogue's; the relay used to send `guidance.providers` and sends none now)
+each with its covers line, its own *Set it up* and key link; and
+*Sign in with a plan you already pay for* with the ChatGPT card inline.
+The 80 % heads-up and the first-sign-in sheet point the same
 way.
 
 **Avatar studio.** Without an image model the *Draw* button is off and the
@@ -218,16 +218,15 @@ so the Chinese is looked up from the English): the allowance used up (with the
 ways card under it), the daily cap, a rate limit, a bad key, a disabled account,
 a model the relay does not offer, the provider behind the relay in trouble,
 and since 0.1.40 the four that fell through to *The model provider answered
-with an error: …* and the five the operator's switches send
+with an error: …* and the four the operator's switches send
 ([cloud.md](cloud.md#controls)):
 
 | The relay said | The chat says |
 |---|---|
 | `413 too_large` | That message is too large for the model's window. Shorten it, leave out some attachments, or start a new chat. |
-| `403 not_invited` | This relay takes new accounts by invitation only; sign in with an invite code under Account. |
+| `403 not_invited` | This relay is private; that address is not on its list. |
 | `429 too_many_in_flight` | Too many turns are running on this account at once; wait for one to finish and try again. |
 | `429 provider_busy` | The model provider is busy; try again in a moment. |
-| `429 allowance_exhausted` with `paused: true` | The free allowance is paused on this relay for now, not used up. Your own model key under Connections keeps you going; your sign-in, your devices and what is left stay as they are. (the same ways card as a spent pool, the notice carries `paused`) |
 | `403 signup_closed` | New sign-ups are paused on this relay for now; existing accounts keep working. Try again later. |
 | `503 service_paused` | nanoMuse Cloud is paused by its operator for now; your sign-in and your data are kept. Try again later. |
 | `503 sync_paused` | Conversation sync is paused on this relay for now; what is stored is kept and your devices keep working on their own. |

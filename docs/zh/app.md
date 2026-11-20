@@ -2,7 +2,7 @@
 
 联系人搜索和最近编程工作区会在切换查询、助手或设备时清空旧结果，之后返回的旧请求也不会覆盖当前结果。
 
-> **旧版 Python 实现的设计记录**，对应 `nanomuse/` + `web/`，历史标签为 `pre-openminis`。本文介绍通过浏览器访问的 `nanomuse serve` 网页版。早期桌面版也使用这一界面，当前[桌面版](desktop.md)已改用 DeepSeek Harness。nanomuse.cn/web 则是运行在模拟手机上的演示。`android/` 手机 App 基于 OpenMinis，见 [android.md](android.md)，首次使用先登录账号，再设置模型。各端默认使用内置小龙，也可使用[形象工作室](avatar.md)绘制的形象。旧版小熊猫和玩偶已移除，旧配置仍引用它们时也显示小龙。
+> **旧版 Python 实现的设计记录**，对应 `nanomuse/` + `web/`，历史标签为 `pre-openminis`。本文介绍通过浏览器访问的 `nanomuse serve` 网页版。早期桌面版也使用这一界面，当前[桌面版](desktop.md)已改用 DeepSeek Harness。`android/` 手机 App 基于 OpenMinis，见 [android.md](android.md)，首次使用先登录账号，再设置模型。各端默认使用内置小龙，也可使用[形象工作室](avatar.md)绘制的形象。旧版小熊猫和玩偶已移除，旧配置仍引用它们时也显示小龙。
 
 `nanomuse serve` 在同一个进程中运行常驻智能体，并提供适合手机访问的网页界面。前端是 React 单页应用，构建结果保存在 `nanomuse/server/static/`，随 Python 包发布；后端使用 FastAPI，通过 WebSocket 持续推送实时事件。
 
@@ -107,11 +107,11 @@ hub 自动重连时，设备触发器会保留上次观察到的在线状态。�
 - 「记忆」：按类别显示全部记忆，支持手动添加。「忘掉」会删除，模型不再读到该项，并在「最近的改动」保留原文。每轮按关键词选取相关记忆；连接 → 按含义召回配置 embedding（将文字转换为可比较向量）接口后，也能按语义匹配。例如写邮件给房东，可以找到房东姓名，即使两句话没有共同词。「整理」可手动执行，智能体也会每新增八行或每周自动执行，主动性「关闭」时除外。相同事实合并、变化事实留新版、非个人事实的一次性请求删除。模型只提案，nanoMuse 检查合并不增加原文没有的词、不删除用户亲写内容，每次最多移除记忆库五分之一。「最近的改动」列出合并、删除、更新和遗忘，保留旧文并支持「撤销」。产生修改的整理会显示在动态。
 - 「技能」：保存周回顾、旅行规划、收件箱处理等任务步骤，见[技能](#skills)。
 - 「连接」：管理模型和外部服务，以下说明各配置卡片。
-- 「设置」：名称、形象、颜色、性格、如何称呼你；哨兵模式，平衡为 `ask`、谨慎为 `strict`、放手为 `auto`；命令是否在[沙箱](sentinel.md#the-sandbox)运行；主动性、跟进间隔和免打扰，见[后台工作](#background-work)；通知；Android 旧版「保持运行」的电池、悬浮窗、闹钟权限、重启自启和日志导出，见 [archive/android-python-line.md](../archive/android-python-line.md#keeping-it-running)；「显示思考过程」、应用语言、回复语言。版本信息始终显示已安装版本和最新版本，如「最新版 0.1.x，你已经在用了」「0.1.x 已发布 · 更新」「没能检查到最新版本 · 现在检查」。先查 `nanomuse.cn/dl/index.json`，再查 GitHub。
+- 「设置」：名称、形象、颜色、性格、如何称呼你；哨兵模式，平衡为 `ask`、谨慎为 `strict`、放手为 `auto`；命令是否在[沙箱](sentinel.md#the-sandbox)运行；主动性、跟进间隔和免打扰，见[后台工作](#background-work)；通知；Android 旧版「保持运行」的电池、悬浮窗、闹钟权限、重启自启和日志导出，见 [archive/android-python-line.md](../archive/android-python-line.md#keeping-it-running)；「显示思考过程」、应用语言、回复语言。版本信息始终显示已安装版本。没有更新检查：新版本需要从 fork 的 GitHub Releases 页手动下载安装。
 
-「连接」中的**模型**卡提供百炼、OpenRouter、DeepSeek、OpenAI、Ollama 及自定义 OpenAI 兼容服务商预设，设置模型名、工具调用模式和 API key。服务能力和 ChatGPT 登录见 [web.md](web.md)。key 以 `LLM_API_KEY` 写入保险库，并立即应用到所有对话。「测试」让模型返回一个词。托管 nanoMuse Cloud 的 `Qwen/Qwen3.6-27B-FP8` 支持聊天、附件图片理解和操作屏幕。
+「连接」中的**模型**卡提供百炼、OpenRouter、DeepSeek、OpenAI、Ollama 及自定义 OpenAI 兼容服务商预设，设置模型名、工具调用模式和 API key。服务能力和 ChatGPT 登录见 [web.md](web.md)。key 以 `LLM_API_KEY` 写入保险库，并立即应用到所有对话。「测试」让模型返回一个词。中继的 `halogen-qwen3.8-flash-next` 支持聊天、附件图片理解和操作屏幕。
 
-下方「手的模型」「生成图片」「生成视频」卡片对应手机、桌面设置 → 模型中的其他三项。「自动」依次使用具备能力的聊天服务商、实际模型菜单中提供该能力的已登录中继、其他自备服务商。托管 Cloud 因而可用于屏幕操作，不能生成媒体；图片和视频需自己的服务商及 API key。卡片显示「当前为 服务商 · 模型」。DeepSeek 仅 ID 含 `v4.1`、`vision`、`ocr` 的模型视为支持图片。
+下方「手的模型」「生成图片」「生成视频」卡片对应手机、桌面设置 → 模型中的其他三项。「自动」依次使用具备能力的聊天服务商、实际模型菜单中提供该能力的已登录中继、其他自备服务商。中继因而可用于屏幕操作，不能生成媒体；图片和视频需自己的服务商及 API key。卡片显示「当前为 服务商 · 模型」。DeepSeek 仅 ID 含 `v4.1`、`vision`、`ocr` 的模型视为支持图片。
 
 **按含义召回**通过兼容 OpenAI 的 `/embeddings` 查找语义相关记忆。选「自动」时，有向量接口就用聊天模型接口，没有则只按关键词；也可明确开启、关闭或指定另一接口。例如 DeepSeek 没有此接口时，可搭配 Ollama `qwen3-embedding:0.6b`。key 名为 `EMBEDDINGS_API_KEY`，模型留空采用接口默认。「测试」先调用一次，成功后立即为全部记忆建立索引，并显示数量。
 
@@ -241,7 +241,7 @@ App 支持英语和简体中文。设置 → 应用语言保存在本设备浏�
 | POST | `/api/hands/stop` | 对应「手」卡片的「停止」，本机屏幕任务在下一步停止，返回 `{stopped}`。 |
 | GET / POST | `/api/holds` · `{thread, tool (browser · computer · phone), reason?}` | 获取当前等待用户的接管状态，或创建接管。当前聊天中相应工具动作暂停到用户点击「完成」。返回 `{type: "hold", id, thread, tool, status, by, reason, ts}`；未知对话返回 404。 |
 | POST | `/api/holds/{id}/done` | 结束接管，让等待工具重新观察并继续；已结束则返回现状。未知 ID 返回 404。 |
-| GET / PUT | `/api/connections/image` · `/api/connections/video` `{provider, model, base_url, api_key}` 或 `{endpoint, model}` | 配置[形象工作室](avatar.md)图片和视频模型。`provider` 为目录 ID，或配 `base_url` 的 `openai` / `openai_responses`；`model` 空则用目录默认。key 提供时存保险库，`""` 移除，省略保留。四字段全为 `""` 时清空该模型项，自动选择依次使用聊天服务商、实际菜单提供此媒体类型的已登录中继、其他自备服务商。托管 Cloud 不提供媒体生成。 |
+| GET / PUT | `/api/connections/image` · `/api/connections/video` `{provider, model, base_url, api_key}` 或 `{endpoint, model}` | 配置[形象工作室](avatar.md)图片和视频模型。`provider` 为目录 ID，或配 `base_url` 的 `openai` / `openai_responses`；`model` 空则用目录默认。key 提供时存保险库，`""` 移除，省略保留。四字段全为 `""` 时清空该模型项，自动选择依次使用聊天服务商、实际菜单提供此媒体类型的已登录中继、其他自备服务商。中继不提供媒体生成。 |
 | GET | `/api/providers?lang=&region=` | 返回服务商目录、各模型项当前选择、已覆盖能力及每项未覆盖能力的说明。`lang` 为 `en` · `zh`，`region` 为 `cn` · `global`。「添加模型」面板据此显示。 |
 | POST · GET · GET · POST · POST | `/api/chatgpt/login` · `/status` · `/usage` · `/callback {url}` · `/logout` | 提供[已有套餐登录](own-key.md#sign-in-with-a-plan-you-already-pay-for)中的 ChatGPT 流程：启动 Codex 登录并返回页面；查看不含令牌值的令牌存储状态；查看套餐用量窗口剩余量；提交从浏览器复制的回调 URL，其他登录的 `state` 返回 400；退出并删除登录状态。 |
 | POST · DELETE | `/api/connections/mcp` `{name, command, args[], env{}, url, risk}` · `/api/connections/mcp/{name}` | 立即连接 MCP 服务器，启动失败返回 502；或断开并删除从 App 添加的服务器。`env` 各值存为 `MCP_<SERVER>_<KEY>`，设置文件仅留 `{{vault:...}}`；原本填写的引用原样保留。移除服务器时删除对应凭据。返回视图中的 `env` 仅为 `[{name, vault}]`，不含值。 |
@@ -255,15 +255,14 @@ App 支持英语和简体中文。设置 → 应用语言保存在本设备浏�
 | POST | `/api/firstrun/start` `{lang}` | 「开始」将首次对话绑定主要聊天，完成设置，并从 `none → ask_user_name`；已有聊天时跳过起名流程，直接为 `done`。返回含 `intro` 的状态。 |
 | POST | `/api/firstrun/pick` `{name}` | 在 `ask_agent_name` 阶段选名，保存到配置档案，并切到 `named`。当前不需要选择返回 409，名称为空返回 400。 |
 | POST | `/api/firstrun/dismiss` | 关闭选名界面，首次流程进入 `done`。 |
-| GET | `/api/nudges`（`?refresh=1`） | 获取 GitHub star 提示策略。中继 `/v1/nudges` 每日和登录时读取，覆盖内置默认值，返回 `{star{enabled, url, moments{signed_in, tasks[], new_look, exhausted, days_used[], goal_done}, cooldown_days, max_asks, text, text_zh}, version, source}`。`text` / `text_zh` 是中继指定的卡片说明，最多 200 字符，未指定用 App 自带文字。 |
-| GET | `/api/update`（`?refresh=1`） | 返回 `{current, enabled, latest, newer, url, download_url, checked_at, source (nanomuse.cn · github), error}`。先查 `nanomuse.cn/dl/index.json`，再查 GitHub `releases/latest`；成功缓存一天，失败缓存一小时。 |
+| GET | `/api/nudges`（`?refresh=1`） | 获取 GitHub star 提示策略。中继 `/v1/nudges` 每日和登录时读取，覆盖内置默认值，返回 `{star{enabled, url, moments{signed_in, tasks[], new_look, exhausted, days_used[], goal_done}, cooldown_days, max_asks, text, text_zh}, version, source}`。`text` / `text_zh` 是中继指定的卡片说明，最多 200 字符，未指定用 App 自带文字。中继始终返回 `{"star": {"enabled": false}}`，因此策略读到后 App 不再提示；首次读取前，内置默认值仍允许提示。 |
 | GET / PUT | `/api/sync/state` · `{enabled}` | 读取或修改[设备间对话同步](every-device.md#the-same-conversations-everywhere)：`{enabled, available, paused, cursor, last_pull_at, last_push_at, error, relay}`。`available` 表示已登录且配置允许；401 后 `paused` 保持到下次登录；`relay` 为中继 `{enabled, cursor, counts{conversations, messages}, limits}`，无法读取为 `null`。`PUT {enabled: false}` 关闭本机同步并删除该账号中继同步数据，其他设备下次上传或拉取收到 `sync_off` 后跟随关闭。`PUT {enabled: true}` 重开并上传本机聊天。中继错误按原状态、代号返回，例如 `409 sync_off`。0.1.38 起还含本机默认关闭的 `side_chats`，只同步主要聊天；以及来自 hub、十分钟后过期的 `working`，格式 `[{thread, cid, device, device_name, at}]`。`PUT {side_chats: true}` 上传本机旁聊并从头拉取账号旁聊一次，`false` 则之后只保留本地。 |
 | POST | `/api/sync/delete` | 清空中继全部同步对话，开关不变，返回状态。 |
 | POST | `/api/sync/pull` | 立即拉取并应用其他设备变更，返回 `{applied, …state}`。 |
 | GET | `/api/cloud` | 获取 App 显示的 nanoMuse Cloud 账号：`{base_url, signed_in, required, models, hint, channel, signed_in_at, has_password, account_id, member, any_model, region, is_model}`，见 [cloud.md](cloud.md)。下列 `/api/cloud/*` 遇中继拒绝时，保留中继状态和说明，并用 `X-Nanomuse-Code` 返回代号。未登录返回 401 `bad_key`。 |
-| GET | `/api/cloud/config` | 获取新账号额度、邀请奖励、注册开关和项目仓库等公开配置。旧中继或未配置时返回 `{}`。 |
-| POST | `/api/cloud/code` `{identifier}` | 向邮箱或手机号发送登录验证码，返回 `{ok}`。 |
-| POST | `/api/cloud/verify` `{identifier, code, invite?}` | 验证码登录，首次注册可带邀请码，返回中继 `/v1/me` 并更新提醒策略。 |
+| GET | `/api/cloud/config` | 获取新账号额度、注册开关和项目仓库等公开配置。旧中继或未配置时返回 `{}`。 |
+| POST | `/api/cloud/code` `{identifier}` | 向邮箱发送登录验证码，手机号收不到短信验证码，返回 `{ok}`。 |
+| POST | `/api/cloud/verify` `{identifier, code, invite?}` | 验证码登录（`invite?` 会发给中继，但中继忽略它），返回中继 `/v1/me` 并更新提醒策略。 |
 | POST | `/api/cloud/login` `{identifier, password}` | 使用账号密码登录，返回结构同 `verify`。 |
 | POST | `/api/cloud/password` `{password, current?}` | 设置或修改密码。已有密码时需 `current`，刚通过验证码登录的 key 除外。`password` 为空并带 `current` 时移除密码。 |
 | GET | `/api/cloud/me` | 读取中继当前账号 `/v1/me`，同时刷新提醒策略。 |

@@ -113,4 +113,4 @@ the four candidates of the last generation, the animated moods and your own clip
 `Pictures/nanoMuse/avatar` and `Movies/nanoMuse/avatar`, each batch named by the minute it
 was saved, and says how many pictures and clips landed. Nothing goes anywhere but the gallery
 of the same phone; it is the way to keep a face or a clip before clearing the app's data or
-moving to a new phone. ([#664](https://github.com/nano-muse/nanoMuse/issues/664))
+moving to a new phone. ([#664](https://github.com/knsew/nanoMuse/issues/664))

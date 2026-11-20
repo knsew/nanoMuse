@@ -1,6 +1,6 @@
 # 路线图
 
-nanoMuse 提供开源、低成本的个人智能体方案：在自己的设备上运行，由你选择模型，也可以自行部署中继服务。项目希望和各地的开发者、使用者共同改进，让使用者掌握自己的智能体。你可以提交 [issue](https://github.com/nano-muse/nanoMuse/issues/new/choose)（问题或建议），也可以提交 [PR](../../CONTRIBUTING.md)（供维护者审阅的代码或文档修改）。
+nanoMuse 提供开源、低成本的个人智能体方案：在自己的设备上运行，由你选择模型，也可以自行部署中继服务。项目希望和各地的开发者、使用者共同改进，让使用者掌握自己的智能体。你可以提交 [issue](https://github.com/knsew/nanoMuse/issues/new/choose)（问题或建议），也可以提交 [PR](../../CONTRIBUTING.md)（供维护者审阅的代码或文档修改）。
 
 本页面向想参与贡献的人，介绍当前重点、后续方向和各模块适合开始的任务。这里不承诺发布日期，功能在真实手机和电脑上验证可用后才发布。
 
@@ -112,4 +112,4 @@ App 提供英文和中文。Android 还沿用了上游的十五种其他语言�
 | 1.0.6 | Beacon | Lookout 九天后继续检查：nanoMuse Cloud 统一使用多模态 Qwen3.6-27B 处理对话和屏幕，图片与视频改用自有服务商；中继统一错密码与未知账号提示，在同一事务中判断限额，并将每份 Hub 凭据绑定一台设备；运行时恢复重启打断的定时任务，浏览器拒绝私有地址，遗忘记录可查看和撤销；桌面重启前确认，导出数据时跳过文件链接，免登录使用自绘形象，支持设置搜索；手机读取点赞动态，限制已保存审批的适用步骤，加入 Wan 2.7；iPhone 保持隐藏步骤并显示远端任务进度；更新 README 贡献者名单 |
 | 1.0.7 | Logbook | Beacon 两天后完善记录：Cloud 完整保存经其回答的轮次并将截图存为文件，App 补传自有 key 的轮次，统一各设备历史；形象短片随形象同步；各端显示服务商和模型；模型只响应 nanoMuse 客户端；重做运营控制台，实时查看模型端点，记录读取不占用模型请求路径；运行时标明调用身份、实时显示推理并支持 Parallel 搜索；桌面校验远程停止和审批者身份；手机支持每日多次定时任务及无文件备份和 shell 发起备份；iPhone 隔离账号；隐私政策说明 hub 保存的设备数据 |
 | 1.0.8 | Crew | Logbook 四天后完善设备协作：电脑定时任务可在手机请求审批，各设备显示远端步骤和等待状态，首字等待显示队列位置，记录调用发起者和反馈；中继保持慢请求连接，按问题计数和读取记录；运行时保护 Windows 私密文件，兼容其文件编码，并恢复压缩网页抓取；桌面资源库支持导入文档；修复手机停止语音时崩溃并缩小提示词；iPhone 保持音乐播放并补齐繁体中文；目录加入 Opper、AtmoRouter、API Route 和 Keenable |
-| 1.0.9 | Tiller | Crew 同日发布修复版：修复已登录桌面端无法启动（[#703](https://github.com/nano-muse/nanoMuse/pull/703)，对应 [#701](https://github.com/nano-muse/nanoMuse/issues/701)）和中继控制台无法加载大量记录（[#708](https://github.com/nano-muse/nanoMuse/pull/708)）；运行时增加任务预算和全记忆库检索（[#697](https://github.com/nano-muse/nanoMuse/pull/697)、[#696](https://github.com/nano-muse/nanoMuse/pull/696)） |
+| 1.0.9 | Tiller | Crew 同日发布修复版：修复已登录桌面端无法启动（[#703](https://github.com/knsew/nanoMuse/pull/703)，对应 [#701](https://github.com/knsew/nanoMuse/issues/701)）和中继控制台无法加载大量记录（[#708](https://github.com/knsew/nanoMuse/pull/708)）；运行时增加任务预算和全记忆库检索（[#697](https://github.com/knsew/nanoMuse/pull/697)、[#696](https://github.com/knsew/nanoMuse/pull/696)） |

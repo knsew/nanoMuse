@@ -1,15 +1,10 @@
 # nanoMuse Cloud
 
 Daily analytics labels and tooltips use the site's configured timezone offset, including UTC, regardless of the operator's browser timezone.
-Unchanged settings polls preserve unsaved allowance, invite bonus and nudge-policy edits. A changed server value still refreshes the corresponding editor.
+Unchanged settings polls preserve unsaved allowance edits. A changed server value still refreshes the corresponding editor.
 Switching accounts in the admin drawer clears the samples list and ignores pending sample responses and errors from the previous account.
 Changing an Activity filter discards pending responses from the previous filter. Automatic refresh pauses while older event pages are being read, so it cannot discard a pending or already loaded More page.
-The admin console counts each demo visit once in its daily chart, including visits present in both the active and recent lists. Days follow the site's configured timezone offset.
-The admin console classifies legacy Python runtime sessions with an `AsyncOpenAI/Python` user agent as runtime sessions, matching the relay.
-
-The "start now" path: sign up with a phone number (mainland China; the code comes by SMS)
-or an e-mail address, get a free allowance, and use nanoMuse without an API key of your own.
-Bringing your own key still works exactly as before: this is one more
+The "start now" path: sign up with an e-mail address and use nanoMuse without an API key of your own. The relay records a starting pool in the ledger for the account and never refuses a request for lack of pool. Bringing your own key still works exactly as before: this is one more
 provider, not a replacement.
 
 If a saved numeric admin-console preference is blank or is not a finite number, the console uses that setting’s default value.
@@ -18,12 +13,14 @@ Admin-console refreshes keep the newest response for each URL. Responses from be
 
 ## In the app
 
-Since 0.1.20 the account is where every app starts: the first screen asks for a
-phone number or an e-mail address and sends a six-digit code (or, once you have
-set one, takes your password) and then asks which model answers: the account's
-own (the Cloud) or a key of your own. Codes by SMS reach mainland China numbers
-only (号码认证服务 sends nowhere else); a Hong Kong, Taiwan or overseas number is
-told so at once (`phone_region`) and signs in with an e-mail address instead.
+Since 0.1.20 the account is where every app starts: the first screen asks for an
+e-mail address and sends a six-digit code (or, once you have set one, takes
+your password) and then asks which model answers: the account's own (the
+Cloud) or a key of your own. Codes go by e-mail, or to the relay log when the
+relay sends codes that way. A phone number cannot receive a code by SMS: with
+the e-mail sender it is refused at once (`channel_unsupported`, or
+`phone_region` for a number outside mainland China); with the log sender the
+code is in the relay log, and a password works once one is set.
 Signing out brings that screen back
 (self-hosters: `[cloud] required = false` or `NANOMUSE_CLOUD_REQUIRED=0` on the
 runtime). The screen is a door, not a wall: *Use your own API key instead* steps
@@ -35,7 +32,7 @@ and your devices. After the code the app has:
 - a provider called **nanoMuse Cloud** under *Settings → Providers*, an
   ordinary OpenAI-compatible provider whose key is the token the relay issued;
 - the chat and hands rows of *Settings → Models* (web console: *Connections*) on
-  the account's `Qwen/Qwen3.6-27B-FP8` when you had chosen none. It reads image
+  the account's `halogen-qwen3.8-flash-next` when you had chosen none. It reads image
   input, so pictures in chat and screenshots used for GUI operation still work.
   The account does not provide image or video generation; those two rows require
   a custom provider and API key on the device. A row you have not set follows one
@@ -155,11 +152,12 @@ The relay is the code in [`cloud/`](../cloud/README.md). It stores:
   off deletes all of it; so does deleting the account. The section
   [Conversation sync](#conversation-sync) below has the shape.
 
-- since relay 0.29, **the record**: every chat turn the relay answered, in
-  full: the request as the relay sent it to the model (every message: the
+- since relay 0.29, **the record**: the turns the account's devices sent up from
+  keys of their own, in full: the request as the app sent it to the model (every message: the
   system prompt with your memory, SOUL and instructions, what you wrote, what
   tools returned; the tool definitions; the sampling fields) and the answer as
   the model gave it (content, reasoning, tool calls, finish reason, usage).
+  The relay's own turns are not recorded.
   Pictures, audio and clips are taken out and kept once each as files named by
   their SHA-256, a `blob:sha256:` reference standing where each was; a
   screenshot the app resends with every turn of a screen operation is one
@@ -188,8 +186,7 @@ The relay is the code in [`cloud/`](../cloud/README.md). It stores:
 
 Message content is kept as *The record*, *Data controls* and *Conversation
 sync* below say, and not otherwise: the request is forwarded to the
-operator-configured upstream model and the reply is streamed back. The relay admits at most `CHAT_CONCURRENCY` chat requests to that shared
-deployment at once and retries a 429 or 5xx only before output starts; the
+operator-configured upstream model and the reply is streamed back. The relay admits at most `CHAT_CONCURRENCY` chat requests to the upstream at once and retries a 429 or 5xx only before output starts; the
 remaining requests wait without duplicating a turn. Every response carries an
 `X-Nanomuse-Request` id so a problem report
 can be matched to a ledger row without any content being logged. Deleting the
@@ -204,34 +201,24 @@ and that the same address signing up again is a new, empty account. See
 
 *Settings → Data controls → Help improve nanoMuse's AI models* is a switch each
 person owns, the same on the phone, the web app, the desktop and the console.
-Off, the relay forwards a chat request and keeps nothing of it. On, each turn
-is kept as a training view: what you wrote, what the model answered and the
-tool calls it chose, with the model, the token counts and the app's platform
-and language from the request headers, tied to the account id only, never the
-system prompt (your memory, SOUL and instructions), never what a tool returned
-(your files, your screen, what another app showed), never a picture, a clip or
-a voice note (a marker stands where one was). The point is a training set for
-the community's own open model. From relay 0.31 a turn the app ran on a key
-of your own and sent up to the record (`POST /v1/turns`) is kept in the same
-training view when the switch is on — a turn is a turn whichever key answered
-it — and each kept turn says where it came from (`meta.source` `cloud` or
-`own`, `meta.run`, `meta.turn`, `meta.turn_id` naming the record's turn, the
-script of what you wrote; see [Provenance](#provenance)), so the app's later
-word on it (a thumb, why it was stopped) can be joined by the turn's id. The page shows how many turns are kept; turn
-the switch off at any time (nothing more is kept) and delete what was kept
-with one tap; deleting the account deletes it too. Nothing is credited for
-the switch either way. On `cloud.nanomuse.cn` the switch is **on for accounts
-created from relay 0.9 on, until the person turns it off**: the privacy
-policy says so, the page says so next to the switch, and accounts from before
-keep the choice they had made; a self-hosted relay sets its own default with
-`IMPROVE_DEFAULT`. Since relay 0.29 the switch decides only whether the
-training view of a turn joins the training set; the turn itself is in [the
-record](#the-record) either way, and the same delete tap removes both
-(`DELETE /v1/me/samples` answers `{deleted, turns, files}`). The operator sees the kept turns on the admin page's *Data
+It changes nothing: the relay records nothing for training, whichever way the
+switch stands. The collection was removed; `/v1/me` always answers
+`contribute.on: false`, and the relay's default (`IMPROVE_DEFAULT`) is off.
+What the switch used to keep, when it was on, was a training view of each
+turn: what you wrote, what the model answered and the tool calls it chose,
+with the model, the token counts and the app's platform and language from the
+request headers, tied to the account id only, never the system prompt (your
+memory, SOUL and instructions), never what a tool returned (your files, your
+screen, what another app showed), never a picture, a clip or a voice note (a
+marker stands where one was). Turns kept before the removal are still counted
+on the page and still deleted with one tap; deleting the account deletes them
+too. Nothing is credited for the switch either way. The same delete tap
+removes the record as well (`DELETE /v1/me/samples` answers `{deleted, turns,
+files}`). The operator sees the kept turns on the admin page's *Data
 controls* panel (how many accounts have it on, turns by day, model and app,
 the newest turns, every account's kept conversations in full) and exports them
 as JSON lines without account ids or addresses (`GET /v1/admin/samples/export`,
-`?account_id=` for one account's). From relay 0.31 each exported line carries
+`?account_id=` for one account's); nothing new joins them. From relay 0.31 each exported line carries
 `subject`, a pseudonym for the account (an HMAC of the account id under the
 relay's secret, 16 hex characters: the same account is the same subject in
 every export, and nothing recovers the account from it without the secret),
@@ -242,23 +229,20 @@ the client software (`User-Agent`: the Android app and its version, the
 runtime on Windows / macOS / Linux, a browser) with each sign-in, request,
 event and device, and keeps the account's first and last address; the admin
 page shows them per account and per address (`GET /v1/admin/address?ip=`), and
-they are deleted with the account. From relay 0.11 the admin page also says
-where an address is (country, province, city), looked up in an offline copy
-of ip2region's database on the relay's own disk; no third party is asked, and
-nothing more is stored (the place is computed when the page is drawn).
+they are deleted with the account.
 
 ## The record
 
-Since relay 0.29 the relay keeps every chat turn it answered, in full, as the
-account's own data, so that a person's devices show the same history with the
-screenshots in it, and the operator can see a problem whole instead of
-guessing from counts. A turn is:
+Since relay 0.29 the relay keeps the turns the account's devices sent up from
+keys of their own, in full, as the account's own data, so that a person's
+devices show the same history with the screenshots in it, and the operator can
+see a problem whole instead of guessing from counts. The relay's own turns are
+not recorded. A turn is:
 
-- the request as the relay sent it to the model: every message (the system
+- the request as the app sent it to the model: every message (the system
   prompt with your memory, SOUL and instructions; what you wrote; what tools
-  returned), the tool definitions, the sampling fields and the relay's
-  defaults, with the model named as the app knows it and the relay's own
-  `user` and `stream_options` left out;
+  returned), the tool definitions and the sampling fields, with the model
+  named as the app knows it;
 - the answer as the model gave it: the assistant's message whole (content,
   reasoning, tool calls, finish reason), assembled from the stream when it
   streamed, with the usage; a stream that broke off is kept with what arrived
@@ -276,10 +260,10 @@ guessing from counts. A turn is:
   on), the token counts, the client software and language, and the address
   the request came from (the operator's view only).
 
-It is written after the answer has left, off the request's path, and is never
-the reason a chat fails. It does not depend on *Help improve* (that switch is
-about the training set) or on *Sync conversations* (that is the apps' own
-copy of a chat); `RECORD_TURNS=0` on a relay you run keeps none of it.
+It is written when the device sends it up, and is never the reason a chat
+fails. It does not depend on *Help improve* (that switch records nothing) or
+on *Sync conversations* (that is the apps' own copy of a chat);
+`RECORD_TURNS=0` on a relay you run keeps none of it.
 The timestamp is captured when the reply finishes. Records from the same account
 are saved in that order, including replies with media, while other accounts can
 record independently. A failed write does not block that account's later turns.
@@ -303,7 +287,7 @@ or replace its error and loading state.
 History and sample pages use the existing timestamp indexes to skip newer seconds before applying the insertion-order tie-break. Exports and the analytics backfill use the same paging boundary; no database migration is needed.
 
 **Turns on your own key.** From 1.0.7 an app that ran a turn on a key of its
-own sends it up afterwards, so the record is whole wherever the model was:
+own sends it up afterwards: that is what the record holds:
 `PUT /v1/blobs/{sha256}` for each picture (raw body with its `Content-Type`;
 the hash is checked; `HEAD` first, or `known: true` in the answer, says
 another device already sent it), then `POST /v1/turns` with `model`,
@@ -312,8 +296,7 @@ and `provider`, `ts`, `conversation`, `id` and `status` as the app has
 them (with `status: partial`, `ended` in the app's word: `aborted`, `error`,
 `abandoned`), and from relay 0.31 `run`, `turn`, `step`, `trajectory`,
 `trajectory_step` and `platform` as [Provenance](#provenance) defines them;
-the row says `source: own`. With *Help improve* on, the turn's training view
-is kept too, as for a turn the relay answered. The Python runtime does this
+the row says `source: own`. The Python runtime does this
 for every model call that does not go to the relay — a configured provider,
 the ChatGPT sign-in, the hands' own model — while an account is signed in on
 the computer: the call is sent up afterwards from a queue in memory, with
@@ -335,16 +318,15 @@ the face: `clips: null`, another avatar or `DELETE /v1/me/profile` clears
 them.
 
 **How it goes.** *Settings → Data controls*' delete removes the record with
-the training turns: every turn of the account and every file only it
-referenced; deleting the account does the same; `RECORD_KEEP_DAYS` (0 on
-`cloud.nanomuse.cn`: kept until you delete it) sweeps older turns once an
-hour. The files are bounded by `MEDIA_MAX_GB`: past it the least recently
+the training turns kept before the removal: every turn of the account and
+every file only it referenced; deleting the account does the same;
+`RECORD_KEEP_DAYS` (0 by default: kept until you delete it) sweeps older
+turns once an hour. The files are bounded by `MEDIA_MAX_GB`: past it the least recently
 used go first, the turns stay and show a reference to nothing where those
 pictures were; a clip a profile wears is never trimmed. A file the disk would
 not let go of at the moment of a delete is tried again at every sweep until
 it is gone. `/v1/me.contribute.record` tells the apps what is held:
-`{on, turns, own, files, media_bytes, keep_days}`, and the answer to `POST
-/v1/me/contribute` carries the same `record`. The account page at `/app`
+`{on, turns, own, files, media_bytes, keep_days}`. The account page at `/app`
 shows the record (turns, own-key turns, files, how long the relay keeps
 them) above the *Help improve* switch, and offers the one delete whenever
 either holds anything.
@@ -421,7 +403,7 @@ and the relay stores *not said*, never a guess.
 `X-NanoMuse-Device` and `X-NanoMuse-Conversation` (1.0.7) are unchanged and
 go with these. The relay keeps the six in the turn's row of the record
 (`run`, `turn`, `step`, `trajectory`, `trajectory_step`, read back on `GET
-/v1/turns` when said), in the kept turn's meta when the switch is on, in the
+/v1/turns` when said), in a kept turn's meta, in the
 call's telemetry row (`run`, so the Usage and Platforms pages can tell a
 person's turn from a routine's) and in the training view's shape rows. The
 record's row also carries `script`, one word for the script of the person's
@@ -520,7 +502,7 @@ travel, switch or no switch: a chat the desktop runs for another device's task
 for themselves, the feed's daily batch among them (*Feed · <date>*, archived
 when it is done) — those are the agent's workbench, not conversations of the
 person's, and through 1.0.9 the batches did reach the phones as side chats
-once a day ([#713](https://github.com/nano-muse/nanoMuse/issues/713)). The first pull of a fresh
+once a day ([#713](https://github.com/knsew/nanoMuse/issues/713)). The first pull of a fresh
 sign-in asks for the **tail**, the newest 300 messages with the conversations
 they belong to, so a long history opens at once instead of paging from the
 start; the older messages it skipped stay on the relay and are not pulled. While a
@@ -620,79 +602,45 @@ The admin console's Usage dates, day picker and People sign-up chart follow the
 relay's `DAY_OFFSET_H` calendar. Viewing them from a different browser timezone
 does not shift a day's label or move its sign-ups into an adjacent day.
 
-nanoMuse is a community project and charges nothing. The public relay at
-`cloud.nanomuse.cn` is paid for by the developer, so each account has a pool
-to draw on, for its lifetime, not by the day (relay 0.5):
+Each account has a pool to draw on, for its lifetime, not by the day (relay 0.5).
+The ledger records every charge against it, but nothing is refused for lack of
+pool: the allowance gate is gone.
 
-| | `cloud.nanomuse.cn` |
+| | the relay |
 |---|---|
-| sign-up | open to anyone with a mainland China mobile number or an e-mail address |
-| free allowance | **¥10 per account** at the time of writing, for the hosted Qwen chat/vision/GUI model; it does not reset. The figure is the relay's to set (it can go up without an app update; the apps print what the relay says, `/v1/config`), and the account page always shows the current one |
-| invitations | each *new* person who signs up with your code adds **¥5** (again, the relay's figure) to your pool, and the same to theirs; both sides get it after your friend's first request, not at sign-up |
-| when it is gone | bring your own key or a plan you already pay for: in mainland China, [Alibaba Cloud Bailian](own-key.md) first (one key covers chat, the hands, pictures and clips); elsewhere, [OpenRouter](https://openrouter.ai/keys) or OpenAI first (Bailian only signs up accounts from mainland China); a ChatGPT, Claude or Kimi plan signs in where the client has the flow; any OpenAI-compatible endpoint works; sign-in and your devices are unaffected |
-| members | the developer and the people they list have no limit and may name other chat models from the hosted provider; hosted image and video generation stays disabled for them too |
+| sign-up | open to anyone with an e-mail address |
+| free allowance | **¥10 per account** at the time of writing, for the relay's configured models; it does not reset. The figure is the relay's to set (it can go up without an app update; the apps print what the relay says, `/v1/config`), and the account page always shows the current one |
+| daily cap | the operator may set one; past it the relay refuses with `daily_cap` until tomorrow |
+| members | the people the operator lists have no daily cap and may name other chat models from the relay's upstream; picture and clip generation through the relay is not available to anyone |
 | rate | 30 requests per minute |
 | tokens | no ceiling; usage is metered and shown |
 
-Spend on `Qwen/Qwen3.6-27B-FP8` is counted at ¥3 input / ¥12 output per
-million tokens, with cached input at 20% of the input price, as reported in
-the reply's `usage`. Reasoning tokens count as output. Image input is part of
-that chat request; it is not image generation. Hosted picture and clip
-generation is not charged because it is not available: add a provider and API
-key of your own for those capabilities.
+Spend is counted at the prices of the relay's configured menu (`CLOUD_MODELS`).
+The default menu is the local halogen model, which bills nothing, so the ledger
+records the tokens and a zero charge. Reasoning tokens count as output. Image
+input is part of that chat request; it is not image generation. Picture and
+clip generation is not available through the relay: add a provider and API key
+of your own for those capabilities.
 
 *Settings → nanoMuse Cloud* shows what was used of the pool in ¥ and $, what
-is left, and how the pool grows. At 80 % the app says so once; when the pool
-is spent the relay refuses with `allowance_exhausted` and the app shows the
-ways on: your own key, a plan you already pay for, or an invitation (+¥5 for
-each of you, or whatever the relay says that day). Which provider comes first
-follows where you are (0.1.34: the relay's `region`, read from the number's
-country code or from an offline copy of ip2region on its own disk; nothing is
-sent anywhere): a mainland China account is pointed to Alibaba Cloud Bailian
-(the provider form opens pre-filled, [guide](own-key.md)) and everyone else to
-OpenRouter or OpenAI, since Bailian only signs up accounts from the mainland.
+is left, and how the pool grows. At 80 % the app says so once. The pool never
+runs out as a gate: the relay does not refuse a request for lack of pool.
 
-Since relay 0.21 the refusal and `/v1/me` carry the whole card as data, not
-only two links (contract C11): `spend.guidance` (and `guidance` beside the
-`allowance_exhausted` error) lists the region's providers in order with what
-each one's key covers (`covers: chat | vision | image | video`, from the shared
-catalogue [`nanomuse/llm/providers.json`](../nanomuse/llm/providers.json), of
-which the relay ships its own copy), the plans a person may already pay for and
-which clients can sign in with them (`plans`: ChatGPT everywhere, Claude and
-Kimi on the phones, OpenRouter on the phones), the local servers (`local`), the
-docs link and the honest line about the ChatGPT sign-in (`caveats.chatgpt`,
-`caveats.chatgpt_zh`). The 0.17 `ways` rows are still sent, each now with the
-provider's `name`, `name_zh`, `key_url`, `covers` and `auth`, so a 0.1.38
-client draws the same two buttons it always did. The console at `/app` draws
-the card from `guidance` and falls back to the two links on an older relay.
-A provider whose vendor wants one stable id per conversation (the catalogue's
-`session_header`, OpenCode Go) is listed apart, under `session_providers`, with
-that header named: the phone apps of 1.0.1 and before read `providers` only and
-do not send the id, so they never offer it; the apps that send it append the
-list to `providers`.
-Other relays may set other rules
-(`ALLOWANCE_CNY`, `INVITE_BONUS_CNY`, `SIGNUP_OPEN`, `ALLOWED_IDENTIFIERS`;
-all three figures adjustable while the relay runs, relay 0.15; see
-[`cloud/README.md`](../cloud/README.md)). The operator can see who invited
-whom: the admin page's *Invites* view ranks the inviters by the accounts their
-code brought, with how many of those ever made a request, how many are still
-pending (no first request yet, so no bonus yet) and how many were seen from
-one of the inviter's own addresses, and an account's page names its inviter
-and lists the people it brought (`GET /v1/admin/invites`). Padding one's own
-pool is not worth the trouble: the bonus is paid once the invitee has
-accumulated real successful provider spend (`INVITE_SETTLE_MIN_SPENT_UY`, 200
-micro-yuan by default) from a network address different from the inviter's,
-e-mail `+tag` subaddresses and Gmail dot or `googlemail.com` aliases map to
-the same account, disposable mail domains (`DEFAULT_SIGNUP_DOMAIN_BLOCK` plus
-`SIGNUP_DOMAIN_BLOCK`) are refused, new accounts from a mail domain that is
-not a well-known provider are limited per day (`SIGNUP_PER_DOMAIN_DAY`, 5 by
-default; the refusal is `domain_limited`), and the health check raises two
-alerts, an inviter whose code brought more than ten accounts in a day and an
-inviter with twenty or more invitees of whom almost none ever made a request.
-Each unfolded inviter in the *Invites* view, and the *Brought* card of its
-account page, has one action that reclaims the invite credit (what was
-already spent stays), and may disable the account and delete the invited
-accounts that never made a request (`POST /v1/admin/invites/abuse`).
+Bringing your own key still works: in mainland China, [Alibaba Cloud
+Bailian](own-key.md) first (one key covers chat, the hands, pictures and
+clips); elsewhere, [OpenRouter](https://openrouter.ai/keys) or OpenAI first
+(Bailian only signs up accounts from mainland China); a ChatGPT, Claude or
+Kimi plan signs in where the client has the flow; any OpenAI-compatible
+endpoint works; sign-in and your devices are unaffected.
+
+An operator sets the rules (`ALLOWANCE_CNY`, `SIGNUP_OPEN`,
+`ALLOWED_IDENTIFIERS`; adjustable while the relay runs, relay 0.15; see
+[`cloud/README.md`](../cloud/README.md)). E-mail `+tag` subaddresses and
+Gmail dot or `googlemail.com` aliases map to the same account, disposable mail
+domains (`DEFAULT_SIGNUP_DOMAIN_BLOCK` plus `SIGNUP_DOMAIN_BLOCK`) are
+refused, and new accounts from a mail domain that is not a well-known provider
+are limited per day (`SIGNUP_PER_DOMAIN_DAY`, 5 by default; the refusal is
+`domain_limited`).
 Every operator action on an account is on record: disabling or enabling it,
 making or unmaking a member, a grant, a credit, a pool change, a settings change
 and a deletion each write a line in the audit log of the Controls section (who,
@@ -705,25 +653,9 @@ it is off; the person is told `403 account_disabled` when they sign in with a co
 or with the right password (a wrong one is answered like any wrong password).
 
 nanoMuse asks for one thing in return: a star on
-[GitHub](https://github.com/nano-muse/nanoMuse), which is what helps the
-project be found. The moments are the relay's to set, not the app's (0.1.35):
-`GET /v1/nudges` says when an ask is fair: after the third, tenth and
-thirtieth task it finishes for you, on the seventh and thirtieth day you open
-it, when a goal is reached, when a new face is drawn, once on the account page,
-and when the pool is spent, with at least a week between two asks and at most
-four per device. Each ask is a card where it happens; "Not now" counts as one,
-and none comes back after you have been to the page or said "I already
-starred" (per device; the account does not carry the flag). The operator changes the
-policy on the admin page (*Settings › Star asks*) without an app update; every
-app keeps the same defaults built in for when the relay cannot be reached. The
-policy says *when* and, if the operator wants, *what*: the words on the card
-are each app's own, in its language, unless the policy carries a sentence:
-`star.text` (English) and `star.text_zh` (简体中文), each at most 200
-characters, empty by default. An app in Chinese shows `text_zh` when it is
-set, else `text` when it is set, else its own sentence; an app in any other
-language shows `text` when it is set, else its own. Only the sentence on the
-card changes; its title and buttons stay the app's. Apps built against relay
-0.22 and earlier ignore the two fields.
+[GitHub](https://github.com/knsew/nanoMuse), which is what helps the
+project be found. The relay never asks for one: `GET /v1/nudges` always
+answers `{"star": {"enabled": false}}`, so the apps show no star card.
 
 ## Controls
 
@@ -740,7 +672,7 @@ why. What an app sees when one of the five pauses is off:
 
 | switch | what the app gets while it is off |
 |---|---|
-| **Free allowance** | a limited account (no key of its own, not a member) asking a model gets **429 `allowance_exhausted`** with `paused: true` and `reason: "allowance_paused"`, the same shape as a spent pool, so every app shows its own-key card as it does today, with a message saying the allowance is paused for now rather than spent. Members, sign-in, devices and sync are unaffected |
+| **Free allowance** | nothing is refused for it: the switch is listed under `paused` in `/v1/me` and `/v1/config` and nothing else changes. It stays so the console and the threshold rules that flip it keep working |
 | **Sign-ups** | a phone number or an e-mail address that has no account yet gets **403 `signup_closed`** from `POST /v1/auth/code` and from `/v1/auth/verify`, before any code is sent; `signup_open` in `/v1/config` turns false. Every existing account signs in and works as before |
 | **Cloud service** | every API call answers **503 `service_paused`** with `paused: true`, except the health check, `/v1/config`, the admin console and `/v1/admin/*`; every hub socket is closed with `4003 hub_paused`. Nothing is deleted; a signed-in app keeps its key and signs back in when the switch returns |
 | **Conversation sync** | `/v1/sync/*` pushes and pulls answer **503 `sync_paused`**; `GET /v1/sync/state` still answers and says `paused: true`. What is stored stays; each device keeps working on its own |
@@ -749,8 +681,7 @@ why. What an app sees when one of the five pauses is off:
 The switches that are off are listed under `paused` in `/healthz`,
 `/v1/config` (public, a minute's cache) and `/v1/me`, so a client can say why
 before it tries. The apps handle the codes as any refusal: the phones and the
-console show the relay's sentence; the `allowance_exhausted` shape is the one
-they already draw a card for.
+console show the relay's sentence.
 
 The sixth switch, **nanoMuse clients only** (relay 0.28, on by default), works
 the other way round: while it is on, the models answer the nanoMuse apps, the
@@ -793,7 +724,7 @@ docker compose up -d    # Caddy fetches the TLS certificate
 ```
 
 [`cloud/README.md`](../cloud/README.md) has the settings, the sender options
-(SMTP for e-mail, Aliyun SMS for mainland phones), the admin endpoints for
+(SMTP for e-mail, or the relay log), the admin endpoints for
 topping up, and the test suite.
 
 A relay for one person, or a few: `SIGNUP_OPEN=0` with
@@ -815,9 +746,9 @@ The relay is also the meeting point for the account's devices: the **hub** at
 turns it off, `HUB_FRAME_LIMIT` caps one frame (files and screenshots travel
 inside frames, 16 MB by default).
 
-The apps talk to `https://cloud.nanomuse.cn` by default. *Use a different
-server* under the phone's sign-in form takes the address of a relay you run
-yourself ([android.md](android.md), [ios.md](ios.md)); the desktop reads it from
+The apps have no built-in relay: every app asks for a relay address at
+sign-in. The phone's sign-in form takes the address of the relay you use
+([android.md](android.md), [ios.md](ios.md)); the desktop reads it from
 the plugin's `config.baseURL` ([desktop.md](desktop.md)) and the web console is
 whatever relay serves it at `/app`.
 
@@ -827,18 +758,16 @@ The app's calls, all JSON:
 
 ```
 GET  /healthz                                                 → {ok, version, models[], paused[]}; no key
-GET  /v1/config                                               → {version, signup_open, paused[], allowance_cny, allowance_usd, invite_bonus_cny, invitee_bonus_cny, usd_cny, invite_url, own_key_docs, openrouter_url, privacy_url, repo_url, improve_default, code_ttl_s, password_min_len}; no key, a minute's cache
+GET  /v1/config                                               → {version, signup_open, paused[], allowance_cny, allowance_usd, usd_cny, privacy_url, repo_url, improve_default, code_ttl_s, password_min_len}; no key, a minute's cache
 POST /v1/auth/code          {identifier}                      → 204 (a disabled account gets the same 204 and nothing is sent); 400 phone_region, 403 not_invited | signup_closed, 429 code_too_often | domain_limited, 502 send_failed
-POST /v1/auth/verify        {identifier, code, device, invite?, device_id?, device_kind?} → {api_key, base_url, account, tokens, models, created, region}; the optional identity binds the key to that Hub device (hub.md); 400 code_wrong | code_expired | bad_device, 403 account_disabled
+POST /v1/auth/verify        {identifier, code, device, invite? (ignored), device_id?, device_kind?} → {api_key, base_url, account, tokens, models, created, region}; the optional identity binds the key to that Hub device (hub.md); 400 code_wrong | code_expired | bad_device, 403 account_disabled
 POST /v1/auth/login         {identifier, password, device, device_id?, device_kind?} → the same; 401 bad_credentials, 429 locked, 400 bad_device
 POST /v1/auth/password      Bearer  {password, current?}      → 204; "" with current removes it; 400 password_short | password_long | password_weak | password_wrong | password_required
 POST /v1/auth/session-key   Bearer  {device?, ttl_s?}         → {api_key, expires_at}; a key that lapses on its own (90 days at most); 403 session_from_session
-GET  /v1/me                 Bearer                            → {region: cn | intl | unknown, account{…, has_password, sessions, signed_in_via}, usage{today, total by kind / model}, tokens, spend{…, ways, guidance}, invite, contribute, models, defaults, base_url, clips, recent, nudges, paused[]}
-GET  /v1/me/invite          Bearer                            → {code, url, invites, bonus_cny, invitee_bonus_cny, bonus_when: "first_use", settled, pending, earned_cny, friends[]}
+GET  /v1/me                 Bearer                            → {region: cn | unknown, account{…, has_password, sessions, signed_in_via}, usage{today, total by kind / model}, tokens, spend{…}, invite (empty), contribute, models, defaults, base_url, clips, recent, nudges, paused[]}
 GET  /v1/estimate           Bearer  ?images=5&clips=4&image_model=&video_model=&size=  → {cny, usd, parts[{kind, model, count, seconds?, cny}], left_cny, grant_cny, unlimited, affordable}; nothing charged
-POST /v1/me/contribute      Bearer  {on}                      → {on, samples, default_on, keeps[], privacy_url}; the "help improve" switch
 DELETE /v1/me/samples       Bearer                            → {deleted}; every turn kept from this account
-GET  /v1/nudges                                               → {version, star{enabled, url, moments{signed_in, tasks[], new_look, exhausted, days_used[], goal_done}, cooldown_days, max_asks, text, text_zh}}; no key, cached an hour
+GET  /v1/nudges                                               → {"star": {"enabled": false}}; the relay never asks for a star; no key, cached an hour
 GET  /v1/me/profile         Bearer  ?face=false               → {rev, device, name, avatar, …, face?, connectors: [{id, label, url, auth, device, device_id, enabled, at}]}
 PUT  /v1/me/profile         Bearer  {device, name?, avatar?, …, face?, connectors?}  → {rev, device}; a field that is absent keeps what is stored (relay 0.25); a device's connectors replace only its own; 400 no_secrets_in_profile, too_many_connectors
 DELETE /v1/me/profile       Bearer                            → 204
@@ -883,14 +812,13 @@ clips under the provider's own paths (`POST
 /api/v1/services/aigc/video-generation/video-synthesis`, `GET
 /api/v1/tasks/{id}` for the account's own tasks, `GET /api/v1/uploads`). Errors
 are `{"error": {"message", "type": "nanomuse_cloud", "code"}}` with a stable
-`code` the app turns into a sentence. On the hosted service, new image/video
+`code` the app turns into a sentence. New image/video
 requests, uploads, typed media-model lookups, media estimates and video-task
 polling return `410 hosted_media_retired` with
 `action: configure_own_provider` before any upstream request. Relay 0.22 adds the codes of the
 operator's [switches](#controls): `403 signup_closed`, `503 service_paused`,
 `503 sync_paused`, `503 hub_paused` (and the hub's close code `4003
-hub_paused`), and `allowance_exhausted` with `paused: true` when the free
-allowance is paused rather than spent; `/healthz`, `/v1/config` and `/v1/me`
+hub_paused`); `/healthz`, `/v1/config` and `/v1/me`
 list the switches that are off under `paused`.
 
 **Before the model says anything (relay 0.31).** A streamed chat turn may begin with

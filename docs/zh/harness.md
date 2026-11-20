@@ -5,11 +5,11 @@
 
 ## 为什么采用这套方案 {#the-decision}
 
-作出这项决定时，桌面版使用自行维护的框架：Electron 外壳内运行 Python 程序，程序自己实现智能体循环、工具注册、技能、日程、记忆、子智能体和网页界面。它与手机和浏览器演示共用代码，这是采用该方案的原因。
+作出这项决定时，桌面版使用自行维护的框架：Electron 外壳内运行 Python 程序，程序自己实现智能体循环、工具注册、技能、日程、记忆、子智能体和网页界面。它与手机共用代码，这是采用该方案的原因。
 
 这些功能在 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）中都有对应实现。dsh 是采用 MIT 许可证的开源智能体框架，插件系统建立在 [Cordis](https://github.com/cordiverse/cordis) 上。它提供网页版、桌面版、MCP 客户端（按统一协议连接外部工具的组件）、技能、目标、计划模式、上下文压缩、任务委派、审批策略、电脑操作，以及可在配置中接入任意 OpenAI 兼容接口的模型层。作出决定时的版本是 0.2.0-rc，属于开发者预览版，插件 API 仍会发生不兼容变更。不过，它已有的社区规模，是本项目自行开发多年也难以达到的。
 
-因此，新桌面版采用 **dsh 加 nanoMuse 插件**。账号、形象、口吻、手（Hands，查看并操作屏幕的能力）、Reach（跨设备访问和委派任务的能力）及哨兵（Sentinel，检查操作风险和权限的组件）通过插件接入；智能体循环、工具体系和界面使用 dsh 的实现。项目不再为桌面版单独维护另一套框架。手机继续使用 Python 运行时，因为 dsh 基于 Node，无法在 Android 上运行。浏览器演示暂时也继续使用 Python。不同实现仍通过同一个账号互通。
+因此，新桌面版采用 **dsh 加 nanoMuse 插件**。账号、形象、口吻、手（Hands，查看并操作屏幕的能力）、Reach（跨设备访问和委派任务的能力）及哨兵（Sentinel，检查操作风险和权限的组件）通过插件接入；智能体循环、工具体系和界面使用 dsh 的实现。项目不再为桌面版单独维护另一套框架。手机继续使用 Python 运行时，因为 dsh 基于 Node，无法在 Android 上运行。不同实现仍通过同一个账号互通。
 
 ## 各阶段实现了什么 {#what-runs}
 
@@ -51,7 +51,7 @@
 第五部分实现窗口界面，在 dsh 网页应用上采用手机应用的布局，逐屏设计见 [desktop-muse.md](desktop-muse.md)：
 
 - **侧栏**。插件包接管 `sidebar` 插槽，在自身配置层关闭默认的 `ui-sidebar`。左侧窄栏包含聊天、搜索、设备、已安装时显示的日程面板，以及底部菜单；智能体工作时，聊天图标带圆点。旁边的聊天列用 harness 的 `useSessions`、`useSessionStatus`、`useWorkspaces` 构建，包含带「···」归档入口的搜索、「主要聊天」和带「+」的「旁聊」。主要聊天选择保存在 `localStorage`，可用「设为主要聊天」更换。置顶会话排在前面，每行显示状态，并提供置顶、直接改名和归档菜单。改名通过会话服务的 `session.rename` 完成。在通用设置开启「显示 DeepSeek Harness 控件」，即可显示 harness 自带的工作区浏览器。
-- **对话顶部**。`conversation.header.leading` 将形象和名字固定在顶部中央，旁边显示状态：未登录、连接中、已连接及在线设备数、思考中、手或 Reach 的步数与当前操作、等你回复。运行期间还有「停止」。第二部分的胶囊变为这里的状态标签，临时通知继续保留。「邀请」占用 `conversation.session.header.utilities`，通过中继 `/v1/me/invite` 显示邀请码、链接、受邀人数和奖励。插件样式会隐藏 harness 默认标题行、标签页和会话操作。
+- **对话顶部**。`conversation.header.leading` 将形象和名字固定在顶部中央，旁边显示状态：未登录、连接中、已连接及在线设备数、思考中、手或 Reach 的步数与当前操作、等你回复。运行期间还有「停止」。第二部分的胶囊变为这里的状态标签，临时通知继续保留。插件样式会隐藏 harness 默认标题行、标签页和会话操作。
 - **资料面板**。点击形象会通过 `shell.overlay` 在聊天右侧打开 310 px 宽的面板。形象旁有铅笔，可「更换形象」或「编辑名称」；更换通过宿主调用 `PUT /v1/me/profile`，各设备同步生效。面板还显示连接状态和四个标签：来自会话及 hub 通知的活动、审批、日程、记忆。审批记录由文档级观察器收集卡片上的每次决定。
 - **对话样式**。样式限定在 `html[data-nm-muse]`，使用 harness 稳定的界面标记。`[data-composer-card]` 变为包含「+」、消息输入和圆形发送按钮的圆角输入条；`[data-chat-flow-kind="user"]` 的用户气泡在浅色主题下黑底白字，在深色主题下白底黑字；助手步骤使用灰色圆角气泡；对话在顶部的渐隐遮罩下滚动。`[data-approval-key]` 显示带盾牌、标题、蓝色「允许一次」和「拒绝」的权限卡片。欢迎语隐藏，输入框固定到底部。模型、模式、计划控件默认隐藏，打开「开发者」开关后显示。实现仅调整样式，不修改 harness 的 DOM 结构。
 - **设置**。插件包也接管 `sidebar.settings`，关闭默认 `ui-settings-general`。导航按通用、账号、模型、智能体、电脑操作、设备、数据控制、帮助与支持、法律信息分组；其他插件注册的页面放在「高级」，底部为「退出登录」。nanoMuse 的通用页声明 `settings.general.item`，供 harness 的权限预设、语言、外观、字号、快捷键等设置挂载，再加上「关于」和「开发者」开关。原有引导协调器及 `settings.open` 快捷键继续使用。harness 的预览提示也继续显示，其确认状态仍存于已关闭插件的设置中。
@@ -70,9 +70,9 @@
 | 界面形象（[avatar.md](avatar.md)） | 使用 `sidebar.brand.*`、`conversation.hero.brand.mark` 插槽；宿主提供静态图，会话状态决定形象状态，手工作时显示胶囊 | 已完成 |
 | 跨设备形象同步 | `profile.ts` 收到 hub 的 `profile` 帧后获取中继资料；宿主缓存并提供生成形象的静态图 | 已完成 |
 | 形象动画（[avatar.md](avatar.md)） | `Avatar.tsx` 在 44 px 及以上静音循环播放 `assets/` 的小龙状态视频，静态图作封面；生成形象和 emoji 用 CSS 做呼吸、摇摆、跳跃效果，减少动态效果模式下不播放 | 已完成 |
-| 形象工作室，在本机生成形象 | `AvatarStudio.tsx` 提供四个本地化灵感预设或文字描述，使用「模型」中选择的自有图像服务商和 API key 生成候选及状态图；公开托管的 Cloud 不提供媒体生成 | 已完成 |
+| 形象工作室，在本机生成形象 | `AvatarStudio.tsx` 提供四个本地化灵感预设或文字描述，使用「模型」中选择的自有图像服务商和 API key 生成候选及状态图；中继不提供媒体生成 | 已完成 |
 | 首次运行 | 在 dsh 的 `settings.onboarding` 插槽注册全窗口流程：欢迎、登录、验证码、权限切换卡片（macOS 电脑权限、文件、设备）、就绪 | 已完成 |
-| 窗口（[desktop-muse.md](desktop-muse.md)） | `sidebar`、`sidebar.settings`、`shell.overlay` 插槽及插件包样式：窄栏、主要聊天和旁聊、固定形象、带停止的状态标签、邀请、资料面板、圆角输入条、气泡、权限卡片、带高级分组的设置和应用主题 | 已完成 |
+| 窗口（[desktop-muse.md](desktop-muse.md)） | `sidebar`、`sidebar.settings`、`shell.overlay` 插槽及插件包样式：窄栏、主要聊天和旁聊、固定形象、带停止的状态标签、资料面板、圆角输入条、气泡、权限卡片、带高级分组的设置和应用主题 | 已完成 |
 | 哨兵（[sentinel.md](sentinel.md)） | dsh 审批策略和 `tools/pre-execute` 顺序处理链；将 nanoMuse 风险类别映射为审批预设，保留可见的确认步骤 | 阶段 4 |
 | 手，本机图形界面操作（[gui.md](gui.md)） | 已通过 MCP 连接 Python 的手（`nanomuse mcp`，在预设中挂载）；之后计划在 dsh 电脑操作扩展接口 `ctx.computerUse.register` 后接入原生 TypeScript 驱动，去掉 Python 依赖 | 已完成桥接 |
 | Reach，手机与其他设备（[hub.md](hub.md)、[every-device.md](every-device.md)） | `hub.ts` 和 `dsh-nanomuse/reach` 提供 `devices`、`device_screen/shell/files/open/notify`、转发审批的 `delegate`，点击「停止」发送 `stop`；手机实现不变 | 已完成 |
@@ -82,7 +82,6 @@
 | 技能、日程、目标、记忆、子智能体 | 使用 dsh 的 `skill`、`schedule`、`goals`、上下文压缩和委派，不移植原实现 | 按设计使用 dsh |
 | 网页界面、zh-CN | 使用已内置中文的 dsh 网页应用；nanoMuse 文案保存在插件包的语言表中 | 已完成 |
 | 桌面外壳 | `harness/desktop` 的 Electron 外壳以 Node 模式将 harness Host 作为子进程启动，内含 dsh、插件包和手的运行时；`desktop-app.yml` 生成 Windows、macOS、Linux 安装包 | 已完成，未签名 |
-| nanomuse.cn/web 浏览器演示 | 继续使用 Python 运行时 | 不变 |
 | 手机 | 继续使用 Python 运行时，通过账号和 Reach 与桌面版互通 | 不变 |
 
 ## 实现中需要注意的事项 {#what-we-learned-building-the-slice}

@@ -7,7 +7,7 @@ Muse 在西方主要通过 API（供程序调用的接口）接入服务。中�
 设计遵循以下原则：
 
 - **在指定设备运行**。智能体运行在你选择的机器上，Android 版则运行在手机本身。屏幕只发送给你配置的模型，不交给其他服务。
-- **优先适配中国使用场景**。nanoMuse Cloud 账号使用中继为 `gui` 推荐的模型，目前为 `Qwen/Qwen3.6-27B-FP8`。中继是负责账号和请求转发的服务器。使用自己的 key 时，按服务商目录选择同一接口上的操作模型，中国大陆为阿里云百炼 `qwen3.8-27b`，其他地区为 OpenRouter `qwen/qwen3.8-27b`，具体见下文模型选择说明。示例任务使用 12306 和微信，敏感词以中文为主。
+- **优先适配中国使用场景**。nanoMuse Cloud 账号使用中继为 `gui` 推荐的模型，目前为 `halogen-qwen3.8-flash-next`。中继是负责账号和请求转发的服务器。使用自己的 key 时，按服务商目录选择同一接口上的操作模型，中国大陆为阿里云百炼 `qwen3.8-27b`，其他地区为 OpenRouter `qwen/qwen3.8-27b`，具体见下文模型选择说明。示例任务使用 12306 和微信，敏感词以中文为主。
 - **不依赖逐个 App 接入**。操作器通过图片理解屏幕，再按坐标点击，不要求无障碍树、带标签按钮或专用集成。同一操作循环既可订车票，也可读聊天。无障碍树是系统提供的界面元素结构；Android 能提供时，会作为辅助输入，帮助辨认小字和密码框，但流程不依赖它。
 - **最后才使用屏幕**。优先选择能准确完成任务的技能、CLI（命令行工具）或 MCP 服务器（通过统一协议提供工具的服务），其次携带登录状态获取网页，再用 App 内浏览器，最后操作手机屏幕。每个屏幕步骤都要调用模型并发送图片，因此只有前面的方式无法完成时才升级，开始前会说明。
 
@@ -59,7 +59,7 @@ api_key  = "{{vault:GUI_API_KEY}}"
 手机和桌面版通过设置 → 模型的「操作屏幕」设置，网页控制台通过「连接」中的「手的模型」下拉框设置，配置文件则使用 `[gui] model`。聊天和操作屏幕是独立设置。留空或选择「自动」时，按下列顺序决定：
 
 - 如果对话使用自己的 key，且服务商目录为同一接口指定了操作模型，则用该模型，例如百炼 `qwen3.8-27b`、OpenRouter `qwen/qwen3.8-27b`。已知不支持图片的模型不会列为操作模型，例如 ID 不含 `v4.1`、`vision`、`ocr` 的 DeepSeek 模型。
-- 否则，已登录 nanoMuse Cloud 时，使用中继为 `gui` 推荐的模型。`/v1/models` 通过 `for` 和 `recommended_for` 标明模型适用于 `chat`、`gui` 或两者。托管服务目前用同一个多模态 `Qwen/Qwen3.6-27B-FP8` 处理聊天和屏幕，但两项仍可分别配置。
+- 否则，已登录 nanoMuse Cloud 时，使用中继为 `gui` 推荐的模型。`/v1/models` 通过 `for` 和 `recommended_for` 标明模型适用于 `chat`、`gui` 或两者。中继目前用同一个多模态 `halogen-qwen3.8-flash-next` 处理聊天和屏幕，但两项仍可分别配置。
 - 否则使用聊天模型本身，前提是支持看图。手机和桌面版在这之前还会尝试第一个支持视觉模型的自备 key。
 
 手动选择始终优先，「自动」项会显示当前实际选择。自己的操作模型失败时不会自动切换，卡片会提供「这次改用 nanoMuse Cloud」，只应用于当前一轮，见 [own-key.md](own-key.md#which-model-does-what)。
@@ -72,9 +72,9 @@ key 与其他凭据一样放入保险库，可运行 `nanomuse vault set GUI_API
 
 ## 连接手机 {#connecting-a-phone}
 
-智能体不必与手机运行在同一设备。手机可以通过 App 使用的 WebSocket 连接 nanoMuse 服务器。WebSocket 是保持连接、双向收发消息的协议；设备先声明自身信息，再响应截图和操作请求。目前有以下两种实现：
+智能体不必与手机运行在同一设备。手机可以通过 App 使用的 WebSocket 连接 nanoMuse 服务器。WebSocket 是保持连接、双向收发消息的协议；设备先声明自身信息，再响应截图和操作请求。目前只有 Android 一种实现；模拟手机 MobileGym 曾是第二种，它的模块已从仓库中移除。
 
-- **MobileGym**。位于 [mobilegym.dev](https://mobilegym.dev/) 的模拟手机，将微信、支付宝、铁路12306、地图、小红书等模拟为浏览器中的 React App。`demo/mobilegym/` 模块的设置页提供「允许 nanoMuse 操作这台手机」。展示站使用这个环境，不操作真实账号或服务。
+- **MobileGym**。位于 [mobilegym.dev](https://mobilegym.dev/) 的模拟手机，将微信、支付宝、铁路12306、地图、小红书等模拟为浏览器中的 React App。nanoMuse 对应的模块曾位于 `demo/mobilegym/`，现已移除；本文关于它的描述是当时的样子。这是当年的展示环境，不操作真实账号或服务。
 - **Android**。nanoMuse App 通过自己的无障碍服务执行真实操作。`takeScreenshot()` 截图，`dispatchGesture()` 发送手势，无障碍树提供元素列表，`performGlobalAction` 执行返回、主屏和最近任务，`open_app` 使用 App 可启动列表。协议与模拟器相同。需要 Android 11 或更新版本，因为无障碍服务从该版本起支持截图，并需要启用服务：
 
   1. 进入连接 → 手机 → 这台手机 → 打开无障碍设置，在「已下载的应用」中找到「nanoMuse」并开启。Android 会说明查看屏幕、执行手势等能力，并要求确认。
@@ -206,11 +206,11 @@ nanomuse phone trace pt-20260923-230710-5be7 -o trace.html
 
 声明 `"capsule": true` 的设备还会接收 `task` 请求，例如 `{"op": "task", "params": {"event": "begin", "text": "<goal>"}}`，以及 `"end"`、带用户问题的 `"notice"`。设备返回空的成功 `ok` 即可。这些通知尽力发送，3 s 内没有应答就不再等。无论任务完成、被停止、设备离线、模型失败还是聊天取消，服务器都会尝试发送 `end` 或 `notice`，但恰好断线的设备可能收不到。
 
-因此，服务器也在手机状态中保存正在运行的任务。每条 socket 的 `hello` 都包含 `"phone": {…, "task": {"goal": "…", "since": <unix seconds>}}`，无任务时 `task` 为 `null`。设备连接或重连时应据此恢复胶囊：任务仍在运行就显示，中途已结束就关闭。连接永久关闭，或所谓运行中的任务长时间没有向设备发出任何请求时，也应自行隐藏；MobileGym 使用三分钟超时。
+因此，服务器也在手机状态中保存正在运行的任务。每条 socket 的 `hello` 都包含 `"phone": {…, "task": {"goal": "…", "since": <unix seconds>}}`，无任务时 `task` 为 `null`。设备连接或重连时应据此恢复胶囊：任务仍在运行就显示，中途已结束就关闭。连接永久关闭，或所谓运行中的任务长时间没有向设备发出任何请求时，也应自行隐藏；MobileGym 当时使用三分钟超时。
 
 **停止操作**。用户点击「停止」后，执行器应让当前请求及之后所有请求失败，直到收到下一次 `task begin`。错误必须带 `nanomuse:stop`。服务器将其识别为 `stopped`：操作器结束循环，`phone_act` 返回可读说明，主智能体收到指示，不再继续操作手机，先询问下一步。没有胶囊的设备无需发送该标记。
 
-MobileGym 的 `demo/mobilegym/apps/nanoMuse/gui.ts` 可作为参考。它用 `modern-screenshot` 在页面中将模拟器 DOM 渲染成 PNG，抵消手机 CSS 变换并排除舞台，输出手机两倍尺寸的 720×1600 图片以便读取小字，再将点击缩回手机坐标。它遍历可见、未遮挡、可交互或含文字的 DOM 元素生成 `nodes`，通过标签和 role 推断类型，从模拟器 OS 对象读取 App 和路由，并调用 MobileGym 自身输入 API 执行动作。它和 Android 一样拒绝对密码或验证码输入框调用 `type`，改由胶囊请用户填写并点击「继续」。
+MobileGym 的 `demo/mobilegym/apps/nanoMuse/gui.ts`（随 `demo/` 一起移除）曾是可读的参考实现。它用 `modern-screenshot` 在页面中将模拟器 DOM 渲染成 PNG，抵消手机 CSS 变换并排除舞台，输出手机两倍尺寸的 720×1600 图片以便读取小字，再将点击缩回手机坐标。它遍历可见、未遮挡、可交互或含文字的 DOM 元素生成 `nodes`，通过标签和 role 推断类型，从模拟器 OS 对象读取 App 和路由，并调用 MobileGym 自身输入 API 执行动作。它和 Android 一样拒绝对密码或验证码输入框调用 `type`，改由胶囊请用户填写并点击「继续」。
 
 ## 显示操作位置 {#showing-the-finger}
 

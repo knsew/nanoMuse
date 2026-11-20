@@ -13,7 +13,7 @@
 
 The desktop app today is our own harness: an Electron shell around the Python runtime,
 which carries its own agent loop, tool registry, skills, schedule, memory, sub-agents and
-web UI, the same code as the phone and the browser demo, which is why it exists. Every
+web UI, the same code as the phone, which is why it exists. Every
 one of those parts has a counterpart in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 (`dsh`): an open-source (MIT) agent harness built as a plugin system on
 [Cordis](https://github.com/cordiverse/cordis), with a web app, a desktop app, an MCP
@@ -25,8 +25,8 @@ project of ours will not have for years.
 So the next desktop is **dsh plus nanoMuse plugins**: what makes nanoMuse nanoMuse (the
 account, the face, the voice, Hands, Reach, the Sentinel) goes in as plugins; the loop,
 the tools and the UI are dsh's. We stop maintaining a second harness for the desktop.
-The phone keeps the Python runtime (dsh is Node and does not run on Android), the browser
-demo keeps it too for now, and the account is the bridge between them, as it is today.
+The phone keeps the Python runtime (dsh is Node and does not run on Android),
+and the account is the bridge between them, as it is today.
 
 ## What runs
 
@@ -195,9 +195,7 @@ screen in [desktop-muse.md](desktop-muse.md):
   (`conversation.header.leading`), with a status chip (signed out, connecting,
   connected with the devices online, thinking, *Hands · step N · what*, *Reach · step N ·
   what*, waiting for you) and a *Stop* button beside it while a turn runs. The capsule
-  of the second slice becomes this chip; its toasts stay. *Invite* takes
-  `conversation.session.header.utilities` (the relay's `/v1/me/invite`: code, link,
-  how many came and what it earned); the harness's title row, tabs and session actions
+  of the second slice becomes this chip; its toasts stay. The harness's title row, tabs and session actions
   are hidden under the bundle's styles.
 - **The profile panel.** The face opens a `shell.overlay` of ours, 310 px at the right,
   beside the chat: the avatar with a pen (*Change look* → `PUT /v1/me/profile` through
@@ -258,9 +256,9 @@ The Electron shell boots the same bundle with its bridge on Linux (screenshot ch
 | The face in the UI ([avatar.md](avatar.md))             | Slots `sidebar.brand.*`, `conversation.hero.brand.mark`; stills from the host; moods from the session status; the capsule while the hands work | done       |
 | Face sync across devices                                | `profile.ts` pulls the relay's profile on the hub's `profile` frame; drawn-face stills cached and served by the host                            | done       |
 | The face moving ([avatar.md](avatar.md))                | `Avatar.tsx`: the dragon's state clips from `assets/`, looped silently at 44 px and up with the still as poster; CSS breath / sway / hop for drawn faces and emoji, nothing under reduced motion | done       |
-| Avatar studio (drawing a new face here)                 | `AvatarStudio.tsx`: four localized preset ideas or a description, drawn and posed through the image provider and API key selected under Models; the public hosted Cloud is not a media source | done       |
+| Avatar studio (drawing a new face here)                 | `AvatarStudio.tsx`: four localized preset ideas or a description, drawn and posed through the image provider and API key selected under Models; the relay is not a media source | done       |
 | First run                                               | Our step in dsh's `settings.onboarding` seat, full-window: welcome, sign in, code boxes, the permissions carousel (computer on macOS, files, devices), ready | done       |
-| The window ([desktop-muse.md](desktop-muse.md))         | The `sidebar`, `sidebar.settings` and `shell.overlay` seats and the bundle's stylesheet: rail + main / side chats, the pinned face and status chip with Stop, Invite, the profile panel, pill composer, bubbles, permission card, grouped Settings with Advanced, the app's tones | done       |
+| The window ([desktop-muse.md](desktop-muse.md))         | The `sidebar`, `sidebar.settings` and `shell.overlay` seats and the bundle's stylesheet: rail + main / side chats, the pinned face and status chip with Stop, the profile panel, pill composer, bubbles, permission card, grouped Settings with Advanced, the app's tones | done       |
 | Sentinel ([sentinel.md](sentinel.md))                   | dsh approval policies and the `tools/pre-execute` waterfall; our categories become an approval preset; the visible gate stays                | phase 4    |
 | Hands: GUI control of this computer ([gui.md](gui.md)) | The Python hands over MCP (`nanomuse mcp`, mounted in the preset): done; a native TypeScript driver behind dsh's computer-use seam (`ctx.computerUse.register`) later, so no Python is needed | done (bridge) |
 | Reach: the phone and other devices ([hub.md](hub.md), [every-device.md](every-device.md)) | `hub.ts` + `dsh-nanomuse/reach`: `devices`, `device_screen/shell/files/open/notify`, `delegate` with relayed approvals and `stop` on *Stop*; the phone side unchanged | done       |
@@ -270,7 +268,6 @@ The Electron shell boots the same bundle with its bridge on Linux (screenshot ch
 | Skills, schedule, goals, memory, sub-agents             | dsh's own (`skill`, `schedule`, `goals`, compaction, delegation); ours are not ported                                                        | by design  |
 | Web UI, zh-CN                                           | dsh's web app (it ships zh); our strings in the bundle's locale table                                                                        | done       |
 | The desktop shell                                       | `harness/desktop`: our Electron shell, the harness's Host as a child in Node mode, dsh + the bundle + the runtime for the hands inside; installers for Windows, macOS, Linux from `desktop-app.yml` | done (unsigned) |
-| Browser demo at nanomuse.cn/web                         | Stays on the Python runtime                                                                                                                  | unchanged  |
 | The phone                                               | Stays on the Python runtime; meets the desktop through the account and Reach                                                                 | unchanged  |
 
 ## What we learned building the slice

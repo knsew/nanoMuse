@@ -84,7 +84,7 @@ hub 传递以下请求：
 
 桌面版执行定时任务时，电脑旁可能没人，因此会把审批卡片推送给账号下的手机。这些卡片没有对应的远程调用，使用中继 0.31 的推送机制，见[消息帧](#frames)。只有 `welcome.server.features` 包含 `event_push` 时，电脑才发送；中继只交给 `hello` 中声明了 `approve.any` 的设备，目前是 Android 和 iPhone App。
 
-推送仅用于这种无人值守的桌面任务。用户正在电脑或网页控制台聊天时，审批留在原界面；其他设备委派的任务，审批沿原调用返回发起设备，见[上文](#what-you-can-say)。Python 运行时 `nanomuse serve` 目前不推送，它的定时任务卡片仍在网页版等待，见 [#704](https://github.com/nano-muse/nanoMuse/issues/704)。
+推送仅用于这种无人值守的桌面任务。用户正在电脑或网页控制台聊天时，审批留在原界面；其他设备委派的任务，审批沿原调用返回发起设备，见[上文](#what-you-can-say)。Python 运行时 `nanomuse serve` 目前不推送，它的定时任务卡片仍在网页版等待，见 [#704](https://github.com/knsew/nanoMuse/issues/704)。
 
 ```
 → event {to:"*", body:{stage:"approval", approval_id, preview, preview_zh, reason, app,

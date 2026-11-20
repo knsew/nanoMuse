@@ -4,29 +4,29 @@ nanoMuse is one agent on your own devices, and nothing in it has to go through a
 
 | | What you run | What it gives you |
 |---|---|---|
-| [1. No server, your own key](#_1-no-server-your-own-key) | nothing | the apps talk to a model provider directly; the community relay is still used for sign-in and for the devices to find each other |
-| [2. Your own relay](#_2-your-own-relay) | nanoMuse Cloud on a small VPS or a home server | your own accounts, sign-in codes, hub and conversation sync; nothing about your account touches nanomuse.cn |
+| [1. No server, your own key](#_1-no-server-your-own-key) | nothing | the apps talk to a model provider directly; sign-in, the hub and sync need a relay of your own (section 2) |
+| [2. Your own relay](#_2-your-own-relay) | nanoMuse Cloud on a small VPS or a home server | your own accounts, sign-in codes, hub and conversation sync; nothing about your account leaves your own server |
 | [3. A runtime of your own](#_3-a-runtime-of-your-own-for-the-web-app) | the Python runtime in Docker | the web app and the hands on a computer that is always on |
 
 ## 1. No server, your own key
 
-The free allowance on the community relay runs out. When it does, or before, put a key of your own in the app: Alibaba Model Studio (百炼) inside mainland China, OpenRouter or any OpenAI-compatible endpoint elsewhere. The model requests then go from your device directly to that provider. If you stay signed in, the relay also handles your account and hub traffic, and the apps upload own-key turns to its account record when recording is enabled. Conversation sync and training controls are separate, as described in [privacy.md](privacy.md). [own-key.md](own-key.md) has the steps for every app. Nothing to install, nothing to keep running.
+Put a key of your own in the app: Alibaba Model Studio (百炼) inside mainland China, OpenRouter or any OpenAI-compatible endpoint elsewhere. The model requests then go from your device directly to that provider. If you stay signed in, the relay also handles your account and hub traffic, and the apps upload own-key turns to its account record when recording is enabled. Conversation sync and training controls are separate, as described in [privacy.md](privacy.md). [own-key.md](own-key.md) has the steps for every app. Nothing to install, nothing to keep running.
 
 ## 2. Your own relay
 
-nanoMuse Cloud is the relay behind nanomuse.cn: sign-in by e-mail or phone, the account's models through one OpenAI-compatible endpoint, the hub the devices meet on, conversation sync, a web console at `/app` and an admin page at `/app/admin/`. It is one Python service and one SQLite file, in this repository under [`cloud/`](../cloud/README.md), and it runs the same on a server of yours.
+nanoMuse Cloud is the relay: sign-in by e-mail, with the code by e-mail or in the relay log on a development relay; the account's models through one OpenAI-compatible endpoint, the hub the devices meet on, conversation sync, a web console at `/app` and an admin page at `/app/admin/`. It is one Python service and one SQLite file, in this repository under [`cloud/`](../cloud/README.md), and it runs the same on a server of yours.
 
 ### What you need
 
 - **A machine.** A VPS with 1 vCPU and 1 GB of memory is enough for a family; the relay idles at a few tens of megabytes and the model work happens at the provider. Such a server costs on the order of ¥30–60 a month inside mainland China or US$4–6 outside it, from any provider; the relay does not care which. A home server or a spare laptop works for a LAN-only relay.
 - **A domain** pointing at the machine (an A record), with ports 80 and 443 reachable. Caddy, which runs next to the relay, fetches and renews the Let's Encrypt certificate on its own. Skip this for a LAN-only relay.
-- **A model provider key.** The relay spends *your* money on *your* provider: everyone who signs in on your relay is billed to that key, at the provider's prices, within the allowance you set (`ALLOWANCE_CNY`, `SIGNUP_OPEN`, `SIGNUP_PER_DOMAIN_DAY`, `SIGNUP_DOMAIN_BLOCK`, members in `ALLOWED_IDENTIFIERS`; [cloud/README.md](../cloud/README.md#settings)). Without a key, sign-in and the hub work and chat does not.
+- **A model provider key.** The relay spends *your* money on *your* provider: everyone who signs in on your relay is billed to that key, at the provider's prices. The ledger records what each account spent, and no request is refused for lack of pool. Who may sign in is set by `SIGNUP_OPEN`, `SIGNUP_PER_DOMAIN_DAY`, `SIGNUP_DOMAIN_BLOCK`, and members in `ALLOWED_IDENTIFIERS` ([cloud/README.md](../cloud/README.md#settings)). Without a key, sign-in and the hub work and chat does not.
 - **Docker** with the compose plugin, and `curl`.
 
 ### In one command
 
 ```bash
-git clone https://github.com/nano-muse/nanoMuse.git && cd nanoMuse
+git clone https://github.com/knsew/nanoMuse.git && cd nanoMuse
 bash scripts/self-host.sh
 ```
 
@@ -37,7 +37,7 @@ bash scripts/self-host.sh --local          # this machine only: http://127.0.0.1
 bash scripts/self-host.sh --local --bind 0.0.0.0   # the phones on the same network too: the URLs carry this machine's LAN address
 ```
 
-With `--bind 0.0.0.0` the relay listens on every interface and the script looks up the machine's LAN address (`192.168.1.20`, say) for `PUBLIC_BASE`, the invitation links and the URLs it prints, since that is the address the phones reach it at; when it cannot find one it says so and falls back to `127.0.0.1`. `--bind` with one address (a Tailscale address, for instance) publishes the port on that address only and uses it as given. Running the script again with another `--bind` moves the URLs along.
+With `--bind 0.0.0.0` the relay listens on every interface and the script looks up the machine's LAN address (`192.168.1.20`, say) for `PUBLIC_BASE` and the URLs it prints, since that is the address the phones reach it at; when it cannot find one it says so and falls back to `127.0.0.1`. `--bind` with one address (a Tailscale address, for instance) publishes the port on that address only and uses it as given. Running the script again with another `--bind` moves the URLs along.
 
 By hand instead of the script: `cd cloud && cp .env.example .env`, fill in `CLOUD_DOMAIN`, `PUBLIC_BASE`, `ACME_EMAIL`, `CLOUD_SECRET`, `CLOUD_ADMIN_TOKEN`, `UPSTREAM_KEY` and the sender settings, then `docker compose up -d`; or, without Caddy, `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d`, with `RELAY_BIND=0.0.0.0` (or the machine's address) and `PUBLIC_BASE=http://<that address>:8787` in `cloud/.env` when other machines are to reach it. The relay runs as uid 10001 inside its container, and `cloud/data`, the bind-mounted data directory, must belong to that uid on the host: `mkdir -p data && sudo chown -R 10001:10001 data` before the first start, and once more when upgrading from a relay whose image ran as root (the script does this for you; a relay that cannot write the directory says so at start and stops).
 
@@ -55,16 +55,15 @@ After `--local`, the script prints a *Codes* command that starts with `cd cloud 
 A code goes out every time someone signs in. `CODE_SENDER` says how:
 
 - `log`: printed to the relay's log only (`cd cloud && docker compose logs relay` shows `verification code for …`). Fine for a family: you read the code out. This is what `--local` uses.
-- `smtp`: by e-mail through a mailbox you own (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`). Any mailbox with SMTP works; a free one is enough for a few people.
-- `aliyun`: by SMS to mainland China numbers through Alibaba Cloud: 号码认证服务 by default (`ALIYUN_SMS_API=dypns`, its ready-made templates), or 短信服务 with a signed template of your own (`ALIYUN_SMS_API=dysms`); the variables are in `cloud/.env.example`. `both` uses SMTP for addresses and Aliyun for numbers. SMS reaches mainland numbers only; everyone else signs in by e-mail.
+- `smtp`: by e-mail through a mailbox you own (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`). Any mailbox with SMTP works; a free one is enough for a few people. No code is sent by SMS; a phone number can only sign in with a code from the relay log, or with a password once one is set.
 
 ### The admin page
 
-`https://<your domain>/app/admin/` with the admin password (`CLOUD_ADMIN_TOKEN` in `cloud/.env`): the accounts, what each has spent, allowance and membership, nudge policies, the devices on the hub, the relay's own health. The same data is behind `/v1/admin/*` for scripts ([cloud/README.md](../cloud/README.md#operating)).
+`https://<your domain>/app/admin/` with the admin password (`CLOUD_ADMIN_TOKEN` in `cloud/.env`): the accounts, what each has spent, allowance and membership, the devices on the hub, the relay's own health. The same data is behind `/v1/admin/*` for scripts ([cloud/README.md](../cloud/README.md#operating)).
 
 ### Pointing the apps at it
 
-Every app signs in against `https://cloud.nanomuse.cn` unless you tell it otherwise. The devices of one account must all point at the same relay; the hub and the conversations live there.
+Every app asks for a relay address at sign-in; there is no built-in relay. The devices of one account must all point at the same relay; the hub and the conversations live there.
 
 - **Android** (0.1.38). *Use a different server* under the sign-in form takes the relay's address; *Check* asks its `/healthz` and shows the version, *Use this server* keeps the address across launches. `https://` is required outside your own network; plain `http://` is accepted for a private address (`10.x`, `172.16-31.x`, `192.168.x`, `localhost`, a `.local` or `.ts.net` name). Settings → Account shows the server with *Change*, which signs the phone out first ([android.md](android.md)).
 - **iPhone / iPad.** The same link on the sign-in sheet, with the same rules.
@@ -82,8 +81,6 @@ Every app signs in against `https://cloud.nanomuse.cn` unless you tell it otherw
   Setting `NANOMUSE_CLOUD_URL=https://cloud.example.com` in the environment the app starts in does the same without editing the file ([desktop.md](desktop.md)).
 - **The terminal runtime and the hosted web app** (`nanomuse …`, the root `docker-compose.yml`): `NANOMUSE_CLOUD_BASE_URL=https://cloud.example.com` in the environment or `.env`, or `[cloud] base_url` in `config/config.toml` ([configuration.md](configuration.md)).
 - **The web console** is the relay's own `/app` (`https://<your domain>/app/`) and needs no pointing.
-
-Invitations from your relay link to its console (`INVITE_URL`, set by the script), so a friend you invite lands on your relay, not on nanomuse.cn.
 
 ### Updating
 
@@ -118,23 +115,13 @@ The command above backs up the database. Keep copies of `CLOUD_SECRET` and the f
 
 Caddy's certificates live in the `caddy_data` volume and are fetched again if lost.
 
-The scheduled backup in `cloud/deploy/nanomuse-hk/backup.sh` requires Python 3 and
-`flock` on the host. Before copying, it checks the space available to an ordinary
-user on both the database and backup filesystems. Each needs at least twice the
-combined database and WAL size, plus 5 GiB for the running service. Concurrent
-runs are refused. A failed capacity check stops the job before copying or
-retention cleanup and reports the required and available bytes in the journal.
-Provide more space or review recovery points before trying again; the check does
-not remove backups and cannot reserve space against other writers. The manual
-command above does not run this preflight check.
-
 ### What your relay stores
 
-The relay keeps hashed and encrypted identifiers, per-request counts and prices, and the devices on the hub. By default, `RECORD_TURNS=1` also keeps full model requests and replies, including turns uploaded by signed-in apps using their own model keys; pictures, audio and clips are stored under `MEDIA_DIR`. Set `RECORD_TURNS=0` to disable that account record. The conversation-sync switch controls the separate cross-device chat copy, and the training switch controls what joins training data. The full list, and what each switch does, is [privacy.md](privacy.md); as the operator you are the one it now describes.
+The relay keeps hashed and encrypted identifiers, per-request counts and prices, and the devices on the hub. By default, `RECORD_TURNS=1` also keeps the turns signed-in apps upload, including turns they ran on their own model keys; the relay's own turns are not recorded. Pictures, audio and clips are stored under `MEDIA_DIR`. Set `RECORD_TURNS=0` to disable that account record. The conversation-sync switch controls the separate cross-device chat copy, and the training switch changes nothing, since this relay records nothing for training. The full list, and what each switch does, is [privacy.md](privacy.md); as the operator you are the one it now describes.
 
 ## 3. A runtime of your own, for the web app
 
-The phone and the desktop carry their own agent. The web app does not; it talks to the Python runtime, which on nanomuse.cn runs in a container per visitor. You can run that runtime on a machine of your own, in Docker, and open the web app on it from any browser:
+The phone and the desktop carry their own agent. The web app does not; it talks to the Python runtime. You can run that runtime on a machine of your own, in Docker, and open the web app on it from any browser:
 
 ```bash
 cp .env.example .env && $EDITOR .env      # a model key, NANOMUSE_SERVER_TOKEN; NANOMUSE_CLOUD_BASE_URL for your own relay
@@ -157,7 +144,7 @@ bash scripts/self-host.sh --local --with-runtime --runtime-port 9000   # another
 
 It writes `config/config.toml` from the example when that file is missing, because the container cannot start without it: a missing host file is mounted as a directory and the start fails with *not a directory*. If that has already happened, check that directory first, then use `sudo rmdir -- config/config.toml` if it is empty and run the script again. It also puts two lines in the root `.env` when they are not there yet: `NANOMUSE_SERVER_TOKEN`, so the web app's link stays the same across restarts, and `NANOMUSE_CLOUD_BASE_URL=http://relay:8787`. It never overwrites a value you set yourself. The relay's own settings stay in `cloud/.env`; back the two files up together.
 
-`http://relay:8787` is the relay's name on the docker network the two containers share. That is why the runtime reaches the relay even under `--local` (where the relay publishes nothing but loopback) and on a server with a domain (where a round trip through the public name would need hairpin NAT on the router). Signing in on the runtime's page is also what gives it a model key: the relay is one more OpenAI-compatible provider to it, within the account's allowance, so the runtime's `.env` needs no key of its own.
+`http://relay:8787` is the relay's name on the docker network the two containers share. That is why the runtime reaches the relay even under `--local` (where the relay publishes nothing but loopback) and on a server with a domain (where a round trip through the public name would need hairpin NAT on the router). Signing in on the runtime's page is also what gives it a model key: the relay is one more OpenAI-compatible provider to it, so the runtime's `.env` needs no key of its own.
 
 To update, `git pull` and run the same command: both images are rebuilt and everything they keep stays put: `cloud/data` for the relay, the `nanomuse-data` volume for the runtime. The script never removes either; a `docker compose down -v` typed by hand at the repository root still deletes the runtime's volume.
 

@@ -20,14 +20,7 @@ with the keyboard to reveal Copy.
 | Linux | `nanoMuse-Desktop-<version>-linux-x64.deb` (preferred) / `.AppImage` / `.tar.gz`; see [Linux notes](#linux-notes) |
 
 Every release carries them (`.github/workflows/desktop-app.yml`; `SHA256SUMS-desktop.txt`
-beside them). Windows releases also carry the update metadata electron-updater reads: `latest.yml`,
-which names the installer and its SHA-512, and the installer's `.exe.blockmap`. CI checks the set with electron-updater itself before
-anything is attached: it must find the candidate version in `latest.yml`, download the
-installer from a test feed and verify it, and refuse one whose bytes do not match
-(`harness/desktop/scripts/update-feed-check.mjs`). The feed the metadata is built for is the
-download mirror's [nanomuse.cn/dl/win/](https://nanomuse.cn/dl/win/), which moves to a new
-release only once its `latest.yml`, installer and `.blockmap` are all there and the installer's
-bytes match; until then it serves the previous release. The code is under
+beside them). The code is under
 [`harness/`](../harness/): the bundle of plugins in
 `harness/dsh-nanomuse`, the Electron shell in `harness/desktop`; how to build it yourself is
 in [harness/README.md](../harness/README.md). Up to 0.1.29 the same installers wrapped the
@@ -40,41 +33,17 @@ Levea is listed under **Design** in Connectors. Connect with its OAuth sign-in t
 
 ## Updating on Windows
 
-The Windows x64 app checks for a newer stable release after starting and every six
-hours. Settings shows the running app's version and the same update state as the
-corner menu, with **Check now** to refresh immediately.
+The desktop app does not check for updates and does not download them. To update,
+download the new installer from the fork's GitHub Releases page and run it; it
+installs over the version before and keeps your conversations, settings and account
+data. macOS and Linux update the same way: download the new installer or package
+and install it over the old one.
 
-Updates download in the background by default when Windows reports an unmetered
-internet connection. **Download updates automatically** in Settings saves your choice
-across restarts. Switching it off stops new automatic downloads, while a download
-already running can finish. Checks continue on metered or unknown networks; the menu
-explains the pause and **Download** overrides it for that request without changing the switch.
-The menu shows download progress and verification, then **Restart to update** once
-electron-updater has verified the complete installer. A dot means an action is
-waiting: download, retry or restart. Downloading has no update dot, and completion
-does not open a dialog. Failed checks and downloads can be retried from the menu.
-After a failed download, automatic retries wait one minute, then five minutes, with
-at most two retries. Each one rechecks your switch and Windows' network cost. After
-that, the app waits for a manual retry or the next six-hour check; turning automatic
-downloads off also prevents those later checks from starting a download.
-The download mirror is tried first, then GitHub for the same version and checksum.
-An already downloaded installer is verified again before reuse.
-
-Restarting for an update uses the installed app's normal user-level NSIS upgrade.
-It keeps conversations, settings and account data outside the application files,
-then opens the app again. If replies, computer operations, remote tasks or approvals
-are pending, the app lists them and defaults to keeping them running. Only an
-explicit confirmation ends the work; installation waits until it has ended and
-blocks new work during handoff. A cancelled or failed handoff lets work continue.
-
-On the next normal quit, an already verified update is installed with the same
-work protection, then the app stays closed. Without a ready update, quit follows
-the normal protected exit. Closing to the tray, leaving the app idle, a crash or
-system shutdown does not request installation. Other platforms, older shells and
-the standalone harness retain the external download flow. A version that has no
-in-app updater must first be upgraded with the downloaded installer. Development
-builds do not run an installer. This uses the existing installation behaviour;
-mixed copies or stale installation registration need to be sorted out separately.
+Running the installer uses the installed app's normal user-level NSIS upgrade on
+Windows. It keeps conversations, settings and account data outside the application
+files, then opens the app again. If replies, computer operations, remote tasks or
+approvals are pending, quit the app first and let the work finish; the installer
+does not wait for it.
 
 ## Using your own relay on Windows
 
@@ -82,7 +51,7 @@ If you run a relay, Desktop can use its address. Follow [Running your own](cloud
 to set up the server first. The example below needs your relay's HTTPS origin and the path
 to the installed `nanomuse-desktop.exe`; `relay.example` and the installation path are placeholders.
 Accounts, devices and server-side conversation history belong to each relay separately.
-An account on the hosted service does not become an account on a new relay.
+An account on one relay is not an account on another.
 
 1. Choose **Quit** in nanoMuse, including its tray menu, and let it finish quitting.
    Closing the window can leave the app running. A second launch would then reuse that
@@ -110,9 +79,9 @@ and credentials. Changing an own-key model provider's base URL does not change t
 account relay.
 
 The app's **Network** proxy setting bypasses nanoMuse Cloud, including the relay's
-sign-in, Hub and sync traffic. `DEFAULT_RELAY_HOST` in the shell's `proxy.ts` contributes
-to `NO_PROXY`; it does not select another relay. This launch option points Desktop at
-your server. It does not repair a connection reset on the hosted relay's network path.
+sign-in, Hub and sync traffic. The shell's `proxy.ts` puts the relay hosts the plugin
+reported on `NO_PROXY`; it does not select another relay. This launch option points Desktop at
+your server. It does not repair a connection reset on the relay's network path.
 
 ## Using your own relay on Linux
 
@@ -150,12 +119,11 @@ find a setting by the words on it, the full-window first run. The agent
 is dsh's (its agent loop, tools, skills, goals, plan mode, compaction, sub-agents, MCP),
 speaking as nanoMuse through the `nanomuse` preset, with:
 
-- **the account**: a phone number or an e-mail and a code (or a password, with a friend's
-  invite code) against [nanoMuse Cloud](cloud.md); the key in dsh's credential store; the
+- **the account**: an e-mail address and a code (or a password)
+  against [nanoMuse Cloud](cloud.md); the key in dsh's credential store; the
   account's models as the *nanoMuse Cloud* provider of the harness's own OpenAI-compatible
   adapter (nothing of ours sits in the model path); Settings → Account is the whole account
-  as the phone has it (the pool in yuan with the ways on when it runs low, the invite code,
-  usage by kind and by model, the password, the devices holding a key, the timeline, deletion),
+  as the phone has it (the pool in yuan, usage by kind and by model, the password, the devices holding a key, the timeline, deletion),
   read through the host's pass-through routes (`/nanomuse/cloud/me`, `/sessions`,
   `/account-events`, `/password`, `/sign-out-all`, `/delete-account`, `/config`);
 - **a clip of your own as the face**: *Your own clip…* under the pen on the agent's page
@@ -188,7 +156,7 @@ speaking as nanoMuse through the `nanomuse` preset, with:
   for a batch of its own or for a task another device sent, starts in the `~/nanoMuse`
   workspace, never in the bare home folder — on Windows a workspace that is the whole profile
   folder cannot run a `workspace-write` command at all, since the sandbox's temp root lies
-  inside it, [#705](https://github.com/nano-muse/nanoMuse/issues/705)), plus memory: what it remembers about
+  inside it, [#705](https://github.com/knsew/nanoMuse/issues/705)), plus memory: what it remembers about
   you, read into every chat ([desktop-muse.md](desktop-muse.md#rail-rooms));
 - **Reach**: this computer on the account's device list over the [hub](hub.md); the
   tools `devices`, `device_screen`, `device_shell`, `device_files`, `device_open`,
@@ -205,16 +173,16 @@ speaking as nanoMuse through the `nanomuse` preset, with:
 - **Network** (Settings → nanoMuse Cloud → Network): one proxy for what the app sends out
   (`http://host:port`, `https://`, `socks5://` or `socks5h://`, a `user:pass@` allowed and
   shown masked). Everything the dsh Host sends goes through it: your own keys, the ChatGPT
-  sign-in's calls, *List models*, the pages the tools read, connectors, the update check,
+  sign-in's calls, *List models*, the pages the tools read, connectors,
   and the hands' runtime (`nanomuse mcp` inherits the same variables). nanoMuse Cloud (the relay, the hub's WebSocket, the sync) and loopback never
   do. The shell keeps it in `desktop.json` (mode 0600, since the address may carry a
   password) next to *open at login* and puts it on the dsh
   Host's environment at start (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` for SOCKS, `NO_PROXY`
-  with `localhost,127.0.0.1,::1`, `cloud.nanomuse.cn` and the relay the plugin talks to, and
+  with `localhost,127.0.0.1,::1` and the relay the plugin talks to, and
   `NODE_USE_ENV_PROXY=1`, which is what makes Node's fetch read them), so it takes effect
   after a restart; *Restart now* under the row restarts the Host with the window up, and
   asks first when a reply, the hands, a task from another device or an approval is under
-  way, as quitting does (two bullets down). A self-hosted relay is on
+  way, as quitting does (two bullets down). Your relay is on
   `NO_PROXY` when the shell was started with `NANOMUSE_CLOUD_URL`, the setting the plugin
   reads too. The
   phones have the same setting in the provider form, the web app in the own-key form, the
@@ -286,30 +254,10 @@ In the Muse look, wide reply tables scroll inside the agent bubble instead of ex
 
 The capsule and screen glow display their status text without allowing text selection. Their approval and Stop buttons still respond to clicks.
 
-## When the allowance is used up, and the relay's other answers
+## The relay's answers
 
-The account's free allowance gates the model, not the sign-in: when the relay answers a
-turn with `allowance_exhausted`, the desktop shows the card the phones and the web app
-show, under the turn that did not run, in the chat:
-
-- one sentence (*The free allowance is used up.*) and that your sign-in and your devices
-  keep working whichever way you pick;
-- **your own model key**: the provider rows for where you are (the same rows as Settings →
-  nanoMuse Cloud, with *Add key* and *Get a key* inline), *Other providers and what each key
-  covers* folded under them, the list the relay sends with the refusal and with `/v1/me`
-  (`spend.guidance`, [cloud.md](cloud.md#allowance)), not one written into the app, and
-  the *Step-by-step guide* ([own-key.md](own-key.md));
-- **a plan you already pay for**: the ChatGPT sign-in, right there, with the relay's caveat
-  about it;
-- **invite a friend**: the bonus for each of you, paid after the friend's first request, and *Copy the link*;
-- a star on GitHub, once, when the nudge policy allows it: the card's title and buttons are
-  the app's; its sentence is the app's too unless the relay's policy carries one (`star.text`,
-  `star.text_zh`, up to 200 characters; a Chinese UI takes `text_zh`, else `text`;
-  [cloud.md](cloud.md));
-- *Open Settings → nanoMuse Cloud* and *Try again* (the same words are sent again once a
-  way on is set up).
-
-The relay's other refusals are one plain sentence each, in the app's language, never the
+The relay never refuses a turn for lack of pool: there is no allowance to run out
+of. The relay's refusals are one plain sentence each, in the app's language, never the
 status code or the JSON body:
 
 | The relay said | The card says | Button |
@@ -318,11 +266,10 @@ status code or the JSON body:
 | `400 content_rejected` (the provider's content check declined the words; a provider's own `DataInspectionFailed` on your own key reads the same) | *The model provider's content check declined this request. Try different words, or start a new chat if it keeps happening: the words it objects to can be earlier in the conversation.* | *New chat*, *Try again* |
 | `401` (the key was retired elsewhere: a sign-out of every device, a deleted account) | *This sign-in is no longer valid. Sign in again under Settings → nanoMuse Cloud.* The desktop signs itself out at the same time, as it does when `/v1/me` answers 401. | *Sign in* |
 | `403` (the account is disabled, or the relay does not take it) | *This account cannot use nanoMuse Cloud right now.*, with the relay's own words under it | *Open Settings → nanoMuse Cloud* |
-| `429` without the allowance code (too many requests at once, the provider busy) | *Too many requests at once. Wait a moment and try again.*, with the relay's `retry_after` when it sent one | *Try again* |
+| `429` (too many requests at once, the provider busy) | *Too many requests at once. Wait a moment and try again.*, with the relay's `retry_after` when it sent one | *Try again* |
 | `429 daily_cap` (a relay that sets a daily share) | *Today's share of the allowance is used up. It resets tomorrow.*, with the relay's own words under it | *Try again* |
 | `404 model_not_offered` | *nanoMuse Cloud does not offer that model any more.* | *Open Settings → nanoMuse Cloud* |
 | `5xx`, or no answer at all (connection refused, timeout) | *nanoMuse Cloud did not answer.* / *Could not reach nanoMuse Cloud. Check the connection and try again.* | *Try again* |
-| `429 allowance_exhausted` with `paused: true` (relay 0.22: the operator paused the free allowance, [cloud.md](cloud.md#controls)) | the same allowance card, led by *The free allowance is paused on this relay for now, not used up. Your sign-in, your devices and what is left stay as they are.* | the ways on, *Try again* |
 | `503 service_paused` | *nanoMuse Cloud is paused by its operator for now; your sign-in and your data are kept. Try again later.* | *Try again* |
 | `503 sync_paused` | *Conversation sync is paused on this relay for now; what is stored is kept and your devices keep working on their own.* | *Try again* |
 | `503 hub_paused` | *The device hub is paused on this relay for now; each device keeps working on its own.* | *Try again* |
@@ -350,7 +297,7 @@ a timeout on its side into the codes `unreachable` 503 and `timeout` 504).
 
 **The 80 % heads-up.** After a turn on the account's model the host re-reads the account
 (once a minute at most); when the relay says the pool is at 80 %, one dismissible line
-shows above the composer (what is left, the invite bonus, *See the ways*) once per pool
+shows above the composer (what is left, *See the ways*) once per pool
 size, as the phones show it in the chat and the web app above its composer.
 
 **The wait above the composer (1.0.8).** While a chat's turn on the account's model has no
@@ -498,10 +445,10 @@ restarts and across later key updates instead of merging the full `/models` list
 What a row uses when you have not chosen: the provider new chats answer through, when it
 is one of your own and has a model for the job (its catalogue default); else nanoMuse
 Cloud while signed in only when its live menu offers the job; else the first of your
-providers that can. The hosted Cloud offers chat and screen operation, not media
+providers that can. The relay offers chat and screen operation, not media
 generation. The three rows that
 follow this order have *Automatic* as their first entry, with the row saying what it gives
-right now (*Currently nanoMuse Cloud · Qwen/Qwen3.6-27B-FP8* for screen operation, say); pick it to drop a choice you
+right now (*Currently nanoMuse Cloud · halogen-qwen3.8-flash-next* for screen operation, say); pick it to drop a choice you
 made and let the row follow the order again. A chat pick is the default for new chats and
 moves the main chat with it (*Applies to the main chat and to new chats; a side chat keeps
 its model.*); a side chat keeps the model it was given, and the same pick twice writes
@@ -512,8 +459,7 @@ never left on a route no adapter serves, which showed as *no adapter registered 
 provider "custom"* on every new chat in 0.1.41. Pictures through your own key go straight to that provider (Model Studio's
 native image API, OpenRouter's image API, or the OpenAI shape for the rest) and nothing
 is billed to the account; the avatar studio says so in place of the cost line. Clips come
-from Model Studio through your own Bailian key (or a self-hosted relay whose operator
-explicitly enabled its legacy media proxy), never through the public hosted account.
+from Model Studio through your own Bailian key, never through the relay.
 
 After you save a key, a small card asks *Use it for* with a toggle per thing the key can
 handle, all on; *Use it* switches those rows to that provider, *Not now* changes nothing.
@@ -522,13 +468,13 @@ time* while signed in: that one message is sent again through the account and th
 goes back to its model when the turn ends; the Models page stays as it was. *Use it* with
 chat ticked moves the main chat too. Nothing falls
 back on its own. A failed studio round or clip set asks you to fix or choose a provider of
-your own; there is no hosted Cloud media retry.
+your own; there is no relay media retry.
 
 While signed in, the page starts with one switch, *Use nanoMuse Cloud models*. Off, the
 account's models leave every picker and the automatic order, the harness's side calls (a
 chat's title, a compaction) run on the chat row's own model instead, and a chat that still
 sits on a Cloud model is not sent: a card says so and offers another model, a new chat, or
-*Use nanoMuse Cloud this time*, the only thing that spends the allowance while the switch
+*Use nanoMuse Cloud this time*, the only thing that uses the relay's models while the switch
 is off. You stay signed in; sync, your devices and Settings → nanoMuse Cloud keep working.
 Switching off while the chat row is the account's moves that row to your own chat model
 when you have one; when you have none, the switch is refused with one sentence under it and
@@ -544,7 +490,7 @@ to `Programs\nanomuse-desktop`, leaves a link pointing nowhere, and 0.1.39 could
 over it (`EEXIST: file already exists, symlink …` in `desktop.log`). Since 0.1.40 the stale
 link is removed as a link and remade; should that still fail, the message names the path to
 remove by hand. An entry the file system reports as busy, as the installer still holds it
-just after an in-app update, is tried again for about a second before the start is reported
+just after an update, is tried again for about a second before the start is reported
 as failed.
 
 On Windows, read-only and workspace-write PowerShell commands run through DSH's restricted-token

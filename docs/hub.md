@@ -177,7 +177,7 @@ chat somebody is typing in on the computer or in the web console stays where it 
 person is there), a card inside a task another device sent goes back to that device inside the
 call ([above](#what-you-can-say)), and the Python runtime (`nanomuse serve`) pushes nothing yet — its
 scheduled tasks' cards wait in the web app
-([#704](https://github.com/nano-muse/nanoMuse/issues/704)):
+([#704](https://github.com/knsew/nanoMuse/issues/704)):
 
 ```
 → event {to:"*", body:{stage:"approval", approval_id, preview, preview_zh, reason, app,

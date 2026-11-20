@@ -36,7 +36,7 @@ Without cloning, the published image (linux/amd64 and linux/arm64, so a Raspberr
 ```bash
 docker run -d --name muse -p 8787:8787 --env-file .env \
   -v nanomuse-data:/data -v "$PWD/workspace:/workspace" \
-  ghcr.io/nano-muse/nanomuse:latest
+  ghcr.io/knsew/nanomuse:latest
 docker logs muse                          # the URL with the access token
 ```
 
@@ -104,7 +104,7 @@ muse.example.com {
 ```bash
 git pull --ff-only && uv pip install -e ".[dev]"      # source install
 docker compose build && docker compose up -d app       # Docker, built here
-docker pull ghcr.io/nano-muse/nanomuse:latest          # Docker, the published image; then start it again
+docker pull ghcr.io/knsew/nanomuse:latest          # Docker, the published image; then start it again
 ```
 
 Data formats (SQLite, JSONL, JSON) are kept backward compatible within a minor version.

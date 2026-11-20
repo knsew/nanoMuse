@@ -7,7 +7,7 @@
 ## 两棵代码树
 
 - **`android/`**：手机应用。这是用 `git subtree` 引入的 [OpenMinis](https://github.com/OpenMinis/OpenMinis) 1.13 修改副本（GPL-3.0）：Android 应用位于 `android/src/android`，iOS 应用位于 `android/src/ios`。这里沿用上游规则（见下文），以确保这棵子树仍可拉取。
-- **其余部分都是我们的**：Python 运行时（`nanomuse/`）、中继（`cloud/`）、网页控制台（`web/`）、桌面版（`harness/dsh-nanomuse/`，以及 `harness/desktop/` 中的 Electron 外壳）、展示站（`demo/`）、文档（`docs/`，由 `website/` 提供服务）和脚本。这里只使用本文件中的一套约定；[AGENTS.md](AGENTS.md) 给出了各领域的检查命令，[docs/architecture.md](docs/architecture.md) 说明了各部分如何衔接。[docs/roadmap.md](docs/roadmap.md) 说明了哪个版本带来了什么，以及哪些地方需要帮助。
+- **其余部分都是我们的**：Python 运行时（`nanomuse/`）、中继（`cloud/`）、网页控制台（`web/`）、桌面版（`harness/dsh-nanomuse/`，以及 `harness/desktop/` 中的 Electron 外壳）、文档（`docs/`）和脚本。这里只使用本文件中的一套约定；[AGENTS.md](AGENTS.md) 给出了各领域的检查命令，[docs/architecture.md](docs/architecture.md) 说明了各部分如何衔接。[docs/roadmap.md](docs/roadmap.md) 说明了哪个版本带来了什么，以及哪些地方需要帮助。
 
 ## 许可证与签署
 
@@ -51,7 +51,7 @@ python scripts/rebrand.py && python scripts/gen-android-icons.py && python scrip
 ## 在运行时、中继和网页控制台中工作
 
 ```bash
-git clone https://github.com/nano-muse/nanoMuse.git && cd nanoMuse
+git clone https://github.com/knsew/nanoMuse.git && cd nanoMuse
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"            # add ",browser" for the Playwright tool
 nanomuse config init                  # config/config.toml is git-ignored
@@ -67,15 +67,15 @@ cd web && npm run check && npm run build       # if you touched web/; commit the
 cd cloud && pip install -e ".[dev]" && ruff check . && ruff format --check . && pytest   # if you touched the relay
 ```
 
-桌面版、Electron 外壳和文档站各自在 [AGENTS.md](AGENTS.md) 中有对应的检查命令。适用于所有领域的准则：所有会执行动作的操作都必须经过哨兵（Sentinel），并如实标注 `risk`；密钥绝不能传给模型（`{{vault:NAME}}`）；使用 `MockLLM` 测试；仓库中不得出现内部端点或密钥；使用 Ruff，行宽为 100，并添加类型标注；文档也是改动的一部分。
+桌面版和 Electron 外壳各自在 [AGENTS.md](AGENTS.md) 中有对应的检查命令。适用于所有领域的准则：所有会执行动作的操作都必须经过哨兵（Sentinel），并如实标注 `risk`；密钥绝不能传给模型（`{{vault:NAME}}`）；使用 `MockLLM` 测试；仓库中不得出现内部端点或密钥；使用 Ruff，行宽为 100，并添加类型标注；文档也是改动的一部分。
 
 ## 每种语言中的所有字符串
 
-nanoMuse 在多个国家使用，因此用户可见的字符串不能只添加一种语言。先写英文，再写简体中文，然后补齐文件已有的其他所有语言：Android 的 `res/values-*/nm_strings.xml`（键名以 `nm_` 开头；上游的 `strings.xml` 不归我们编辑）、iOS 的 `Localizable.xcstrings`、桌面版 `harness/dsh-nanomuse/src/client/locales.ts` 中的 `en` 和 `zh`，以及 `cloud/` 中的控制台和电子邮件模板。日期、数字和货币使用用户所在地区的格式。不要假定手机号以 +86 开头、应用是中文界面或时区是北京时间：短信验证码只能发到中国大陆手机号，因此登录界面要说明这一点，并提供电子邮件方式。所有语言使用相同的语气（平实、具体，不使用营销词，不使用感叹号），也不要逐字照抄 Meta 自己的界面文案。应用和文档中的新文案不得使用长破折号或短破折号：逗号、冒号、括号或句号就能表达清楚；只有数据中的短横线才会保留（表格中的数字范围、代码示例、引用的日志行）。中文文案要按中文来写，不能逐字照搬英文，并避免使用颠覆、王炸、保姆级、一键和赋能；术语以本文下方的术语表为准。
+nanoMuse 在多个国家使用，因此用户可见的字符串不能只添加一种语言。先写英文，再写简体中文，然后补齐文件已有的其他所有语言：Android 的 `res/values-*/nm_strings.xml`（键名以 `nm_` 开头；上游的 `strings.xml` 不归我们编辑）、iOS 的 `Localizable.xcstrings`、桌面版 `harness/dsh-nanomuse/src/client/locales.ts` 中的 `en` 和 `zh`，以及 `cloud/` 中的控制台和电子邮件模板。日期、数字和货币使用用户所在地区的格式。不要假定手机号以 +86 开头、应用是中文界面或时区是北京时间：登录验证码通过电子邮件发送，登录界面要这样说明。所有语言使用相同的语气（平实、具体，不使用营销词，不使用感叹号），也不要逐字照抄 Meta 自己的界面文案。应用和文档中的新文案不得使用长破折号或短破折号：逗号、冒号、括号或句号就能表达清楚；只有数据中的短横线才会保留（表格中的数字范围、代码示例、引用的日志行）。中文文案要按中文来写，不能逐字照搬英文，并避免使用颠覆、王炸、保姆级、一键和赋能；术语以本文下方的术语表为准。
 
 ## 翻译文档
 
-文档站（nanomuse.cn/docs，由 `website/` 根据 `docs/` 构建）提供英文和简体中文。中文页面位于 `docs/zh/`，**文件名与英文页面相同**（`docs/zh/android.md` 对应 `docs/android.md`），中文导航和侧边栏在 `website/.vitepress/config.mts` 中配置。修改英文页面时，要在同一个 pull request 中更新对应的中文页面；新增英文页面时，要新增中文页面，并在两个侧边栏中都添加条目。`cd website && npm run docs:build` 是两种语言的死链检查。
+文档存放在仓库的 `docs/` 中，提供英文和简体中文。中文页面位于 `docs/zh/`，**文件名与英文页面相同**（`docs/zh/android.md` 对应 `docs/android.md`）。修改英文页面时，要在同一个 pull request 中更新对应的中文页面；新增英文页面时，要新增中文页面。没有文档站。
 
 中文页面的规则：
 
@@ -150,15 +150,14 @@ README、文档页面或发布说明中的每项功能、数字和计数，都�
 
 ## 发布（维护者）
 
-版本号是普通数字（`0.1.41`、`1.0.0`……），因为应用的更新检查会比较它们；每个版本还带一个代号，即一个首字母大写、此前版本从未使用过的英文单词（Foundation、Identity、Home……Helm、Compass；名单见 `CHANGELOG.md`），标题为 `nanoMuse <version> · <Codename>`。各应用、运行时、网页控制台和桌面版共用一个版本号；中继有自己的版本号（`cloud/pyproject.toml`），只有发生改动时才更新。版本号只在发布提交中变更，其他时候不变。
+版本号是普通数字（`0.1.41`、`1.0.0`……）；每个版本还带一个代号，即一个首字母大写、此前版本从未使用过的英文单词（Foundation、Identity、Home……Helm、Compass；名单见 `CHANGELOG.md`），标题为 `nanoMuse <version> · <Codename>`。各应用、运行时、网页控制台和桌面版共用一个版本号；中继有自己的版本号（`cloud/pyproject.toml`），只有发生改动时才更新。版本号只在发布提交中变更，其他时候不变。
 
 当人们等待的修复（崩溃、安全问题、无法安装的应用）进入 `main` 后，就尽快发布；其他情况下每隔几天发布一次，前提是 *Unreleased* 中已有值得发布的内容。发布物包括：APK、TestFlight 构建、Windows、macOS 和 Linux 桌面安装包、harness tarball 和 Docker 镜像；不提供终端安装构建，也不发布预发布版，所有版本都标记为 *Latest*。打标签前，维护者要在手机上安装即将发布的构建，并走一遍主要流程。
 
-1. **发布提交** `build(release): <version> <Codename>`，使用独立分支和 pull request。`scripts/release-bump.sh <old> <new> <old-code> <new-code> [<relay-old> <relay-new>]` 会更新所有版本文件（`pyproject.toml`、`nanomuse/__init__.py`、`CITATION.cff`、`web/package.json`、`harness/*/package.json` 两个文件及其锁文件、中继控制台的 `VERSION`、`scripts/rebrand.py` 中的 `VERSION_NAME`/`VERSION_CODE`；只有每个文件仍带着旧版本号时脚本才会写入，`--check` 会单独执行这项检查）；然后 `python scripts/rebrand.py` 写入 Android 的 `versionName`/`versionCode` 和 iOS 的 `MARKETING_VERSION`（第二次运行必须输出 `clean`）。`scripts/release-docs.py <old> <new> <OldName> <NewName> <date>` 会在 `CHANGELOG.md` 的 *Unreleased* 下建立该版本的区块，把 `README.md`、`docs/readme/*`、`docs/index.md` 和 `docs/zh/index.md` 中的下载链接更新到新标签，把 issue 表单（`.github/ISSUE_TEMPLATE/*.yml`）中的示例版本更新为新版本和 `versionCode`，把代号加入发布说明模板中的名单；如果带上 `--roadmap "<one line>" --roadmap-zh "<一句话>"`，它还会把该版本的行添加到 `docs/roadmap.md` 和 `docs/zh/roadmap.md` 过往版本表的末尾；*News* 列表保持原样，因为这些行是里程碑，会永久保留日期、版本和文字（`--dry-run` 会显示每个列表的前三行而不写入，脚本还会说明本次发布是否需要添加 News 行）。需要手工处理的内容包括：`CHANGELOG.md` 区块的首段，以及为下一个 *Unreleased* 保留空的 `### Cloud / Runtime / Web / Desktop / Android / iOS / Project` 标题；根据 [docs/release-notes-template.md](docs/release-notes-template.md) 编写 `docs/releases/v<version>.md`（一段短故事、*Highlights*、*Upgrade Notes*、*Community*，先英文，再在折叠区块中放同样的中文内容，所有链接都要检查）；如果本次发布是里程碑，就在 *News* 列表中添加一行，主版本（`x.0.0`）总是里程碑，较小的版本不是（一句话，大约一行，日期用行内代码，一个 emoji，放在列表最前面；同样的内容添加到十份 README 和首页；之前版本的行保持不变）；如果脚本运行时没有带 `--roadmap`，还要手工添加 `docs/roadmap.md` 和 `docs/zh/roadmap.md` 中的过往版本行；检查 `docs/parity.md` 中是否有“下一个版本”单元格；运行 `scripts/readme-contributors.py`，让十份 README 中的 *Community Contributors* 头像保持最新（`--check` 会说明它们是否最新）。针对改动内容运行检查（[AGENTS.md](AGENTS.md)；`scripts/rebrand.py` → `clean`、`connectors-json.mjs --check`、`providers-json.mjs --check`、`cd website && npm run docs:build`）；改动 `android/src/ios/` 时，*iOS · build check* 工作流会在 pull request 上运行，否则可以从 Actions 标签页手动启动。检查通过后合并；`M` 是合并提交。
-2. **APK 和 GitHub 发布。** 在 `M` 上运行 `scripts/release-apk.sh <version>`，构建发布 APK，验证签名并写入 sha256；运行 `scripts/release-apk.sh <version> --publish-only --target M` 会在 `M` 上创建标签 `v<version>` 并创建发布（标记为 Latest；脚本还提供 `--prerelease`，但项目不使用），正文为 `docs/releases/v<version>.md`。`scripts/release_notes.py` 会根据上一个标签以来合并的 pull request 填入 *What's Changed*、*New Contributors*、*Contributors* 和 *Full Changelog* 链接（`scripts/release_notes.py <version>` 会显示即将发布的正文；失败时不会发布任何内容，修复原因后再次执行同样的 `--publish-only --target M` 命令即可继续）。标签会启动桌面版、harness、Docker 和测试工作流；桌面安装包、它们的 `SHA256SUMS-desktop.txt`、Windows 更新元数据（`latest.yml` 和安装包的 `.exe.blockmap`，供应用内更新使用）、harness tarball 及其 `SHA256SUMS-harness.txt` 会在 CI 完成时附加到发布中（某个桌面平台失败不会拖住其他平台：其他平台的安装包仍会附加，`SHA256SUMS-desktop.txt` 只列出这些安装包，但工作流最终会显示失败；平台问题修复后，在 *Actions → desktop app → Run workflow* 中把 `release_tag` 设为该标签，从仍带有该版本号的 `harness/desktop/package.json` 提交重新构建全部四个平台并替换整组产物）；Docker 镜像会以 `<version>`、`<major.minor>` 和 `latest` 推送到 `ghcr.io/nano-muse/nanomuse`。宣布发布前，所有工作流都必须通过。所有版本使用同一个签名密钥，这样更新可以覆盖安装上一个版本；该密钥不在仓库中，也不在 CI 中。
-3. **中继**：版本号变更后，在 `M` 的检出目录中运行 `cloud/deploy/nanomuse-hk/deploy.sh`；`/healthz` 必须返回新版本号。
+1. **发布提交** `build(release): <version> <Codename>`，使用独立分支和 pull request。`scripts/release-bump.sh <old> <new> <old-code> <new-code> [<relay-old> <relay-new>]` 会更新所有版本文件（`pyproject.toml`、`nanomuse/__init__.py`、`CITATION.cff`、`web/package.json`、`harness/*/package.json` 两个文件及其锁文件、中继控制台的 `VERSION`、`scripts/rebrand.py` 中的 `VERSION_NAME`/`VERSION_CODE`；只有每个文件仍带着旧版本号时脚本才会写入，`--check` 会单独执行这项检查）；然后 `python scripts/rebrand.py` 写入 Android 的 `versionName`/`versionCode` 和 iOS 的 `MARKETING_VERSION`（第二次运行必须输出 `clean`）。`scripts/release-docs.py <old> <new> <OldName> <NewName> <date>` 会在 `CHANGELOG.md` 的 *Unreleased* 下建立该版本的区块，把 `README.md`、`docs/readme/*`、`docs/index.md` 和 `docs/zh/index.md` 中的下载链接更新到新标签，把 issue 表单（`.github/ISSUE_TEMPLATE/*.yml`）中的示例版本更新为新版本和 `versionCode`，把代号加入发布说明模板中的名单；如果带上 `--roadmap "<one line>" --roadmap-zh "<一句话>"`，它还会把该版本的行添加到 `docs/roadmap.md` 和 `docs/zh/roadmap.md` 过往版本表的末尾；*News* 列表保持原样，因为这些行是里程碑，会永久保留日期、版本和文字（`--dry-run` 会显示每个列表的前三行而不写入，脚本还会说明本次发布是否需要添加 News 行）。需要手工处理的内容包括：`CHANGELOG.md` 区块的首段，以及为下一个 *Unreleased* 保留空的 `### Cloud / Runtime / Web / Desktop / Android / iOS / Project` 标题；根据 [docs/release-notes-template.md](docs/release-notes-template.md) 编写 `docs/releases/v<version>.md`（一段短故事、*Highlights*、*Upgrade Notes*、*Community*，先英文，再在折叠区块中放同样的中文内容，所有链接都要检查）；如果本次发布是里程碑，就在 *News* 列表中添加一行，主版本（`x.0.0`）总是里程碑，较小的版本不是（一句话，大约一行，日期用行内代码，一个 emoji，放在列表最前面；同样的内容添加到十份 README；之前版本的行保持不变）；如果脚本运行时没有带 `--roadmap`，还要手工添加 `docs/roadmap.md` 和 `docs/zh/roadmap.md` 中的过往版本行；检查 `docs/parity.md` 中是否有“下一个版本”单元格；运行 `scripts/readme-contributors.py`，让十份 README 中的 *Community Contributors* 头像保持最新（`--check` 会说明它们是否最新）。针对改动内容运行检查（[AGENTS.md](AGENTS.md)；`scripts/rebrand.py` → `clean`、`connectors-json.mjs --check`、`providers-json.mjs --check`）；改动 `android/src/ios/` 时，*iOS · build check* 工作流会在 pull request 上运行，否则可以从 Actions 标签页手动启动。检查通过后合并；`M` 是合并提交。
+2. **APK 和 GitHub 发布。** 在 `M` 上运行 `scripts/release-apk.sh <version>`，构建发布 APK，验证签名并写入 sha256；运行 `scripts/release-apk.sh <version> --publish-only --target M` 会在 `M` 上创建标签 `v<version>` 并创建发布（标记为 Latest；脚本还提供 `--prerelease`，但项目不使用），正文为 `docs/releases/v<version>.md`。`scripts/release_notes.py` 会根据上一个标签以来合并的 pull request 填入 *What's Changed*、*New Contributors*、*Contributors* 和 *Full Changelog* 链接（`scripts/release_notes.py <version>` 会显示即将发布的正文；失败时不会发布任何内容，修复原因后再次执行同样的 `--publish-only --target M` 命令即可继续）。标签会启动桌面版、harness、Docker 和测试工作流；桌面安装包、它们的 `SHA256SUMS-desktop.txt`、harness tarball 及其 `SHA256SUMS-harness.txt` 会在 CI 完成时附加到发布中（某个桌面平台失败不会拖住其他平台：其他平台的安装包仍会附加，`SHA256SUMS-desktop.txt` 只列出这些安装包，但工作流最终会显示失败；平台问题修复后，在 *Actions → desktop app → Run workflow* 中把 `release_tag` 设为该标签，从仍带有该版本号的 `harness/desktop/package.json` 提交重新构建全部四个平台并替换整组产物）；Docker 镜像会以 `<version>`、`<major.minor>` 和 `latest` 推送到 `ghcr.io/knsew/nanomuse`。宣布发布前，所有工作流都必须通过。所有版本使用同一个签名密钥，这样更新可以覆盖安装上一个版本；该密钥不在仓库中，也不在 CI 中。
+3. **中继**：版本号变更后，在 `M` 的检出目录中部署；`/healthz` 必须返回新版本号。
 4. **TestFlight。** 维护者手动运行 *iOS · TestFlight* 工作流时（`gh workflow run "iOS · TestFlight" --ref main`，或推送 `ios-*` 标签；该工作流不会自行运行），它会构建并上传；构建号就是运行号。App Store Connect 显示处理完成后，外部测试组要等 Apple 的 beta 审核通过才会收到；`docs/releases/v<version>.md` 中要写明构建号。详情见 [docs/ios.md](docs/ios.md)。
-5. **文档站和首页**（[nano-muse/nano-muse.github.io](https://github.com/nano-muse/nano-muse.github.io)，推送到 `main` 后一分钟内上线到 nanomuse.cn）：运行 `cd website && DOCS_BASE=/docs/ npm run docs:build`，再把 `.vitepress/dist/` 复制到站点的 `docs/`；在 `index.html` 中更新两种语言的版本行、所有下载链接和 `nanomuse.cn/dl/v<version>/` 镜像链接、Docker 标签，以及 *News* 列表：内容与 README 相同，顺序也相同，两种语言都要更新（只有里程碑版本才新增一行，规则同上；已有内容不重写、不删除）。下载镜像会在发布后十五分钟内自动补齐。
 
 只修复文档的发布可以直接提交到 `main`；如果发布说明有误（构建号或链接错误），通过一个小 pull request 修正，绝不重写历史。
 

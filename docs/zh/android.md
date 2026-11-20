@@ -12,17 +12,17 @@
 
 沙箱的 offload 抽象套接字用于 proot 与 App 通信，也采用专用名称 `io.github.nanomuse.app.native-offload`，而非上游的 `native-offload`。抽象套接字名称在整台设备共享，同名会让后启动的 App 失败。如果专用名称仍被 nanoMuse 的旧进程占用，服务端会改用带进程标识的名称，并通知 proot，见 `io.github.nanomuse.sandbox.OffloadSocketName`。相关选择见 [roadmap.md](roadmap.md)。早期 WebView 包装 Python 服务、提供两种 APK 的方案只作为历史记录保存在 [archive/android-python-line.md](../archive/android-python-line.md)，当前下载版本不再采用。
 
-每个版本只提供 `nanoMuse-<version>-arm64.apk`，适用于 arm64-v8a、Android 8.0 / API 26 及以上，`targetSdk` 为 35。各版本使用同一签名密钥，新 APK 可覆盖安装并保留数据。App 未上架 Play 商店。设置 → 版本 会对照已安装版本和最新版，先查询 `nanomuse.cn/dl/index.json`，再查询仓库 GitHub Releases，显示「最新 0.1.x，你用的就是它」或「0.1.x 已发布，点此更新」，并提供下载。
+每个版本只提供 `nanoMuse-<version>-arm64.apk`，适用于 arm64-v8a、Android 8.0 / API 26 及以上，`targetSdk` 为 35。各版本使用同一签名密钥，新 APK 可覆盖安装并保留数据。App 未上架 Play 商店。设置 → 版本显示已安装版本。没有更新检查：新版本需要从 fork 的 GitHub Releases 页手动下载 APK 安装。
 
 ## 安装 {#install}
 
-1. 从[最新版本](https://github.com/nano-muse/nanoMuse/releases/latest)下载 `nanoMuse-<version>-arm64.apk`。如需校验文件完整性，执行 `sha256sum -c nanoMuse-<version>-arm64.apk.sha256`。
+1. 从[最新版本](https://github.com/knsew/nanoMuse/releases/latest)下载 `nanoMuse-<version>-arm64.apk`。如需校验文件完整性，执行 `sha256sum -c nanoMuse-<version>-arm64.apk.sha256`。
 2. 打开 APK，按 Android 提示允许浏览器或文件管理器安装应用，只需授权一次。
-3. **登录并选择模型**。 首屏可用手机号或邮箱接收验证码，设置过密码后也可用密码。账号用于设备互联，见 [hub.md](hub.md)，并提供起始模型及免费额度。写本文时每账号为 ¥10，邀请朋友注册并完成首次请求后，双方还会获得额度；具体数字以 App 显示的中继数据为准。详见 [cloud.md](cloud.md)，之后也可[使用自己的 key](own-key.md)。key 是调用模型服务的密钥。回答模型可使用账号模型、自有 key 对应的 OpenAI 兼容端点，或 App 内置的 OAuth 登录。端点是接收请求的服务地址，OAuth 是不用向 App 提供密码的授权登录流程。
+3. **登录并选择模型**。 首屏可用邮箱接收验证码，设置过密码后也可用密码。账号用于设备互联，见 [hub.md](hub.md)，并提供起始模型及免费额度。写本文时每账号为 ¥10；具体数字以 App 显示的中继数据为准。详见 [cloud.md](cloud.md)，之后也可[使用自己的 key](own-key.md)。key 是调用模型服务的密钥。回答模型可使用账号模型、自有 key 对应的 OpenAI 兼容端点，或 App 内置的 OAuth 登录。端点是接收请求的服务地址，OAuth 是不用向 App 提供密码的授权登录流程。
 
-   设置 → 模型 从设置顶部卡片进入，集中配置四种任务：「对话」「操作屏幕」「生成图片」「生成视频」。对话模型与你聊天，屏幕模型读取截图并决定动作。项目托管账号为前两项推荐同一个多模态模型 `Qwen/Qwen3.6-27B-FP8`，不生成图片或视频。每行显示「服务商 · 模型」，选择器只列出适合该任务的模型。已登录时，只有中继实际提供该能力的行才首先显示 nanoMuse Cloud，之后各自有服务商分别成组。
+   设置 → 模型 从设置顶部卡片进入，集中配置四种任务：「对话」「操作屏幕」「生成图片」「生成视频」。对话模型与你聊天，屏幕模型读取截图并决定动作。账号为前两项推荐同一个多模态模型 `halogen-qwen3.8-flash-next`，不生成图片或视频。每行显示「服务商 · 模型」，选择器只列出适合该任务的模型。已登录时，只有中继实际提供该能力的行才首先显示 nanoMuse Cloud，之后各自有服务商分别成组。
 
-   每组先显示 8 个模型，顺序为该任务的目录默认模型、当前模型、服务商列表中的其他模型，点「还有 N 个」展开。总数超过 8 个时，可在「搜索模型」按 id 或名称实时筛选所有组，没有结果会显示「没有匹配的模型」。旋转屏幕，或前往「添加服务商」再返回，搜索和展开状态都保留。在此页或聊天 `•••` 菜单更换对话模型，会更新主要聊天及新对话默认值，已有旁聊沿用原模型，提示为「对主要聊天和新对话生效；旁聊保留自己的模型。」其他三项首先提供「自动」，例如屏幕项显示「当前为 nanoMuse Cloud · Qwen/Qwen3.6-27B-FP8」，选中会清除该项显式选择，重新按后文顺序解析。
+   每组先显示 8 个模型，顺序为该任务的目录默认模型、当前模型、服务商列表中的其他模型，点「还有 N 个」展开。总数超过 8 个时，可在「搜索模型」按 id 或名称实时筛选所有组，没有结果会显示「没有匹配的模型」。旋转屏幕，或前往「添加服务商」再返回，搜索和展开状态都保留。在此页或聊天 `•••` 菜单更换对话模型，会更新主要聊天及新对话默认值，已有旁聊沿用原模型，提示为「对主要聊天和新对话生效；旁聊保留自己的模型。」其他三项首先提供「自动」，例如屏幕项显示「当前为 nanoMuse Cloud · halogen-qwen3.8-flash-next」，选中会清除该项显式选择，重新按后文顺序解析。
 
    已登录时，模型页顶部提供「使用 nanoMuse Cloud 模型」。关闭后，Cloud 会从全部选择器与自动顺序移除，标题、记忆、屏幕操作等辅助请求也不再使用它。只有错误卡片上的「这次改用 nanoMuse Cloud」能对单轮使用它，账号仍保持登录，同步和设备互联照常工作。如果当前对话用的是账号模型，会改用第一个自有对话服务商的目录默认模型，并提示「对主要聊天和新对话生效」。没有任何自有对话模型时不能关闭，开关保持开启，下方说明「先添加一个自己的服务商；关掉 nanoMuse Cloud 后没有别的模型能回答。」
 
@@ -31,9 +31,9 @@
 
 **选择自有 key 的用途**。 新建自有服务商，或为原本没有 key 的服务商补上 key 后，会显示「用它来做什么」卡片。目录中的每种能力各有一个开关，包括对话、操作屏幕、生成图片、生成视频，默认全开。「就这样」将勾选项改为该服务商，使用 `providers.json` 中的 `defaults.chat` 等对应默认模型；默认模型不在列表时，选第一个符合该任务的模型。「暂不」以及关闭的开关都不修改配置，其他模型选择保留。以后可在模型页调整。
 
-**未明确选择时的顺序**。 对话在登录后使用中继推荐模型，未登录则使用第一个自有服务商。屏幕、图片、视频先使用自有对话服务商支持的对应能力及目录默认模型；否则使用登录后中继实际菜单提供的对应模型；再否则选第一个支持该能力的自有服务商。项目托管 Cloud 只支持对话和屏幕操作。显式选择始终优先，Cloud 不会覆盖。自有模型失败时不会自行切换，已登录用户的错误卡片会提供「这次改用 nanoMuse Cloud」，点击后只用中继对话模型重跑当前对话或屏幕请求，不修改设置。图片和视频失败没有 Cloud 重试，须修复或更换自己的媒体服务商。
+**未明确选择时的顺序**。 对话在登录后使用中继推荐模型，未登录则使用第一个自有服务商。屏幕、图片、视频先使用自有对话服务商支持的对应能力及目录默认模型；否则使用登录后中继实际菜单提供的对应模型；再否则选第一个支持该能力的自有服务商。中继只支持对话和屏幕操作。显式选择始终优先，Cloud 不会覆盖。自有模型失败时不会自行切换，已登录用户的错误卡片会提供「这次改用 nanoMuse Cloud」，点击后只用中继对话模型重跑当前对话或屏幕请求，不修改设置。图片和视频失败没有 Cloud 重试，须修复或更换自己的媒体服务商。
 
-**使用自己部署的中继**。 默认登录 nanoMuse Cloud，也可在登录表单下选「使用其他服务器」，填写自建中继地址，见 [cloud.md](cloud.md) 和 `cloud/docker-compose.yml`。「检查」会请求 `/healthz` 并显示版本，「使用这个服务器」保存地址，重启后仍有效。自有网络之外必须使用 `https://`；局域网可用明文 `http://`，判断规则与模型地址相同：先解析私有地址，或识别 `localhost`、无点主机名，以及 `.local`、`.lan`、`.home`、`.internal`、`.home.arpa`、`.localdomain`、`.ts.net` 后缀。设置 → 账号 会显示「服务器：`<host>`」和「更改」。更改前会退出登录，因为当前 key 只属于签发它的服务器。登录、hub、同步、用量、模型菜单等账号请求都会发往选定地址。
+**使用自己部署的中继**。 登录表单要求填写中继地址，也可在登录表单下选「使用其他服务器」，填写自建中继地址，见 [cloud.md](cloud.md) 和 `cloud/docker-compose.yml`。「检查」会请求 `/healthz` 并显示版本，「使用这个服务器」保存地址，重启后仍有效。自有网络之外必须使用 `https://`；局域网可用明文 `http://`，判断规则与模型地址相同：先解析私有地址，或识别 `localhost`、无点主机名，以及 `.local`、`.lan`、`.home`、`.internal`、`.home.arpa`、`.localdomain`、`.ts.net` 后缀。设置 → 账号 会显示「服务器：`<host>`」和「更改」。更改前会退出登录，因为当前 key 只属于签发它的服务器。登录、hub、同步、用量、模型菜单等账号请求都会发往选定地址。
 
 ## 手机能做什么 {#what-the-phone-does}
 
@@ -67,7 +67,7 @@ Shell 进度更新若把较长内容改为较短文字，会保留未被覆盖�
 | **Reach**（`reach/`） | 从手机调用电脑的 shell、文件、屏幕，或将完整任务交给电脑的 nanoMuse。电脑安装桌面版并登录同一账号后，数秒内出现在 账号 → 设备，跨网络也可连接。0.1.24 起仅通过 hub 连接，原局域网 host 脚本已移除。设置 → 电脑 显示账号下电脑及手机当前账号，找不到电脑时通常是两端账号不同。请求发出前先在手机完成审批，见 [every-device.md](every-device.md)。 |
 | **hub（设备互联）**（`hub/`） | 同一账号所有已登录设备经中继连接。手机可查看电脑、发送任务、接收审批卡片，也可接受电脑请求。Android 前台服务使 App 进入后台后仍可连接，Android 13 及以上会为此请求通知权限，见 [hub.md](hub.md)。 |
 | **编程助手**（`ui/coding/`） | 在手机上查看、引导电脑中的 Cursor、Codex、Claude Code 会话，见 [coding-agents.md](coding-agents.md)。 |
-| **账号**（`ui/cloud/`） | 查看当前账号、密码、持有登录 key 的设备，以及按类型、模型分类的用量，并管理退出。额度耗尽或已用超过 80 % 时，账号页和失败轮次会列出自有 key、已付费套餐、邀请三类方式。服务商按地区排列：中国大陆优先百炼，依据简体中文界面、手机号登录或中继地区信息判断，其他地区优先 OpenRouter、OpenAI，各有能力说明。套餐包括 ChatGPT、Claude、Kimi、OpenRouter，详见[自己的 key](#your-own-key)。手机只显示和同步当前账号聊天。0.1.40 起，无论是否同步，每个聊天都有归属。退出时「在这台设备上保留这个账号的聊天」默认关，关闭会移除账号聊天、记忆、动态、目标、例程和形象，开启则单独保存，等待重新登录。删除账号会全部删除；`401 bad_key` 按保留处理，并在登录页持续提示；只有 `401 account_deleted` 直接删除。未登录时只显示未登录期间创建的聊天，见 [sync.md](sync.md)。 |
+| **账号**（`ui/cloud/`） | 查看当前账号、密码、持有登录 key 的设备，以及按类型、模型分类的用量，并管理退出。额度已用超过 80 % 时，账号页会列出自有 key、已付费套餐两类方式。服务商按地区排列：中国大陆优先百炼，依据简体中文界面、手机号登录或中继地区信息判断，其他地区优先 OpenRouter、OpenAI，各有能力说明。套餐包括 ChatGPT、Claude、Kimi、OpenRouter，详见[自己的 key](#your-own-key)。额度不会耗尽：中继不会因为额度不足拒绝请求。手机只显示和同步当前账号聊天。0.1.40 起，无论是否同步，每个聊天都有归属。退出时「在这台设备上保留这个账号的聊天」默认关，关闭会移除账号聊天、记忆、动态、目标、例程和形象，开启则单独保存，等待重新登录。删除账号会全部删除；`401 bad_key` 按保留处理，并在登录页持续提示；只有 `401 account_deleted` 直接删除。未登录时只显示未登录期间创建的聊天，见 [sync.md](sync.md)。 |
 | **接手浏览器**（`browser/`） | 登录、验证码、付款、人机验证等必须你亲自完成时，`browser_use` 的 `hand_over` 会在浏览器面板打开智能体原标签页，保留同一 WebView 和会话，智能体暂停。输入框上方「轮到你了」卡片说明所需操作，提供「打开页面」「完成，继续」，浏览器面板显示相同提示、按钮。工具等待「完成」，最长十五分钟，随后从页面现状继续。实现为 `io.github.nanomuse.browser.BrowserHandOver`。 |
 | **连接器**（`connectors/`、`ui/connectors/`） | 用于接入 Notion、Linear、GitHub、GitLab、Slack、Stripe、Miro 等服务。复用桌面版 76 个远程 MCP 服务器目录，打包为 `assets/nanomuse/connectors.json`。设置统一入口为「连接器」，页面末尾「你自己的服务器」进入上游 MCP 编辑器，可按地址、命令或导入 JSON 管理。公开服务点选即可加入，需要 key 则填写，OAuth 服务执行发现、动态客户端注册、Custom Tab 内 PKCE 验证。令牌写入条目 `Authorization` 头供沙箱 MCP 客户端使用，启动时刷新。GitHub、Slack、Discord、HubSpot、Render、Bitrise、PagerDuty、Box 等不支持动态注册的服务标记 `clientIdRequired`，需要你在厂商开发页创建 OAuth client ID，并按服务商要求填写 client secret，面板会显示并允许复制 App 回调地址。连接结果是相同 id 的 MCP 条目，也可在自有服务器编辑器管理。连接清单经中继 profile 共享给其他设备，只含 id、名称、地址、认证方式、来源设备、时间，不含令牌。页面「在你的其他设备上」显示如「已在 <device> 上连接，在这里登录即可在这台手机上使用」，点开同一配置面板。 |
 | **聊天中的进度** | 智能体工作时，形象下方说明当前步骤，例如「nanoMuse 正在用 Shell」「正在写回复」「在做了：订餐桌」，不写情绪。0.1.37 起，工具标签、电脑面板、浮动步骤条默认开启，可在 设置 → 外观 →「显示智能体的步骤」关闭。完成后标签显示如「nanoMuse 用过 Shell · 完成」，点 ×、滑动或返回均可关闭面板。 |
@@ -92,23 +92,23 @@ Shell 进度更新若把较长内容改为较短文字，会保留未被覆盖�
 
 服务商信息保存在 `assets/nanomuse/providers.json`，它由 `node scripts/providers-json.mjs` 从运行时的 `nanomuse/llm/providers.json` 生成，各客户端共用同一目录，见 [own-key.md](own-key.md)。每项包括端点、key 创建页、登录方式、可注册地区 `cn` / `global`，以及模型能力 `chat`、`vision`（看屏幕）、`image`（图片）、`video`（短视频）。
 
-**额度提示卡片**。 额度接近用尽或已用尽时，「使用自己的模型 key」按地区排列目录：中国大陆先列阿里云百炼，它只接受大陆身份注册，一个 key 支持四种任务；其他地区先列 OpenRouter 和 OpenAI。其余服务商在「更多服务商」后每次展开三家。各行说明「聊天 · 屏幕 · 图片 · 短视频」等能力；「添加」打开预填名称、端点和 `/v1` 设置的表单，路径为 `minis://settings/providers/add?preset=<id>`；「获取 key」打开厂商页面。卡片不单独背书某一家。
+**额度提示卡片**。 额度已用超过 80 % 时，「使用自己的模型 key」按地区排列目录：中国大陆先列阿里云百炼，它只接受大陆身份注册，一个 key 支持四种任务；其他地区先列 OpenRouter 和 OpenAI。其余服务商在「更多服务商」后每次展开三家。各行说明「聊天 · 屏幕 · 图片 · 短视频」等能力；「添加」打开预填名称、端点和 `/v1` 设置的表单，路径为 `minis://settings/providers/add?preset=<id>`；「获取 key」打开厂商页面。卡片不单独背书某一家。
 
 「你已经在付费的套餐」列出 ChatGPT、Claude、Kimi、OpenRouter。ChatGPT 使用 Codex OAuth，Kimi 使用设备码。「登录」通过 `?preset=<id>:oauth` 打开对应表单，调用 OpenMinis 的 `OpenAIOAuthManager`、`ClaudeOAuthManager`、`KimiOAuthManager`、`OpenRouterOAuthManager`。ChatGPT 行说明：OpenAI 条款只允许套餐用于自家 Codex，其他 App 曾被停止访问，例如 2026 年 1 月 OpenCode，失效后仍可改用 API key。Anthropic、Gemini 使用各自原生服务商类型，其余采用 OpenAI 兼容表单。
 
 Claude 登录要求每次请求开头包含 Anthropic 规定的标识，该值在构建时读取 `app/provider-customization.properties`。此文件不在仓库，发布 APK 也不包含该标识。缺少它的构建不会在额度卡片或「添加服务商」显示 Claude 登录，`?preset=anthropic:oauth` 会打开 key 表单。旧构建保存的 Claude 登录在发送时会提示「这个版本不能用 Claude 账号登录。请改用 API key 添加 Anthropic。」，不会使 App 退出，代码见 `io.github.nanomuse.cloud.ClaudeSignIn`。
 
-**选项列表的来源**。 中继 0.21 起，`/v1/me` 通过 `spend.guidance` 返回地区服务商顺序、各能力、可登录套餐及适用客户端、本地服务、文档链接和 ChatGPT 条款说明，见 [cloud.md](cloud.md)。`cloud/Guidance.kt` 解析，`Ways.resolve` 优先采用。卡片和 设置 → nanoMuse Cloud 只在旧中继没有返回时使用打包目录，因此中继新增服务商无需等待 App 更新，移除也会当天生效。`429 allowance_exhausted` 会在用量数据旁返回同一结构。
+**选项列表的来源**。 卡片读取打包目录（`assets/nanomuse/providers.json`）：按地区排列的服务商顺序、各能力、可登录套餐及适用客户端、本地服务、文档链接和 ChatGPT 条款说明。中继以前通过 `/v1/me` 的 `spend.guidance` 发送同样列表（中继 0.21，见 [cloud.md](cloud.md)），现在不再发送，因此 `cloud/Guidance.kt` 和 `Ways.resolve` 回退到打包目录。
 
 **按能力提供功能**。 `cloud/Capabilities.kt` 决定候选来源：设置 → 模型 → 生成图片、形象工作室及 `nanomuse-media image` 只选支持 `image` 的厂商；视频只选支持 `video` 且 App 已接入其 API 的厂商，目前为百炼；屏幕选择器只列支持 `vision` 的模型。Codex 登录的 ChatGPT 仅支持对话和视觉，不提供图片、视频接口，不列入绘图来源。目录未识别的网关、自建中继、nanoMuse Cloud 继续按模型自己声明的能力判断。没有配置对应能力时，页面说明「画图需要有图像模型的服务商：百炼、OpenAI、Gemini 或 OpenRouter。」，不直接报错。
 
-**检查 key 可用的视频模型**。 百炼 `/models` 不列视频模型，App 会用不计费的空任务逐个探测 `VideoGen.KNOWN_DASHSCOPE_MODELS` 中本版本已知模型，先探测万相 2.2 Flash，结果缓存一天。「视频」选择器除探测结果外，也保留你手动列入该服务商的模型：名称含 `t2v`、`i2v` 等视频标识，或详情输出模态包含 `video`，都按原样列出，不以探测成功为前提。手动新增模型或升级后已知模型列表变化，会立即重新探测，无需等满一天。「图像与视频模型」仍允许手填任意模型 ID，见 [#508](https://github.com/nano-muse/nanoMuse/issues/508)。
+**检查 key 可用的视频模型**。 百炼 `/models` 不列视频模型，App 会用不计费的空任务逐个探测 `VideoGen.KNOWN_DASHSCOPE_MODELS` 中本版本已知模型，先探测万相 2.2 Flash，结果缓存一天。「视频」选择器除探测结果外，也保留你手动列入该服务商的模型：名称含 `t2v`、`i2v` 等视频标识，或详情输出模态包含 `video`，都按原样列出，不以探测成功为前提。手动新增模型或升级后已知模型列表变化，会立即重新探测，无需等满一天。「图像与视频模型」仍允许手填任意模型 ID，见 [#508](https://github.com/knsew/nanoMuse/issues/508)。
 
 形象工作室开始新一轮候选图生成时，会替换上一组。旧请求稍后完成或失败，都不会再改动新组的图片格和文件。「重新生成」立即发起新请求，不必等待旧图保存完成。
 
-**无法连接服务商**。 `net/ProviderReach.kt`、`ui/chat/ProviderReachCard.kt` 会把连接失败显示为说明卡片，而非红色错误横幅。可识别 OkHttp 的 `failed to connect to chatgpt.com/… (port 443)`、`Unable to resolve host`、TLS 或超时错误，以及 OpenAI 的地区不支持。卡片说明情况，建议使用本机 VPN、设置 → 网络 的代理或其他自有 key 服务商，并提供「重试」，原错误放在「详情」。上游 `mapHttpError` 会丢弃 401/403/429 响应体，`ReachSignal` 通过 `OpenAIProvider` 的一处 `// nanoMuse:` 改动短暂保留，再以 `nm_reach:` 标准行写入消息，因此登录过期能显示「重新登录」，套餐时间段额度用尽能显示「ChatGPT 套餐暂时没有剩余了」、OpenAI 原因及恢复时间。普通 key 的「Invalid API key」保持上游处理。中继 `daily_cap` 429 与 `allowance_exhausted` 一样进入额度卡片，说明今日份额已用完，次日恢复。卡片也列出本机模型方案，包括电脑上的 Ollama、LM Studio、vLLM；已登录时还列出你的电脑，聊天输入 `@` 加设备名即可交给它执行。
+**无法连接服务商**。 `net/ProviderReach.kt`、`ui/chat/ProviderReachCard.kt` 会把连接失败显示为说明卡片，而非红色错误横幅。可识别 OkHttp 的 `failed to connect to chatgpt.com/… (port 443)`、`Unable to resolve host`、TLS 或超时错误，以及 OpenAI 的地区不支持。卡片说明情况，建议使用本机 VPN、设置 → 网络 的代理或其他自有 key 服务商，并提供「重试」，原错误放在「详情」。上游 `mapHttpError` 会丢弃 401/403/429 响应体，`ReachSignal` 通过 `OpenAIProvider` 的一处 `// nanoMuse:` 改动短暂保留，再以 `nm_reach:` 标准行写入消息，因此登录过期能显示「重新登录」，套餐时间段额度用尽能显示「ChatGPT 套餐暂时没有剩余了」、OpenAI 原因及恢复时间。普通 key 的「Invalid API key」保持上游处理。中继 `daily_cap` 429 进入额度卡片，说明今日份额已用完，次日恢复。卡片也列出本机模型方案，包括电脑上的 Ollama、LM Studio、vLLM；已登录时还列出你的电脑，聊天输入 `@` 加设备名即可交给它执行。
 
-**中继拒绝请求**。 `cloud/RelayRefusal.kt` 和 `ui/chat/RelayRefusalCard.kt` 用手机当前语言显示具体说明及适当按钮，不只展示状态码、JSON 或「Rate limited」。`AllowanceSignal.noteHttpError` 在响应体完整时经 `OpenAIProvider` 同一处 `// nanoMuse:` 接入读取，以 `nm_relay:` 标准行存入消息。`413 too_large`，包括中继代理的普通 413，会说明消息太大，可缩短、移除附件或新建聊天，并提供「新聊天」。`400 content_rejected`，包括自有 key 返回 `DataInspectionFailed`，会说明服务商内容审核拒绝请求，建议改写，反复出现时新建聊天，因为触发内容也可能在旧消息中；提供「新聊天」「重试」。`ChatViewModel.shouldSplitOnError` 不对这种错误拆分重试，因为缩小请求仍包含相同内容。`401 bad_key` / `account_deleted` 提供「登录」；`403 not_invited` / `account_disabled` / `signup_closed` 提供「打开设置」；`429 too_many_in_flight` / `locked` / `rate_limited` / `provider_busy` 提供「重试」，并使用 `retry_after` 等待时间；`404 model_not_offered` 提供「打开设置」；`503 service_paused`、`sync_paused`、`hub_paused`、其他 5xx 或空响应提供「重试」。`429 allowance_exhausted`、`daily_cap` 继续显示额度卡片，中继 0.22 返回 `paused: true` 时，说明额度暂停发放而非耗尽，剩余额度保留。提示由 `NanoMuseCloud.describe` 提供，与登录、账号页一致，覆盖 17 种语言的 `nm_cloud_err_*`。测试为 `RelayRefusalTest`、`GuidanceTest`。
+**中继拒绝请求**。 `cloud/RelayRefusal.kt` 和 `ui/chat/RelayRefusalCard.kt` 用手机当前语言显示具体说明及适当按钮，不只展示状态码、JSON 或「Rate limited」。`AllowanceSignal.noteHttpError` 在响应体完整时经 `OpenAIProvider` 同一处 `// nanoMuse:` 接入读取，以 `nm_relay:` 标准行存入消息。`413 too_large`，包括中继代理的普通 413，会说明消息太大，可缩短、移除附件或新建聊天，并提供「新聊天」。`400 content_rejected`，包括自有 key 返回 `DataInspectionFailed`，会说明服务商内容审核拒绝请求，建议改写，反复出现时新建聊天，因为触发内容也可能在旧消息中；提供「新聊天」「重试」。`ChatViewModel.shouldSplitOnError` 不对这种错误拆分重试，因为缩小请求仍包含相同内容。`401 bad_key` / `account_deleted` 提供「登录」；`403 not_invited` / `account_disabled` / `signup_closed` 提供「打开设置」；`429 too_many_in_flight` / `locked` / `rate_limited` / `provider_busy` 提供「重试」，并使用 `retry_after` 等待时间；`404 model_not_offered` 提供「打开设置」；`503 service_paused`、`sync_paused`、`hub_paused`、其他 5xx 或空响应提供「重试」。`429 daily_cap` 继续显示额度卡片。（`allowance_exhausted` 如果出现也会同样显示，但中继从不发送它。）提示由 `NanoMuseCloud.describe` 提供，与登录、账号页一致，覆盖 17 种语言的 `nm_cloud_err_*`。测试为 `RelayRefusalTest`、`GuidanceTest`。
 
 **设置 → 网络**。 `net/OwnProviderProxy.kt`、`ui/net/NetworkScreen.kt`、`minis://settings/network` 提供自有服务商 HTTP 代理，可填主机、端口及可选用户名、密码，默认关闭，仅保存在此手机。普通设置存在 `SharedPreferences`，密码单独加密存入 `nanomuse_proxy_secrets` 的 `EncryptedSharedPreferences`，与服务商 key 的方式相同。1.0.3 保存在普通文件的密码会在首次读取时迁移。`MinisApp.onCreate` 将它设为进程默认 `ProxySelector`，每个 OkHttp 客户端每次请求都查询：目录主机、`chatgpt.com`、`auth.openai.com`、已配置服务商自定义 Base URL 使用代理；中继和局域网地址不使用，其他主机沿用系统设置。因此 hub、中继、沙箱镜像不受影响。服务商客户端使用 `OwnProviderProxy.authenticator` 处理代理密码。「测试」通过当前代理请求 `https://chatgpt.com/`，报告状态及毫秒耗时，测试为 `ProviderReachTest`、`OwnProviderProxyTest`。
 
@@ -198,12 +198,12 @@ wsl --install -d Ubuntu
 sudo apt update
 sudo apt install -y git curl unzip zip build-essential pkg-config openjdk-21-jdk-headless
 mkdir -p ~/src
-git clone --config core.autocrlf=false https://github.com/nano-muse/nanoMuse.git ~/src/nanoMuse
+git clone --config core.autocrlf=false https://github.com/knsew/nanoMuse.git ~/src/nanoMuse
 cd ~/src/nanoMuse
 git submodule update --init android/deps/proot
 ```
 
-安装 [Linux 版 Go](https://go.dev/doc/install)，将 `go` 加入 Ubuntu 的 `PATH`。[Android 工作流](https://github.com/nano-muse/nanoMuse/blob/main/.github/workflows/android.yml)使用 Go 1.26。另下载 Linux 版 Android SDK Command-Line Tools，按 [sdkmanager 安装说明](https://developer.android.com/tools/sdkmanager)设置，SDK 路径用 `$HOME/Android/Sdk`，确保命令位于 `$HOME/Android/Sdk/cmdline-tools/latest/bin/sdkmanager`。Windows Android Studio 安装的 SDK 不包含本次构建需要的 Linux NDK 工具。
+安装 [Linux 版 Go](https://go.dev/doc/install)，将 `go` 加入 Ubuntu 的 `PATH`。[Android 工作流](https://github.com/knsew/nanoMuse/blob/main/.github/workflows/android.yml)使用 Go 1.26。另下载 Linux 版 Android SDK Command-Line Tools，按 [sdkmanager 安装说明](https://developer.android.com/tools/sdkmanager)设置，SDK 路径用 `$HOME/Android/Sdk`，确保命令位于 `$HOME/Android/Sdk/cmdline-tools/latest/bin/sdkmanager`。Windows Android Studio 安装的 SDK 不包含本次构建需要的 Linux NDK 工具。
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
@@ -264,7 +264,7 @@ Gradle 会在 Ubuntu 的 `$HOME/.android/debug.keystore` 创建 debug 签名密�
 | `net/ModelBlip` | 为沙箱 `model_use` 加重试：网络错误、临时错误、5xx 分别等待一秒、两秒后再试，与聊天及 iOS 桥接一致；其他错误立即抛出。网关上游无响应的 `HTTP 0` 也视为临时错误，见 #640。 |
 | `hands/` | 包含无障碍执行服务、屏幕提示层、浮动胶囊和屏幕读取器。`Hands.screenModel` 按顺序选择：显式选择；具备视觉能力的自有对话服务商默认模型；Cloud 的 `gui` 推荐；自有 key 备用；能看图的聊天模型；Vision Group。 |
 | `ui/coding/` | 提供电脑编程助手的手机界面。 |
-| `backup/` | 在上游 设置 → 备份与恢复（`minis://settings/backup`）扩展备份。「对话里的文件」默认开启，关闭后只导出消息，文件以墓碑记录即仅有条目、无实际内容的方式列入，各其他类别不变，可将 1.5 GB 包缩成几 MB，适配限制上传大小的服务器，见 [#561](https://github.com/nano-muse/nanoMuse/issues/561)。`BackupHints` 将目标 `413` 解释为服务器上传上限。沙箱 `nanomuse-backup run` 使用页面保存的选项和全部启用目标执行一次备份，`BackupRun` 写入历史，`status`、`history`、`choices` 可读取，便于定时任务备份。加密开启时拒绝命令行备份，因为口令只在页面输入、不进入 shell；未启用目标时也拒绝，见 [#560](https://github.com/nano-muse/nanoMuse/issues/560)。 |
+| `backup/` | 在上游 设置 → 备份与恢复（`minis://settings/backup`）扩展备份。「对话里的文件」默认开启，关闭后只导出消息，文件以墓碑记录即仅有条目、无实际内容的方式列入，各其他类别不变，可将 1.5 GB 包缩成几 MB，适配限制上传大小的服务器，见 [#561](https://github.com/knsew/nanoMuse/issues/561)。`BackupHints` 将目标 `413` 解释为服务器上传上限。沙箱 `nanomuse-backup run` 使用页面保存的选项和全部启用目标执行一次备份，`BackupRun` 写入历史，`status`、`history`、`choices` 可读取，便于定时任务备份。加密开启时拒绝命令行备份，因为口令只在页面输入、不进入 shell；未启用目标时也拒绝，见 [#560](https://github.com/knsew/nanoMuse/issues/560)。 |
 | `connectors/`、`ui/connectors/` | `ConnectorsCatalogue` 读取连接器资源目录；`McpAuthDiscovery` 发现授权及注册；`Connectors` 连接、刷新令牌；`SharedConnectors` 发布本机连接清单到 profile 并读取其他设备清单。另提供 设置 → 连接器 页面。 |
 | `ui/cloud/` | 提供登录页、账号页和设备设置。 |
 | `res/values*/nm_strings.xml` | 保存 nanoMuse 全部界面文字，共十七种语言：英语、简体中文、繁體中文、德语、西班牙语、菲律宾语、法语、印尼语、日语、韩语、马来语、波兰语、巴西葡萄牙语、罗马尼亚语、俄语、泰语、土耳其语。各文件键保持一致，英语中标记 `translatable="false"` 的中继地址示例、`nanoMuse Cloud` 产品名除外。缺少翻译时使用英语。 |

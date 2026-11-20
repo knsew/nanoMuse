@@ -34,9 +34,9 @@ These win over the file. They cover the settings people change most often and wh
 | `NANOMUSE_GUI_ENABLED=1`, `NANOMUSE_GUI_PROVIDER`, `NANOMUSE_GUI_MODEL`, `NANOMUSE_GUI_BASE_URL`, `NANOMUSE_GUI_API_KEY` | `[gui]`: operating the phone, and the model that does it |
 | `NANOMUSE_IMAGE_PROVIDER`, `NANOMUSE_IMAGE_MODEL`, `NANOMUSE_IMAGE_BASE_URL`, `NANOMUSE_IMAGE_API_KEY`; the same with `VIDEO` | the [`[image]` and `[video]` slots](#image-and-video): where pictures and clips come from |
 | `NANOMUSE_VAULT_KEY` | Fernet key for the vault (default: `<data_dir>/vault.key`) |
-| `NANOMUSE_CLOUD_BASE_URL`, `NANOMUSE_CLOUD_REQUIRED`, `NANOMUSE_CLOUD_SYNC` | `[cloud]`: the relay a hosted runtime signs in against, whether a nanoMuse Cloud account is required, and the default for *Sync conversations between my devices* (`sync`, on unless set to `0`; the person's switch in *Settings → Data controls*, once touched, is what counts; [every-device.md](every-device.md#the-same-conversations-everywhere)) ([cloud.md](cloud.md); the relay's own variables are in [cloud/README.md](../cloud/README.md)) |
+| `NANOMUSE_CLOUD_BASE_URL`, `NANOMUSE_CLOUD_REQUIRED`, `NANOMUSE_CLOUD_SYNC` | `[cloud]`: the relay a runtime signs in against, whether a nanoMuse Cloud account is required, and the default for *Sync conversations between my devices* (`sync`, on unless set to `0`; the person's switch in *Settings → Data controls*, once touched, is what counts; [every-device.md](every-device.md#the-same-conversations-everywhere)) ([cloud.md](cloud.md); the relay's own variables are in [cloud/README.md](../cloud/README.md)) |
 | `NANOMUSE_HUB_NAME` | `hub.name`, what this device is called on the other devices |
-| `NANOMUSE_CLOUD_KEY`, `NANOMUSE_CLOUD_HINT`, `NANOMUSE_CLOUD_CHANNEL`, `NANOMUSE_ONBOARDED` | a hosted runtime (nanoMuse Web) starts signed in: the gateway that made the container hands over the account key (it goes into the vault like one typed in), the masked identifier and channel for the account page, and whether the first run is already done; nothing happens when the vault already holds a key |
+| `NANOMUSE_CLOUD_KEY`, `NANOMUSE_CLOUD_HINT`, `NANOMUSE_CLOUD_CHANNEL`, `NANOMUSE_ONBOARDED` | a runtime started with these set signs in at once: the account key (it goes into the vault like one typed in), the masked identifier and channel for the account page, and whether the first run is already done; nothing happens when the vault already holds a key |
 | `NANOMUSE_IN_CONTAINER=1` | says the runtime is inside a container (the image sets it; `/.dockerenv` is read too), so `sandbox.mode = auto` treats the container as the box instead of reporting bubblewrap missing |
 | `NANOMUSE_CODING_HOME` | where the coding CLIs' own homes (`~/.codex`, `~/.claude`, …) are looked for, default the user's home ([coding-agents.md](coding-agents.md)) |
 | `NANOMUSE_LOG_LEVEL` | `log_level` |
@@ -202,7 +202,7 @@ The account-wide sync switch is in the app (*Data controls → Sync*); this is t
 
 ```toml
 [cloud]
-base_url = "https://cloud.nanomuse.cn"   # a relay you run yourself goes here
+base_url = "https://cloud.example.com"   # your relay's address; there is no built-in relay
 required = true
 sync = true
 models = true        # the account's models as a source; the console's "Use nanoMuse Cloud models"
@@ -213,7 +213,7 @@ remote_control = true
 name = ""            # empty: the host name
 ```
 
-`[cloud]` is the relay this runtime signs in to ([cloud.md](cloud.md)): `base_url` is its public address (your own relay's, after [self-hosting.md](self-hosting.md)); `required = false` lets the first run finish without an account, for a runtime that uses no relay at all; `sync` is the default of the account-wide *Data controls → Sync* switch, and the person's choice, once made, is what counts; `models = false` (the console's *Use nanoMuse Cloud models* switch, kept in app-settings) takes every model advertised by that relay out of the automatic order and the providers' listing while sign-in stays, so nothing spends the allowance but an explicit *Use nanoMuse Cloud this time*. The public nanoMuse Cloud currently advertises chat and GUI models only; pictures and clips require a provider you add yourself. A self-hosted relay may advertise different capabilities. The account key itself is `NANOMUSE_CLOUD_KEY` in the vault.
+`[cloud]` is the relay this runtime signs in to ([cloud.md](cloud.md)): `base_url` is its public address (your own relay's, after [self-hosting.md](self-hosting.md)); `required = false` lets the first run finish without an account, for a runtime that uses no relay at all; `sync` is the default of the account-wide *Data controls → Sync* switch, and the person's choice, once made, is what counts; `models = false` (the console's *Use nanoMuse Cloud models* switch, kept in app-settings) takes every model advertised by that relay out of the automatic order and the providers' listing while sign-in stays, so no request goes to the relay's models but an explicit *Use nanoMuse Cloud this time*. The relay advertises chat and GUI models only; pictures and clips require a provider you add yourself. The account key itself is `NANOMUSE_CLOUD_KEY` in the vault.
 
 `[hub]` is this computer as one of the account's devices ([hub.md](hub.md)): `enabled` joins the hub whenever the account is signed in; `remote_control = false` answers other devices with `info` and nothing else; `name` is what the other devices call this one (empty: the host name). `device_id` is per installation and written by the app.
 
@@ -415,7 +415,7 @@ reconnect_grace_s = 30.0             # how long a running task waits for a phone
 sensitive_words  = ["确认支付", "立即付款", "转账", "提交订单", "发送", "删除", "pay now", "place order", "send", "delete"]  # a tap on these asks first; a shortened sample, the default has 22 words
 ```
 
-`base_url` and `api_key` fall back to `[llm]` when empty. An empty `model` follows one order (the Models contract, 0.1.41): with the relay as the chat model, the model that `/v1/models` recommends for `gui` (the public Cloud currently recommends `Qwen/Qwen3.6-27B-FP8`, the same multimodal model it uses for chat); with an own provider the catalogue lists with `vision`, that provider's own hands model (`defaults.hands`, `qwen3.8-27b` on Bailian, `glm-4.6v` on Zhipu) on the chat key; with a provider that cannot see (a local server by its catalogue id or host) and an account signed in, the relay's hands model under the account key, the chat model staying where it is; else the chat model, as on a host the catalogue does not list. An explicit `model` always wins. A key is only needed when the operator's `base_url` is a different service. Traces of every phone task go to `<data_dir>/phone-traces/` (the last 200 are kept; `nanomuse phone traces`).
+`base_url` and `api_key` fall back to `[llm]` when empty. An empty `model` follows one order (the Models contract, 0.1.41): with the relay as the chat model, the model that `/v1/models` recommends for `gui` (the relay currently recommends `halogen-qwen3.8-flash-next`, the same multimodal model it uses for chat); with an own provider the catalogue lists with `vision`, that provider's own hands model (`defaults.hands`, `qwen3.8-27b` on Bailian, `glm-4.6v` on Zhipu) on the chat key; with a provider that cannot see (a local server by its catalogue id or host) and an account signed in, the relay's hands model under the account key, the chat model staying where it is; else the chat model, as on a host the catalogue does not list. An explicit `model` always wins. A key is only needed when the operator's `base_url` is a different service. Traces of every phone task go to `<data_dir>/phone-traces/` (the last 200 are kept; `nanomuse phone traces`).
 
 The app layer sets this slot through `PUT /api/connections/gui`, which takes `provider` as `PUT /api/connections/llm` does: a protocol (`openai`, `openai_responses`), `chatgpt`, or a catalogue id such as `bailian`, which brings its endpoint along (`base_url` may stay empty); an id the catalogue lacks, or one whose protocol the runtime does not speak, is 400 with the choices. The answer (and `GET /api/connections` → `gui`) carries `provider` as set, `provider_id` (the catalogue entry a protocol plus URL stands for), `effective_model` and `effective_source` (`gui`, `chat` or `cloud`).
 
@@ -468,20 +468,10 @@ token            = ""            # empty → generated once, stored in <data_dir
 approval_timeout = 3600          # seconds an approval card waits before counting as "deny"
 cors_origins     = []            # only for the Vite dev server, e.g. ["http://localhost:5173"]
 max_upload_mb    = 25            # largest file the app may attach to a message
-update_check     = true          # Settings → About says when a newer release is out (the download index, then GitHub Releases; once a day)
 start_grace      = 4             # seconds the services may take before the app answers anyway
 ```
 
-`update_check` asks the download mirror's index (`nanomuse.cn/dl/index.json`) and, when that does
-not answer, `api.github.com`, for the latest release once a day (sooner on *Check now*; a check
-that failed, as when the runtime came up before its network, is tried again after an hour) and shows
-the version under *Settings → About* with a link to the release page; nothing is downloaded and
-nothing about the install is sent beyond the runtime's version in the request's `User-Agent`. `NANOMUSE_NO_UPDATE_CHECK=1` turns it off too, and a hosted
-web session (a runtime started with `NANOMUSE_CLOUD_KEY`) never checks; its operator updates it.
-
-These settings apply to the Python runtime. The Windows desktop shell checks separately
-after startup and every six hours. Its saved automatic download switch is on by default,
-but metered or unknown networks wait for a manual download. See [desktop.md](desktop.md#updating-on-windows).
+New releases are not checked for or downloaded by the runtime. Install a new release by downloading it from the fork's GitHub Releases page by hand. The desktop app updates the same way; see [desktop.md](desktop.md#updating-on-windows).
 
 ## Where things live
 

@@ -9,14 +9,11 @@ hero:
       text: 安装
       link: /zh/android
     - theme: alt
-      text: 在浏览器里看演示
-      link: https://demo.nanomuse.dev/
-    - theme: alt
       text: 自己部署
       link: /zh/self-hosting
     - theme: alt
       text: GitHub
-      link: https://github.com/nano-muse/nanoMuse
+      link: https://github.com/knsew/nanoMuse
     - theme: alt
       text: 论文
       link: https://arxiv.org/abs/2610.08699
@@ -28,28 +25,19 @@ hero:
 
 | | |
 |---|---|
-| **浏览器** | 打开 [demo.nanomuse.dev](https://demo.nanomuse.dev/) 并登录，即可在模拟手机上体验 nanoMuse。页面提供可点击的中英文任务示例。此页面用于演示，日常使用请安装下面的 App |
-| **Android** 8.0 及以上，arm64 | [nanoMuse-1.0.9-arm64.apk](https://github.com/nano-muse/nanoMuse/releases/download/v1.0.9/nanoMuse-1.0.9-arm64.apk) · [安装说明](android.md) |
+| **Android** 8.0 及以上，arm64 | [nanoMuse-1.0.9-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-1.0.9-arm64.apk) · [安装说明](android.md) |
 | **iPhone / iPad** | 通过 [TestFlight](https://testflight.apple.com/join/ZHexbDqc) 安装。TestFlight 是 Apple 分发测试版 App 的工具，此版本已通过 Apple 的测试版审核 · [iOS 使用说明](ios.md) |
-| **macOS** 12 及以上 | [Apple 芯片](https://github.com/nano-muse/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-arm64.dmg) · [Intel 芯片](https://github.com/nano-muse/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-x64.dmg) · [桌面版使用说明](desktop.md) |
-| **Windows** 10 以上 | [nanoMuse-Desktop-1.0.9-win-x64.exe](https://github.com/nano-muse/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-win-x64.exe) |
-| **Linux** x64 | [AppImage](https://github.com/nano-muse/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.AppImage) · [.deb](https://github.com/nano-muse/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.deb) · [tar.gz](https://github.com/nano-muse/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.tar.gz) |
+| **macOS** 12 及以上 | [Apple 芯片](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-arm64.dmg) · [Intel 芯片](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-x64.dmg) · [桌面版使用说明](desktop.md) |
+| **Windows** 10 以上 | [nanoMuse-Desktop-1.0.9-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-win-x64.exe) |
+| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.tar.gz) |
 | **Docker** | 用 `bash scripts/self-host.sh --local` 部署自己的中继，用 `docker compose up -d app` 运行网页版。Docker 用容器封装程序及其运行环境 · [部署说明](self-hosting.md) |
 
-全部安装包都在[最新版本下载页](https://github.com/nano-muse/nanoMuse/releases/latest)。如果 GitHub 下载缓慢，可以从 [nanomuse.cn/dl](https://nanomuse.cn/dl/) 下载相同的文件。
+全部安装包都在[最新版本下载页](https://github.com/knsew/nanoMuse/releases/latest)。
 
-[1.0.9 Tiller 更新内容](https://github.com/nano-muse/nanoMuse/releases/tag/v1.0.9) · [各客户端的功能对照](parity.md) · [参与贡献与后续计划](roadmap.md) · [中继保存的数据](privacy.md) · [手机数据的保存与归属](sync.md)
-
-## 宣传片 {#the-film}
-
-<video controls playsinline preload="metadata" poster="https://nanomuse.cn/media/film/poster-zh.png" style="width:100%;max-width:960px;border-radius:12px;display:block;margin:0 auto">
-  <source src="https://nanomuse.cn/media/film/nanomuse-film-zh-web.mp4" type="video/mp4">
-</video>
-
-这段 74 秒的视频介绍 nanoMuse 在手机、电脑和网页上的功能，也提供[英文版](https://nanomuse.cn/media/film/nanomuse-film-en-web.mp4)。
+[1.0.9 Tiller 更新内容](https://github.com/knsew/nanoMuse/releases/tag/v1.0.9) · [各客户端的功能对照](parity.md) · [参与贡献与后续计划](roadmap.md) · [中继保存的数据](privacy.md) · [手机数据的保存与归属](sync.md)
 
 ::: info 参与改进 nanoMuse
-nanoMuse 提供开源、低成本的个人智能体方案：你可以在自己的设备上运行，选择模型，也可以自行部署中继。项目希望与各地的开发者和使用者一起完善这些功能，让使用者自己掌握智能体。你可以提交 [issue](https://github.com/nano-muse/nanoMuse/issues/new/choose)（问题或建议），也可以提交 [PR](../../CONTRIBUTING.md)（供项目维护者审阅的代码或文档修改）。
+nanoMuse 提供开源、低成本的个人智能体方案：你可以在自己的设备上运行，选择模型，也可以自行部署中继。项目希望与各地的开发者和使用者一起完善这些功能，让使用者自己掌握智能体。你可以提交 [issue](https://github.com/knsew/nanoMuse/issues/new/choose)（问题或建议），也可以提交 [PR](../../CONTRIBUTING.md)（供项目维护者审阅的代码或文档修改）。
 :::
 
 ## 引用 {#citation}

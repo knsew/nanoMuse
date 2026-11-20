@@ -1,25 +1,25 @@
 # nanoMuse Cloud
 
-每日统计图的标签和提示按站点配置的时区偏移显示，包括 UTC，不采用运营者浏览器的时区。管理控制台会对每日展示访问去重，同时出现在当前访问和最近访问列表中的一次访问只计一次，日期也按站点时区划分。带 `AsyncOpenAI/Python` 用户代理的旧版 Python 会话会归为运行时，与中继分类一致。
+每日统计图的标签和提示按站点配置的时区偏移显示，包括 UTC，不采用运营者浏览器的时区。带 `AsyncOpenAI/Python` 用户代理的旧版 Python 会话会归为运行时，与中继分类一致。
 
-管理控制台定期获取设置时，如果服务器值没变，会保留你尚未保存的额度、邀请奖励和提醒策略；服务器值改变时，则更新相应编辑框。已保存的数字偏好如果为空或不是有限数值，会使用该设置的默认值。
+管理控制台定期获取设置时，如果服务器值没变，会保留你尚未保存的额度；服务器值改变时，则更新相应编辑框。已保存的数字偏好如果为空或不是有限数值，会使用该设置的默认值。
 
 在账号抽屉中切换账号，会清空样本列表，并忽略之前账号尚未返回的样本响应和错误。更换「活动」筛选条件后，旧条件下的待完成请求也不会更新列表。阅读较早事件的分页时，自动刷新会暂停，避免覆盖正在加载或已经展开的「更多」内容。每个 URL 刷新只采用最新响应；退出登录前发出的响应不会重新填充已清空缓存，也不会覆盖之后登录的其他账号。
 
-你可以用中国大陆手机号或邮箱注册，获得免费额度，无需准备自己的 API key 就能使用 nanoMuse。手机号验证码通过短信发送。你仍可继续使用自己的 key，nanoMuse Cloud 只是新增的一种模型服务商。
+你可以用邮箱注册，无需准备自己的 API key 就能使用 nanoMuse。中继会在账本中为账号记一笔起始额度，但不会因为额度不足拒绝请求。你仍可继续使用自己的 key，nanoMuse Cloud 只是新增的一种模型服务商。
 
 > 术语说明：中继是处理登录、设备互联和模型转发的服务器；API 是供程序调用的接口；key 是访问服务的密钥；token 在用量统计中指模型计量输入输出的单位，在登录场景中指访问令牌；运行时是实际执行智能体任务的程序。
 
 ## 在 App 中使用 {#in-the-app}
 
-从 0.1.20 起，各个 App 首先显示账号入口。你可以填写手机号或邮箱，接收六位验证码；已经设置密码的，也可以用密码登录。随后选择使用账号提供的模型，还是自己的 key。短信仅支持中国大陆手机号，因为号码认证服务不向其他地区发送。输入香港、台湾或海外号码时，会立即收到 `phone_region` 提示，并改用邮箱登录。
+从 0.1.20 起，各个 App 首先显示账号入口。你可以填写邮箱，接收六位验证码；已经设置密码的，也可以用密码登录。随后选择使用账号提供的模型，还是自己的 key。验证码通过邮件发送，或写入中继日志，取决于中继配置。手机号收不到短信验证码：使用邮件发送时会被立即拒绝（`channel_unsupported`，大陆以外号码为 `phone_region`）；使用日志发送时，验证码在中继日志中，设置密码后也可以用密码登录。
 
 退出登录后会回到这个入口。自己部署运行时的人可以设置 `[cloud] required = false` 或 `NANOMUSE_CLOUD_REQUIRED=0`。入口中的「改用自己的 API key」允许直接进入自备 key 设置，不必先登录。配置自己的 key 后，未登录时也能聊天、操作设备、生成图片和视频。需要 nanoMuse Cloud 模型、对话同步或设备互联时，再从「连接」登录；手机入口在设置 → nanoMuse Cloud。
 
 验证码验证成功后，App 会获得以下配置：
 
 - 设置 → 服务商中新增 **nanoMuse Cloud**。它是普通的 OpenAI 兼容服务商，访问 key 使用中继签发的令牌。
-- 如果尚未选择模型，设置 → 模型的「对话」和「操作屏幕」会使用账号的 `Qwen/Qwen3.6-27B-FP8`，网页控制台对应入口在「连接」。该模型支持图像输入，因此聊天看图和读取屏幕截图都可使用。账号不提供图片或视频生成，这两项必须在本机配置自定义服务商和自己的 API key。没有手动设置的模型项依次选择：对话模型所用的自备 key 服务商，只要它具备该能力；否则使用已登录的 nanoMuse Cloud；再否则使用第一个具备该能力的自备 key。每项的「自动」会显示当前解析结果。之后添加 key 时，App 会先询问「用它来做什么」，再修改模型分配，见 [own-key.md](own-key.md#which-model-does-what)。
+- 如果尚未选择模型，设置 → 模型的「对话」和「操作屏幕」会使用账号的 `halogen-qwen3.8-flash-next`，网页控制台对应入口在「连接」。该模型支持图像输入，因此聊天看图和读取屏幕截图都可使用。账号不提供图片或视频生成，这两项必须在本机配置自定义服务商和自己的 API key。没有手动设置的模型项依次选择：对话模型所用的自备 key 服务商，只要它具备该能力；否则使用已登录的 nanoMuse Cloud；再否则使用第一个具备该能力的自备 key。每项的「自动」会显示当前解析结果。之后添加 key 时，App 会先询问「用它来做什么」，再修改模型分配，见 [own-key.md](own-key.md#which-model-does-what)。
 
 设置 → nanoMuse Cloud 的「账号」页显示当前登录身份和登录时间，身份采用脱敏提示，不直接显示号码。你可以设置、修改或移除密码。密码最低长度由中继决定，默认八个字符，中继只保存 scrypt 哈希。连续输错会暂时锁定密码登录，用新验证码登录可解除锁定。
 
@@ -46,37 +46,35 @@
 - 旧版视频任务的价格和服务商最后状态，仅供账务清理，三天后删除。托管媒体服务已停用，任务轮询与其他托管媒体接口一样返回 `410 hosted_media_retired`，不会调用服务商。
 - 智能体名称和形象，接口为 `/v1/me/profile`，让账号下所有设备显示相同形象。形象可以是龙、带底色的 emoji，或形象工作室绘制的面孔及其小幅 WebP 静态图。中继 0.25 起支持部分更新：改名只发送名称，换形象才发送形象和图片；未提供的字段保留原值，空名称也不会覆盖原名。因此，尚未下载账号形象的手机只改名时，不会意外把其他设备的形象改回龙。`avatar` 改为非 `face` 时清除原图，避免其他设备因 `has_face` 误认仍在使用绘制形象。1.0.3 客户端仍按每次提交完整形象的旧方式处理。0.1.34 起还记录连接器，即哪个设备连接了哪个服务、显示名称、OAuth / key / 开放访问方式及时间。OAuth 是用户在服务商页面确认授权的方式。凭据仍留在原设备，条目出现疑似凭据字段时中继会拒绝，不保存 key 或设置。
 - 中继 0.19 起，保存开启「在我的设备之间同步对话」后的对话文本，该开关默认开启。包括对话标题、类型、创建设备，以及每条消息的角色、文字、时间、设备和附件名称、大小，不保存附件文件本身。关闭开关或删除账号会清空这些数据，格式见[对话同步](#conversation-sync)。
-- 中继 0.29 起，保存**完整调用记录**：中继发给模型的请求，包括所有消息、含记忆、SOUL 和指令的系统提示词、用户文字、工具结果、工具定义和采样参数，以及模型返回的内容、推理、工具调用、结束原因和用量。图片、音频和视频提取为以 SHA-256 命名的文件，每份内容只存一次，原位置用 `blob:sha256:` 引用替代。同一截图在屏幕操作的多次调用中重复发送，也只保存一个文件。记录还包含模型、平台、1.0.7 起通过 `X-NanoMuse-Device` 和 `X-NanoMuse-Conversation` 声明的设备及对话、token 用量，0.31 起包括输入缓存用量，以及请求网络地址和客户端软件。0.31 起也保存 App 声明的发起方式，如用户、定时任务、动态例程、目标检查或其他设备；对话轮次和模型步骤；所属屏幕操作任务及步骤；用户文字种类标识，如 `zh`、`latin`、`ja`，该标识不含原文。请求头见[调用来源](#provenance)。这份记录属于账号数据，可供账号设备读回，也供运营者排查完整问题，不由下文两个开关控制。读取与删除方式见[完整调用记录](#the-record)。
+- 中继 0.29 起，保存**完整调用记录**：账号设备用自己的 key 完成并上传的调用，包括 App 发给模型的请求：所有消息、含记忆、SOUL 和指令的系统提示词、用户文字、工具结果、工具定义和采样参数，以及模型返回的内容、推理、工具调用、结束原因和用量。中继自己的调用不再记录。图片、音频和视频提取为以 SHA-256 命名的文件，每份内容只存一次，原位置用 `blob:sha256:` 引用替代。同一截图在屏幕操作的多次调用中重复发送，也只保存一个文件。记录还包含模型、平台、1.0.7 起通过 `X-NanoMuse-Device` 和 `X-NanoMuse-Conversation` 声明的设备及对话、token 用量，0.31 起包括输入缓存用量，以及请求网络地址和客户端软件。0.31 起也保存 App 声明的发起方式，如用户、定时任务、动态例程、目标检查或其他设备；对话轮次和模型步骤；所属屏幕操作任务及步骤；用户文字种类标识，如 `zh`、`latin`、`ja`，该标识不含原文。请求头见[调用来源](#provenance)。这份记录属于账号数据，可供账号设备读回，也供运营者排查完整问题，不由下文两个开关控制。读取与删除方式见[完整调用记录](#the-record)。
 - 中继 0.31 起，保存 App 上报的调用周边事件，只含短代号和数值，不含消息正文。例如哨兵（Sentinel）的工具风险判定、审批结果、用户停止原因、赞踩反馈和屏幕操作步骤结果。App 知道调用 ID 时会将事件关联到该调用，类型见[客户端事件](#client-events)。删除保留调用或账号时也删除这些事件。
 
-消息正文只按下文「完整调用记录」「数据控制」「对话同步」的规则保存，其他环节只转发请求和流式回复。中继同时最多向共享模型部署发送 `CHAT_CONCURRENCY` 个聊天请求，其余排队；仅在输出开始前重试 429 或 5xx，避免重复已开始的回复。每个响应带 `X-Nanomuse-Request` ID，便于将问题报告关联到账本行，无需在账本中记录正文。
+消息正文只按下文「完整调用记录」「数据控制」「对话同步」的规则保存，其他环节只转发请求和流式回复。中继同时最多向上游发送 `CHAT_CONCURRENCY` 个聊天请求，其余排队；仅在输出开始前重试 429 或 5xx，避免重复已开始的回复。每个响应带 `X-Nanomuse-Request` ID，便于将问题报告关联到账本行，无需在账本中记录正文。
 
 带账号 key 调用 `POST /v1/auth/delete` 会删除账号、key、设备、配置档案、账本、事件、保留对话、视频任务、同步对话和游标，关闭 hub 连接，并清除实时工作状态。中继测试会逐表检查数据已删除，并确认相同地址再次注册时得到新的空账号，见 [privacy.md](privacy.md)。
 
 ## 数据控制 {#data-controls}
 
-设置 → 数据控制 →「帮助改进 nanoMuse 的 AI 模型」由每位用户决定，手机、网页版、桌面版和控制台共用同一选择。关闭时，不会把请求保留为训练视图；开启时，会保存用户文字、模型回答及选择的工具调用，同时附模型、token 用量、请求头中的平台和语言，仅关联账号 ID。训练视图不包含系统提示词中的记忆、SOUL 和指令，不含工具返回的文件、屏幕或其他 App 内容，也不含图片、视频或语音，媒体位置只留标记。其用途是为社区开放模型准备训练数据。
+设置 → 数据控制 →「帮助改进 nanoMuse 的 AI 模型」由每位用户决定，手机、网页版、桌面版和控制台共用同一选择。开关现在不起作用：中继不再为训练记录任何内容，无论开关开还是关。采集已经移除，`/v1/me` 始终返回 `contribute.on: false`，中继默认值（`IMPROVE_DEFAULT`）为关。开关以前开启时保留的训练视图包括用户文字、模型回答及选择的工具调用，同时附模型、token 用量、请求头中的平台和语言，仅关联账号 ID。训练视图不包含系统提示词中的记忆、SOUL 和指令，不含工具返回的文件、屏幕或其他 App 内容，也不含图片、视频或语音，媒体位置只留标记。
 
-中继 0.31 起，使用自己 key 完成并通过 `POST /v1/turns` 上传的调用，也遵守同样的训练视图规则。每条样本记录来源，包括 `meta.source` 的 `cloud` / `own`、`meta.run`、`meta.turn`、指向完整调用记录的 `meta.turn_id`，以及用户文字种类，见[调用来源](#provenance)。这样后续的赞踩和停止原因可以按调用 ID 关联。
+页面显示已保留调用数。移除前保留的数据仍可通过删除入口清空，删除账号时同样会清除。开启或关闭都不影响免费额度。
 
-页面显示已保留调用数。你可以随时关闭开关，停止新增训练样本；也可以通过删除入口清空已有数据，删除账号时同样会清除。开启或关闭都不影响免费额度。`cloud.nanomuse.cn` 上，中继 0.9 起新建账号默认开启，直到用户关闭；隐私政策和开关旁的说明均有告知，更早账号保持原选择。自建中继通过 `IMPROVE_DEFAULT` 决定默认值。
+相同删除入口会一起删除完整调用记录，`DELETE /v1/me/samples` 返回 `{deleted, turns, files}`。
 
-中继 0.29 起，这个开关仅决定训练视图是否加入训练集，完整调用本身仍按[完整调用记录](#the-record)保存。相同删除入口会一起删除两者，`DELETE /v1/me/samples` 返回 `{deleted, turns, files}`。
+运营者可在管理页「数据控制」查看开启账号数、按日期、模型、App 分类的调用数、最新调用及各账号保留的完整对话。训练样本通过 `GET /v1/admin/samples/export` 以 JSON lines（每行一条 JSON）导出，不含账号 ID 和网络地址；`?account_id=` 可限定单个账号，不再新增内容。中继 0.31 起，每行含 `subject` 化名：使用中继密钥对账号 ID 计算 HMAC，取 16 个十六进制字符。同一账号在历次导出中保持相同化名，没有密钥无法反推出账号。[删除台账](#deletions)记录后来删除数据的化名，早期导出构成的数据集可据此剔除对应数据。
 
-运营者可在管理页「数据控制」查看开启账号数、按日期、模型、App 分类的调用数、最新调用及各账号保留的完整对话。训练样本通过 `GET /v1/admin/samples/export` 以 JSON lines（每行一条 JSON）导出，不含账号 ID 和网络地址；`?account_id=` 可限定单个账号。中继 0.31 起，每行含 `subject` 化名：使用中继密钥对账号 ID 计算 HMAC，取 16 个十六进制字符。同一账号在历次导出中保持相同化名，没有密钥无法反推出账号。[删除台账](#deletions)记录后来删除数据的化名，早期导出构成的数据集可据此剔除对应数据。
-
-App 不发送位置，所以中继收不到设备定位。但中继 0.10 起会为登录、请求、事件和设备记录网络地址及 `User-Agent` 客户端信息，例如 Android 版本、Windows / macOS / Linux 运行时或浏览器，也会保存账号首次和最近地址。管理页可按账号或地址查看，接口为 `GET /v1/admin/address?ip=`，删除账号时一并清除。0.11 起，管理页还会根据中继本地 ip2region 离线库显示地址对应的国家、省和城市。查询不请求第三方，地点在显示页面时计算，不另行存储。
+App 不发送位置，所以中继收不到设备定位。但中继 0.10 起会为登录、请求、事件和设备记录网络地址及 `User-Agent` 客户端信息，例如 Android 版本、Windows / macOS / Linux 运行时或浏览器，也会保存账号首次和最近地址。管理页可按账号或地址查看，接口为 `GET /v1/admin/address?ip=`，删除账号时一并清除。
 
 ## 完整调用记录 {#the-record}
 
-中继 0.29 起，会将自己回答的每次模型调用完整保存为账号数据，使各设备能查看包含截图的历史，也便于运营者排查问题。一次调用记录包括：
+中继 0.29 起，会将账号设备用自己的 key 完成并上传的调用完整保存为账号数据，使各设备能查看包含截图的历史，也便于运营者排查问题。中继自己的调用不再记录。一次调用记录包括：
 
-- 实际发往模型的请求：含记忆、SOUL、指令的系统提示词，用户消息、工具结果、工具定义、采样参数和中继默认值。模型名按 App 使用的名称保存，不记录中继另加的 `user`、`stream_options`。
+- App 实际发往模型的请求：含记忆、SOUL、指令的系统提示词，用户消息、工具结果、工具定义和采样参数。模型名按 App 使用的名称保存。
 - 模型返回的完整助手消息，包括内容、推理、工具调用、结束原因和用量。流式响应会被组装成完整消息；中途断开时保存已收到内容并标为 `status: partial`。中继 0.30 起，`meta.ended` 说明原因：`client_gone` 表示 App 主动关闭，可能是用户停止或客户端超时；`upstream_timeout`、`broken` 表示服务商侧超时或中断。
 - 从消息中提取的图片、音频和视频。文件保存在数据库旁的 `MEDIA_DIR`，以内容的 SHA-256 哈希命名，相同内容只存一份；消息原位置写成 `blob:sha256:<hex>`，`meta.media` 列出类型和大小。重复上传的同一屏幕截图，无论被多少次调用引用，都只占一个文件。
 - 模型、平台、1.0.7 起 App 通过 `X-NanoMuse-Device`、`X-NanoMuse-Conversation` 声明的设备和对话、token 用量、客户端软件和语言，以及仅运营者可见的来源网络地址。
 
-记录在回复发出后异步写入，不阻塞聊天请求，也不会导致聊天失败。它独立于「帮助改进」训练开关和「同步对话」开关。自建中继设置 `RECORD_TURNS=0` 可关闭完整记录。时间戳取回复完成时间，同一账号按该顺序保存，包括带媒体的回复；不同账号可独立写入。某条写入失败不会阻止该账号后续记录。
+记录在设备上传时写入，不阻塞聊天请求，也不会导致聊天失败。它独立于「帮助改进」训练开关和「同步对话」开关。自建中继设置 `RECORD_TURNS=0` 可关闭完整记录。时间戳取回复完成时间，同一账号按该顺序保存，包括带媒体的回复；不同账号可独立写入。某条写入失败不会阻止该账号后续记录。
 
 **读取权限**。账号设备可用 `GET /v1/turns` 按最新在前读取，通过 `before`、`before_id` 分页，以 `conversation=` 筛选聊天；`GET /v1/turns/{id}` 获取单次调用，`GET /v1/blobs/{sha256}` 获取文件。只有账号持有文件引用时才能访问，例如调用记录、形象动画或自己的上传。仅知道哈希不能下载文件，用户视图也不显示网络地址。
 
@@ -84,7 +82,7 @@ App 不发送位置，所以中继收不到设备定位。但中继 0.10 起会�
 
 管理控制台的「轮次」页面、账号账本和事件列表切换筛选时会建立新列表。旧分页即使稍后返回，也不能添加到新列表，或覆盖新列表的错误、加载状态。历史和样本分页使用现有时间戳索引，先跳过较新的秒，再按插入顺序处理同秒记录；导出和分析回填使用相同边界，无需数据库迁移。
 
-**自己 key 的调用**。1.0.7 起，App 可以在使用自己 key 完成调用后上传记录，模型部署位置不影响记录完整性。每张图片先通过 `PUT /v1/blobs/{sha256}` 上传原始字节，并附 `Content-Type`，中继会校验哈希。先请求 `HEAD`，或检查返回的 `known: true`，可以得知是否已有其他设备上传。再向 `POST /v1/turns` 提交 `model`、`messages`，其中媒体可用引用或内联 data URL，以及 `response: {message, usage?}`，并按 App 已知信息附 `provider`、`ts`、`conversation`、`id`、`status`。`status: partial` 时可加 `ended`，取值为 `aborted`、`error`、`abandoned`。中继 0.31 起还可附[调用来源](#provenance)定义的 `run`、`turn`、`step`、`trajectory`、`trajectory_step`、`platform`，记录标为 `source: own`。开启「帮助改进」时，也会保留对应训练视图。
+**自己 key 的调用**。1.0.7 起，App 可以在使用自己 key 完成调用后上传记录，完整记录只保存这类调用。每张图片先通过 `PUT /v1/blobs/{sha256}` 上传原始字节，并附 `Content-Type`，中继会校验哈希。先请求 `HEAD`，或检查返回的 `known: true`，可以得知是否已有其他设备上传。再向 `POST /v1/turns` 提交 `model`、`messages`，其中媒体可用引用或内联 data URL，以及 `response: {message, usage?}`，并按 App 已知信息附 `provider`、`ts`、`conversation`、`id`、`status`。`status: partial` 时可加 `ended`，取值为 `aborted`、`error`、`abandoned`。中继 0.31 起还可附[调用来源](#provenance)定义的 `run`、`turn`、`step`、`trajectory`、`trajectory_step`、`platform`，记录标为 `source: own`。
 
 电脑已登录账号时，Python 运行时会上传每次不经过中继的模型调用，包括自配服务商、ChatGPT 登录和「手」的独立模型。调用完成后先进入内存队列，上传内容为去掉 key 的原请求、回复、用量和来源；超过两兆的图片先作为文件上传。退出登录会丢弃队列，没有账号时不上传。
 
@@ -92,9 +90,9 @@ App 不发送位置，所以中继收不到设备定位。但中继 0.10 起会�
 
 **形象动画片段**。绘制形象的动画也使用这套文件同步。生成动画的设备上传片段，再在 `PUT /v1/me/profile` 中写入 `clips: {mood: {sha256, mime, bytes}}`。其他设备下载已有片段，无需重新渲染。片段随形象关联，写入 `clips: null`、换成其他形象或调用 `DELETE /v1/me/profile` 都会清除。
 
-**保留与删除**。设置 → 数据控制的删除入口会同时清除完整记录与训练调用，删除账号也如此。清除范围包括账号全部调用和仅由该账号引用的文件。`RECORD_KEEP_DAYS` 控制保留天数，每小时清理超期调用；`cloud.nanomuse.cn` 配置为 0，即保留到用户自行删除。媒体总量由 `MEDIA_MAX_GB` 限制，超出时优先删最久未使用的文件，调用文本仍保留，原图片位置会变成失效引用。当前形象正在使用的动画不会被清理。磁盘临时无法删除的文件，会在后续每次清理重试，直到成功。
+**保留与删除**。设置 → 数据控制的删除入口会同时清除完整记录与移除前保留的训练调用，删除账号也如此。清除范围包括账号全部调用和仅由该账号引用的文件。`RECORD_KEEP_DAYS` 控制保留天数，每小时清理超期调用；默认 0，即保留到用户自行删除。媒体总量由 `MEDIA_MAX_GB` 限制，超出时优先删最久未使用的文件，调用文本仍保留，原图片位置会变成失效引用。当前形象正在使用的动画不会被清理。磁盘临时无法删除的文件，会在后续每次清理重试，直到成功。
 
-`/v1/me.contribute.record` 返回 `{on, turns, own, files, media_bytes, keep_days}`，`POST /v1/me/contribute` 也返回相同 `record`。`/app` 账号页在「帮助改进」开关上方显示调用数、自备 key 调用数、文件数和保留期限。只要完整记录或训练数据任一存在，就显示统一删除入口。
+`/v1/me.contribute.record` 返回 `{on, turns, own, files, media_bytes, keep_days}`。`/app` 账号页在「帮助改进」开关上方显示调用数、自备 key 调用数、文件数和保留期限。只要完整记录或训练数据任一存在，就显示统一删除入口。
 
 **提问数与调用数，0.31 起**。用户发出一条消息，智能体可能多次调用模型，例如截图、点击、重新查看再回答。完整记录每行对应一次调用，不能把行数直接当作用户提问数，因此中继同时统计两者。
 
@@ -121,7 +119,7 @@ App 知道一次模型调用在整段对话中的位置、发起原因等信息�
 | `X-NanoMuse-Trajectory-Step` | `trajectory_step` | 屏幕操作任务中的步骤序号，从 1 起 |
 | `X-NanoMuse-Platform` | `platform` | 当 user agent 不能准确说明平台时，由 App 明确提供。例如桌面版从 Node 上传，运行时通过 SDK 调用。接受 `android`、`ios`、`desktop`、`windows`、`macos`、`linux`、`runtime`、`browser`；其他值忽略，改按 user agent 判断 |
 
-1.0.7 已有的 `X-NanoMuse-Device`、`X-NanoMuse-Conversation` 保持不变，可与上述字段一起发送。中继将六项来源信息保存到完整记录中，已提供的 `run`、`turn`、`step`、`trajectory`、`trajectory_step` 可通过 `GET /v1/turns` 读回；训练开关开启时，也写入样本 meta 和结构统计。调用遥测中保存 `run`，供「用量」「平台」页面区分用户任务和例程任务。
+1.0.7 已有的 `X-NanoMuse-Device`、`X-NanoMuse-Conversation` 保持不变，可与上述字段一起发送。中继将六项来源信息保存到完整记录中，已提供的 `run`、`turn`、`step`、`trajectory`、`trajectory_step` 可通过 `GET /v1/turns` 读回；已保留的样本 meta 和结构统计中也有这些字段。调用遥测中保存 `run`，供「用量」「平台」页面区分用户任务和例程任务。
 
 记录还包含 `script`，表示用户最后一条消息使用的文字系统，取 `zh`、`ja`、`ko`、`ru`、`ar`、`th`、`hi`、`he`、`el`、`latin` 或空值。它在记录写入时计算，用来替代多数 App 没有填写的 `Accept-Language`。
 
@@ -159,7 +157,7 @@ App 知道一次模型调用在整段对话中的位置、发起原因等信息�
 
 **默认只同步主要聊天，0.1.38、中继 0.20 起**。旁聊默认留在原设备，拉取使用 `scope=main`。「同时同步旁聊」是数据控制中的另一开关，默认关闭，并且按设备独立设置，中继没有账号级开关。某台设备打开后，开始上传自己的旁聊并下载其他设备的旁聊，首次拉取从游标零重新开始。
 
-两类聊天始终排除：桌面替其他设备执行任务的对话，例如「From Pixel 8」；以及桌面侧栏各房间为后台功能建立的内部对话，例如每日动态批次「Feed · <date>」，完成后自动归档。这里的房间指侧栏中的各个功能入口，这些对话用于智能体内部工作，不属于用户聊天。1.0.9 及更早版本曾把每日批次作为旁聊同步到手机，见 [#713](https://github.com/nano-muse/nanoMuse/issues/713)。
+两类聊天始终排除：桌面替其他设备执行任务的对话，例如「From Pixel 8」；以及桌面侧栏各房间为后台功能建立的内部对话，例如每日动态批次「Feed · <date>」，完成后自动归档。这里的房间指侧栏中的各个功能入口，这些对话用于智能体内部工作，不属于用户聊天。1.0.9 及更早版本曾把每日批次作为旁聊同步到手机，见 [#713](https://github.com/knsew/nanoMuse/issues/713)。
 
 全新登录时，首次请求只拉取尾部最新 300 条消息及所属对话，避免长历史必须从头分页。跳过的旧消息仍在中继，不再自动下载。某台设备回答时，其他设备在末条消息下显示「kwai 正在处理…」。这条 `working` 提示经 hub 和中继内存传递，不写数据库；设备未报告结束时，十分钟后自动消失。
 
@@ -199,39 +197,30 @@ DELETE /v1/sync/conversations/{cid}     → {cursor, deleted: true}      a tombs
 
 管理控制台的用量日期、日期选择器和「用户」注册图表，都按中继 `DAY_OFFSET_H` 划分。浏览器时区不同，不会导致日期标签或注册数移到相邻日期。
 
-nanoMuse 是不收费的社区项目。公共中继 `cloud.nanomuse.cn` 的开支由开发者承担，每个账号有一份持续使用的额度。中继 0.5 起，额度按账号累计使用，不是每天重置。
+每个账号有一份持续使用的额度。中继 0.5 起，额度按账号累计使用，不是每天重置。账本记录每笔扣费，但中继不会因为额度不足拒绝请求：额度门控已经移除。
 
-| | `cloud.nanomuse.cn` |
+| | 中继 |
 |---|---|
-| 注册 | 支持中国大陆手机号或邮箱，任何人都可注册 |
-| 免费额度 | 本文所述为**每账号 ¥10**，用于托管 Qwen 的聊天、图像理解和 GUI 操作，不重置。具体金额由中继设置，可不更新 App 而调整。App 读取 `/v1/config`，账号页显示当前额度 |
-| 邀请 | 每位新用户使用你的邀请码注册后，你和对方各增加 **¥5**，具体以中继设置为准。双方在受邀者首次请求后获得奖励，不在注册时到账 |
-| 用完后 | 使用自己的 key 或你已经在付费的套餐。中国大陆优先[阿里云百炼](own-key.md)，同一 key 可提供聊天、手、图片和视频；其他地区优先 [OpenRouter](https://openrouter.ai/keys) 或 OpenAI，因为百炼只接受中国大陆注册。ChatGPT、Claude、Kimi 套餐可在支持其登录流程的客户端中使用；其他 OpenAI 兼容接口也可接入。登录和设备互联不受影响 |
-| 成员 | 开发者及其指定用户不受额度限制，也可指定托管服务商的其他聊天模型，但同样不能使用托管图片或视频生成 |
+| 注册 | 支持邮箱，任何人都可注册 |
+| 免费额度 | 本文所述为**每账号 ¥10**，用于中继配置的模型，不重置。具体金额由中继设置，可不更新 App 而调整。App 读取 `/v1/config`，账号页显示当前额度 |
+| 每日上限 | 运营者可设置；超过后中继返回 `daily_cap`，次日恢复 |
+| 成员 | 运营者指定的成员不受每日上限约束，也可指定上游的其他聊天模型，但同样不能通过中继生成图片或视频 |
 | 请求频率 | 每分钟 30 次 |
 | token | 不设数量上限，仍计量并显示用量 |
 
-`Qwen/Qwen3.6-27B-FP8` 的额度扣费按每百万 token 输入 ¥3、输出 ¥12 计算，缓存输入按输入价格的 20%，以响应 `usage` 为准。推理 token 计为输出。图像输入属于聊天请求，并不等同于生成图片。托管图片和视频生成已不可用，因此不收这两类费用；如需生成，请在本机配置自己的服务商和 API key。
+扣费按中继配置的模型菜单（`CLOUD_MODELS`）定价。默认菜单是本地 halogen 模型，不产生费用，因此账本只记 token，金额为零。推理 token 计为输出。图像输入属于聊天请求，并不等同于生成图片。图片和视频生成不能通过中继使用；如需生成，请在本机配置自己的服务商和 API key。
 
-设置 → nanoMuse Cloud 显示已用、剩余额度及增加额度的方法，同时显示 ¥ 和 $。用到 80 % 时提示一次；耗尽后，中继返回 `allowance_exhausted`，App 显示自备 key、已有付费套餐和邀请选项。邀请默认双方各加 ¥5，实际按中继当天配置。
+设置 → nanoMuse Cloud 显示已用、剩余额度及增加额度的方法，同时显示 ¥ 和 $。用到 80 % 时提示一次。额度不会耗尽：中继不会因为额度不足拒绝请求。
 
-推荐服务商顺序由地区决定。0.1.34 起，中继通过号码国家码或本地 ip2region 离线库确定 `region`，不向外部服务发送数据。中国大陆账号优先推荐阿里云百炼，并预填服务商表单，见[指南](own-key.md)；其他地区推荐 OpenRouter 或 OpenAI，因为百炼仅接受大陆注册。
+使用自己的 key 仍然可行：中国大陆优先[阿里云百炼](own-key.md)，同一 key 可提供聊天、手、图片和视频；其他地区优先 [OpenRouter](https://openrouter.ai/keys) 或 OpenAI，因为百炼只接受中国大陆注册。ChatGPT、Claude、Kimi 套餐可在支持其登录流程的客户端中使用；其他 OpenAI 兼容接口也可接入。登录和设备互联不受影响。
 
-中继 0.21 起，契约 C11 将完整引导卡片作为数据放入 `/v1/me` 的 `spend.guidance`，以及 `allowance_exhausted` 错误旁的 `guidance`。它按地区列出服务商顺序和每家能力 `covers: chat | vision | image | video`，来源为共享目录 [`nanomuse/llm/providers.json`](../../nanomuse/llm/providers.json)，中继包含其副本。还列出已有付费套餐及适用客户端：`plans` 中 ChatGPT 适用于各端，Claude、Kimi 和 OpenRouter 的套餐登录适用于手机；另含本地服务器 `local`、文档链接和 ChatGPT 登录限制说明 `caveats.chatgpt` / `caveats.chatgpt_zh`。
+运营者可通过 `ALLOWANCE_CNY`、`SIGNUP_OPEN`、`ALLOWED_IDENTIFIERS` 设置规则。中继 0.15 起，相关金额可在线调整，见 [`cloud/README.md`](../../cloud/README.md)。
 
-旧版 0.17 的 `ways` 仍返回，并补充服务商 `name`、`name_zh`、`key_url`、`covers`、`auth`，因此 0.1.38 客户端仍显示原来的两个按钮。`/app` 根据 `guidance` 绘制卡片，旧中继则退回两个链接。要求每个对话带固定 ID 的服务商，例如目录 `session_header` 对应的 OpenCode Go，另列在 `session_providers` 并指明请求头。1.0.1 及更早手机端只读 `providers`，不会发送该 ID，因此不推荐这些服务商；支持 ID 的客户端将这份列表接到 `providers` 后。
-
-自建中继可通过 `ALLOWANCE_CNY`、`INVITE_BONUS_CNY`、`SIGNUP_OPEN`、`ALLOWED_IDENTIFIERS` 设置不同规则。中继 0.15 起，相关三个金额可在线调整，见 [`cloud/README.md`](../../cloud/README.md)。管理页「邀请」按邀请码带来的账号数排名，同时显示实际发过请求的人数、尚未首次请求而待发奖励的人数，以及与邀请人使用相同网络地址的人数。账号页也显示邀请人和受邀者列表，接口为 `GET /v1/admin/invites`。
-
-邀请奖励需要受邀者从不同于邀请人的网络地址，累计产生至少 `INVITE_SETTLE_MIN_SPENT_UY` 的真实成功模型消费，默认 200 微元。邮箱 `+tag` 子地址、Gmail 点号和 `googlemail.com` 别名都归入同一账号。`DEFAULT_SIGNUP_DOMAIN_BLOCK` 与 `SIGNUP_DOMAIN_BLOCK` 中的一次性邮箱域名不能注册；非知名邮箱服务商域名每天最多新增 `SIGNUP_PER_DOMAIN_DAY` 个账号，默认 5，超出返回 `domain_limited`。健康检查会提示两类可疑邀请：一天带来超过十个账号，或累计至少二十个受邀者而几乎无人发过请求。
-
-展开「邀请」视图中的邀请人，或查看账号页「邀请的人」卡片，可以收回未花掉的邀请奖励，并可同时停用账号、删除其邀请但从未发请求的账号，接口为 `POST /v1/admin/invites/abuse`。已消费部分不收回。
+邮箱 `+tag` 子地址、Gmail 点号和 `googlemail.com` 别名都归入同一账号。`DEFAULT_SIGNUP_DOMAIN_BLOCK` 与 `SIGNUP_DOMAIN_BLOCK` 中的一次性邮箱域名不能注册；非知名邮箱服务商域名每天最多新增 `SIGNUP_PER_DOMAIN_DAY` 个账号，默认 5，超出返回 `domain_limited`。
 
 运营者启用或停用账号、设置或取消成员、赠送、充值、修改额度、修改设置和删除账号，都会写入「控制」中的审计日志，记录操作者、来源和目标账号 ID 前八位；账号仍有时间线时也会写入，删除还计入「统计」。被停用账号申请验证码仍返回普通的 `204`，请求照常计入频率限制，但不实际发短信或邮件，也不透露账号存在与否或停用状态。用户使用验证码或正确密码登录时才收到 `403 account_disabled`；密码错误则与一般错误密码相同。
 
-项目会适时邀请你在 [GitHub](https://github.com/nano-muse/nanoMuse) 点 star，帮助更多人找到它。0.1.35 起，提示时机由中继 `GET /v1/nudges` 配置：完成第 3、10、30 个任务，使用第 7、30 天，完成目标，绘制新形象，在账号页一次，以及额度耗尽时。两次至少相隔一周，每设备最多四次。提示在对应位置显示为卡片，选择「以后再说」也计入次数。访问项目页面或表示「已经点过了」后不再提示，该状态只保存在设备，不跨账号同步。
-
-运营者可在设置 → 请求 star 中修改策略，无需更新 App。各端内置相同默认值，供无法连接中继时使用。策略除了时间，也可以指定句子：`star.text` 为英文，`star.text_zh` 为简体中文，各最多 200 字符，默认空。中文 App 优先用 `text_zh`，其次 `text`，都为空则用本机文案；其他语言优先 `text`，否则用本机文案。只替换说明句，标题和按钮不变。按中继 0.22 及更早协议构建的客户端忽略这两个字段。
+项目欢迎你在 [GitHub](https://github.com/knsew/nanoMuse) 点 star，帮助更多人找到它。中继从不提示：`GET /v1/nudges` 始终返回 `{"star": {"enabled": false}}`，App 不显示 star 卡片。
 
 ## 控制 {#controls}
 
@@ -241,13 +230,13 @@ nanoMuse 是不收费的社区项目。公共中继 `cloud.nanomuse.cn` 的开�
 
 | 开关 | 关闭时的响应 |
 |---|---|
-| **免费额度** | 受限账号，即未使用自己 key 且非成员的账号，请求模型得到 **429 `allowance_exhausted`**，附 `paused: true`、`reason: "allowance_paused"`。结构与额度耗尽相同，App 显示自备 key 引导卡，但说明是暂时暂停。成员、登录、设备和同步不受影响 |
+| **免费额度** | 不会因此拒绝任何请求：开关只在 `/v1/me` 和 `/v1/config` 的 `paused` 中列出，其他不变。开关保留，是为了让控制台和触发它的阈值规则继续工作 |
 | **注册** | 尚无账号的手机号或邮箱调用 `POST /v1/auth/code`、`/v1/auth/verify` 时，在发码前返回 **403 `signup_closed`**，`/v1/config` 的 `signup_open` 变为 false。已有账号继续正常登录和使用 |
 | **云服务** | API 返回 **503 `service_paused`** 并附 `paused: true`，健康检查、`/v1/config`、管理控制台和 `/v1/admin/*` 除外。全部 hub socket 以 `4003 hub_paused` 关闭，不删除数据。App 保留 key，服务恢复后重新连接登录 |
 | **对话同步** | `/v1/sync/*` 上传和拉取返回 **503 `sync_paused`**；`GET /v1/sync/state` 仍响应并标 `paused: true`。已存数据保留，各设备可继续本地工作 |
 | **设备 hub** | `WS /v1/hub` 接受后立即以 **4003 `hub_paused`** 关闭，现有连接同样关闭；`GET /v1/devices` 返回 503 `hub_paused`。各设备仍可独立工作 |
 
-暂停项列在 `/healthz`、公开且缓存一分钟的 `/v1/config`，以及 `/v1/me` 的 `paused` 中，客户端可以提前说明原因。手机和控制台按普通拒绝处理，显示中继说明；`allowance_exhausted` 继续使用已有引导卡。
+暂停项列在 `/healthz`、公开且缓存一分钟的 `/v1/config`，以及 `/v1/me` 的 `paused` 中，客户端可以提前说明原因。手机和控制台按普通拒绝处理，显示中继说明。
 
 第六项「只服务 nanoMuse 客户端」从中继 0.28 起默认开启。开启时，模型仅服务 nanoMuse 手机 App、桌面版、Python 运行时和浏览器网页控制台。其他程序使用 nanoMuse key 调用 `/v1/chat/completions`，例如池工作进程、SDK、脚本或未改名的上游 App，会收到 **403 `client_not_supported`**，`client` 字段标明识别出的客户端，并提示在该程序使用自己的 key。
 
@@ -267,7 +256,7 @@ cp .env.example .env    # domain, secrets, upstream key, how codes are sent
 docker compose up -d    # Caddy fetches the TLS certificate
 ```
 
-[`cloud/README.md`](../../cloud/README.md) 包含配置、验证码发送选项、管理充值接口和测试套件。邮箱使用 SMTP（邮件发送协议），中国大陆手机号使用阿里云短信。
+[`cloud/README.md`](../../cloud/README.md) 包含配置、验证码发送选项、管理充值接口和测试套件。邮箱使用 SMTP（邮件发送协议），或写入中继日志。
 
 少量用户可以设置 `SIGNUP_OPEN=0` 和 `ALLOWED_IDENTIFIERS=139…, me@example.com`，只允许列表中的号码与邮箱登录；其他请求在发送验证码前返回 `not_invited`。早期试用部署采用这种方式。开放注册时，同一列表指定不受每日上限约束的成员，管理页也可添加成员。
 
@@ -275,7 +264,7 @@ docker compose up -d    # Caddy fetches the TLS certificate
 
 中继也通过 `/v1/hub` 提供设备互联，并在 `/app` 提供网页控制台，见 [hub.md](hub.md)。`HUB_ENABLED` 可关闭 hub，`HUB_FRAME_LIMIT` 限制单帧，默认 16 MB，文件和截图均在帧中传输。
 
-各端默认连接 `https://cloud.nanomuse.cn`。手机登录表单下的「使用其他服务器」可填写自建中继地址，见 [android.md](android.md)、[ios.md](ios.md)；桌面版读取插件 `config.baseURL`，见 [desktop.md](desktop.md)；网页控制台使用提供 `/app` 页面的那台中继。
+各端没有内置中继：每台 App 登录时都要填写中继地址。手机登录表单填写你使用的中继地址，见 [android.md](android.md)、[ios.md](ios.md)；桌面版读取插件 `config.baseURL`，见 [desktop.md](desktop.md)；网页控制台使用提供 `/app` 页面的那台中继。
 
 ## 通信协议 {#protocol}
 
@@ -283,18 +272,16 @@ App 使用以下 JSON 接口：
 
 ```
 GET  /healthz                                                 → {ok, version, models[], paused[]}; no key
-GET  /v1/config                                               → {version, signup_open, paused[], allowance_cny, allowance_usd, invite_bonus_cny, invitee_bonus_cny, usd_cny, invite_url, own_key_docs, openrouter_url, privacy_url, repo_url, improve_default, code_ttl_s, password_min_len}; no key, a minute's cache
+GET  /v1/config                                               → {version, signup_open, paused[], allowance_cny, allowance_usd, usd_cny, privacy_url, repo_url, improve_default, code_ttl_s, password_min_len}; no key, a minute's cache
 POST /v1/auth/code          {identifier}                      → 204（被停用的账号得到同样的 204，不发任何东西）; 400 phone_region, 403 not_invited | signup_closed, 429 code_too_often | domain_limited, 502 send_failed
-POST /v1/auth/verify        {identifier, code, device, invite?, device_id?, device_kind?} → {api_key, base_url, account, tokens, models, created, region}; 可选的身份把 key 绑到那台 Hub 设备（hub.md）；400 code_wrong | code_expired | bad_device, 403 account_disabled
+POST /v1/auth/verify        {identifier, code, device, invite? (ignored), device_id?, device_kind?} → {api_key, base_url, account, tokens, models, created, region}; 可选的身份把 key 绑到那台 Hub 设备（hub.md）；400 code_wrong | code_expired | bad_device, 403 account_disabled
 POST /v1/auth/login         {identifier, password, device, device_id?, device_kind?} → the same; 401 bad_credentials, 429 locked, 400 bad_device
 POST /v1/auth/password      Bearer  {password, current?}      → 204; "" with current removes it; 400 password_short | password_long | password_weak | password_wrong | password_required
 POST /v1/auth/session-key   Bearer  {device?, ttl_s?}         → {api_key, expires_at}; a key that lapses on its own (90 days at most); 403 session_from_session
-GET  /v1/me                 Bearer                            → {region: cn | intl | unknown, account{…, has_password, sessions, signed_in_via}, usage{today, total by kind / model}, tokens, spend{…, ways, guidance}, invite, contribute, models, defaults, base_url, clips, recent, nudges, paused[]}
-GET  /v1/me/invite          Bearer                            → {code, url, invites, bonus_cny, invitee_bonus_cny, bonus_when: "first_use", settled, pending, earned_cny, friends[]}
+GET  /v1/me                 Bearer                            → {region: cn | unknown, account{…, has_password, sessions, signed_in_via}, usage{today, total by kind / model}, tokens, spend{…}, invite (empty), contribute, models, defaults, base_url, clips, recent, nudges, paused[]}
 GET  /v1/estimate           Bearer  ?images=5&clips=4&image_model=&video_model=&size=  → {cny, usd, parts[{kind, model, count, seconds?, cny}], left_cny, grant_cny, unlimited, affordable}; nothing charged
-POST /v1/me/contribute      Bearer  {on}                      → {on, samples, default_on, keeps[], privacy_url}; the "help improve" switch
 DELETE /v1/me/samples       Bearer                            → {deleted}; every turn kept from this account
-GET  /v1/nudges                                               → {version, star{enabled, url, moments{signed_in, tasks[], new_look, exhausted, days_used[], goal_done}, cooldown_days, max_asks, text, text_zh}}; no key, cached an hour
+GET  /v1/nudges                                               → {"star": {"enabled": false}}; the relay never asks for a star; no key, cached an hour
 GET  /v1/me/profile         Bearer  ?face=false               → {rev, device, name, avatar, …, face?, connectors: [{id, label, url, auth, device, device_id, enabled, at}]}
 PUT  /v1/me/profile         Bearer  {device, name?, avatar?, …, face?, connectors?}  → {rev, device}; a field that is absent keeps what is stored (relay 0.25); a device's connectors replace only its own; 400 no_secrets_in_profile, too_many_connectors
 DELETE /v1/me/profile       Bearer                            → 204
@@ -316,9 +303,9 @@ Android 和打包桌面版在容量字段未手填时采用中继值；手动覆
 
 其他模型接口兼容 OpenAI API。`GET /v1/models` 包含 `architecture` 输入输出模态，用于识别图像模型，以及每模型的 `nanomuse` 信息块：`kind`、价格、`for`，表示聊天模型适用 `chat`、`gui` 或两者，以及 `recommended_for`。成员可通过 `GET /v1/models/{id}?kind=chat` 检查手动填写模型，返回 `listed`、`priced_as`。聊天使用支持流式响应的 `POST /v1/chat/completions`；图片接口为 `POST /v1/images/generations`、`/v1/images/edits`；视频沿用服务商路径 `POST /api/v1/services/aigc/video-generation/video-synthesis`、仅查询自己任务的 `GET /api/v1/tasks/{id}`，以及 `GET /api/v1/uploads`。
 
-错误格式为 `{"error": {"message", "type": "nanomuse_cloud", "code"}}`，`code` 保持稳定，由 App 转为可读说明。托管服务对新图片或视频请求、上传、手动媒体模型查询、媒体估算和视频任务轮询，都在请求上游前返回 `410 hosted_media_retired`，并附 `action: configure_own_provider`。
+错误格式为 `{"error": {"message", "type": "nanomuse_cloud", "code"}}`，`code` 保持稳定，由 App 转为可读说明。新图片或视频请求、上传、手动媒体模型查询、媒体估算和视频任务轮询，都在请求上游前返回 `410 hosted_media_retired`，并附 `action: configure_own_provider`。
 
-中继 0.22 为运营者[控制开关](#controls)增加 `403 signup_closed`、`503 service_paused`、`503 sync_paused`、`503 hub_paused`，以及 hub 关闭码 `4003 hub_paused`。免费额度只是暂停而非耗尽时，`allowance_exhausted` 附 `paused: true`。`/healthz`、`/v1/config`、`/v1/me` 都在 `paused` 中列出暂停项。
+中继 0.22 为运营者[控制开关](#controls)增加 `403 signup_closed`、`503 service_paused`、`503 sync_paused`、`503 hub_paused`，以及 hub 关闭码 `4003 hub_paused`。`/healthz`、`/v1/config`、`/v1/me` 都在 `paused` 中列出暂停项。
 
 **模型开始回答前的状态，中继 0.31 起**。流式聊天可先发送没有 `choices` 的数据块：`{"object": "chat.completion.chunk", "model", "created", "choices": [], "nanomuse": {"phase", "waited_ms", "ahead"?}}`。等待 `CHAT_CONCURRENCY` 名额时，每五秒发送 `phase: "queued"`，用 `ahead` 表示前面请求数；获得名额后发送 `phase: "working"`。没有排队的请求不发送这些块。服务商尚未返回首字节时，每十秒发送注释行 `: keepalive`。
 

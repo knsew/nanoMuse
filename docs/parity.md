@@ -14,14 +14,12 @@ Legend: **✓** done · **◐** partial (what is missing is in the note) · **�
 
 | Feature | Android | iOS | Desktop | Web |
 |---|---|---|---|---|
-| Sign in with a code (phone / e-mail) | ✓ | ✓ | ✓ | ✓ |
+| Sign in with a code (e-mail; a phone number takes its code from the relay log or signs in with a password) | ✓ | ✓ | ✓ | ✓ |
 | Sign in with a password | ✓ | ✓ 0.1.32 | ✓ | ✓ |
-| Invite code at sign-in | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
 | Amounts from the relay (`/v1/config`) before sign-in | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
 | Allowance in yuan on the account page, the bar turning at 80 % | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
 | 80 % heads-up in the chat: one line above the composer, once per pool size, *See the ways* | ✓ | ✓ 0.1.40 *(33)* | ✓ 0.1.40 | ✓ |
-| "Ways on" when the pool is spent (own key · invite · star) | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
-| Invite code and link, earnings | ✓ | ✓ 0.1.32 | ✓ | ✓ |
+| "Ways on" (own key · star) when the pool is spent; the relay never refuses a turn for lack of pool, so this card never shows | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
 | Usage by kind and by model, today / all time | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
 | Set / change / remove the password | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
 | Signed-in devices, revoke one, sign out everywhere | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
@@ -29,9 +27,9 @@ Legend: **✓** done · **◐** partial (what is missing is in the note) · **�
 | Delete account | ✓ | ✓ 0.1.32 | ✓ 0.1.32 | ✓ |
 | Data controls (what the relay keeps of the chats) | ✓ | ✓ 0.1.33 | ✓ | ✓ |
 | Own-key presets (Bailian · OpenRouter, by region) | ✓ 0.1.34 | ✓ 0.1.34 | ✓ 0.1.34 | ✓ 0.1.34 |
-| Chat model and Hands model as two settings (the relay's `for` / `recommended_for`; hosted Cloud currently recommends `Qwen/Qwen3.6-27B-FP8` for both) | ✓ 0.1.34 | ✓ 0.1.34 *(chat; no hands)* | ✓ 0.1.34 | ✓ 0.1.34 |
-| Models page, four slots (*Chat* · *Operating the screen* · *Making pictures* · *Making clips*): each row `provider · model`, a picker containing only sources that fit; hosted Cloud appears for chat and screen operation but not media generation, which requires an own provider; an empty row names who could and offers *Add a provider* | ✓ 0.1.41 *Settings → Models*, the card at the top of Settings opens it; *Settings → Hands* and *Image & video models* use the same choices | ✓ 0.1.41 the first card of Settings; the screen row disabled (*Not on iPhone*; the computer uses its own setting); the pictures and clips pickers list own providers on a DashScope host only *(40)* | ✓ 0.1.41 right after General; the hands speak OpenAI's shape, so an Anthropic or native Gemini key is named under the row, not listed; pictures through an own provider go to it directly, nothing billed to the account | ✓ 0.1.41 *Connections*: the *Chat model* card, the *Hands model* select, the *Making pictures* and *Making clips* rows (`PUT /api/connections/image` · `/video`) |
-| *Automatic* on the screen, pictures and clips rows, saying what it gives right now; the order when nothing was chosen: the chat provider's own model when it is yours and can → a signed-in relay only when its live menu offers the job → the first own provider that can; hosted Cloud therefore skips the media step; a choice always wins | ✓ 0.1.41 `SlotOrder` | ✓ 0.1.41 pictures and clips (the screen is n/a) | ✓ 0.1.41 `handsChoice`, `imageEndpoint`, `videoEndpoint`; a hands change takes effect at the hands' next step, no restart | ✓ 0.1.41 the runtime resolves it (`effective_*`); *Currently provider · model* under each control |
+| Chat model and Hands model as two settings (the relay's `for` / `recommended_for`; the relay currently recommends `halogen-qwen3.8-flash-next` for both) | ✓ 0.1.34 | ✓ 0.1.34 *(chat; no hands)* | ✓ 0.1.34 | ✓ 0.1.34 |
+| Models page, four slots (*Chat* · *Operating the screen* · *Making pictures* · *Making clips*): each row `provider · model`, a picker containing only sources that fit; the relay appears for chat and screen operation but not media generation, which requires an own provider; an empty row names who could and offers *Add a provider* | ✓ 0.1.41 *Settings → Models*, the card at the top of Settings opens it; *Settings → Hands* and *Image & video models* use the same choices | ✓ 0.1.41 the first card of Settings; the screen row disabled (*Not on iPhone*; the computer uses its own setting); the pictures and clips pickers list own providers on a DashScope host only *(40)* | ✓ 0.1.41 right after General; the hands speak OpenAI's shape, so an Anthropic or native Gemini key is named under the row, not listed; pictures through an own provider go to it directly, nothing billed to the account | ✓ 0.1.41 *Connections*: the *Chat model* card, the *Hands model* select, the *Making pictures* and *Making clips* rows (`PUT /api/connections/image` · `/video`) |
+| *Automatic* on the screen, pictures and clips rows, saying what it gives right now; the order when nothing was chosen: the chat provider's own model when it is yours and can → a signed-in relay only when its live menu offers the job → the first own provider that can; the relay therefore skips the media step; a choice always wins | ✓ 0.1.41 `SlotOrder` | ✓ 0.1.41 pictures and clips (the screen is n/a) | ✓ 0.1.41 `handsChoice`, `imageEndpoint`, `videoEndpoint`; a hands change takes effect at the hands' next step, no restart | ✓ 0.1.41 the runtime resolves it (`effective_*`); *Currently provider · model* under each control |
 | *Use it for* after a key is saved: one toggle per capability the provider has, all on; *Use it* moves those rows to the provider's catalogue defaults, *Not now* changes nothing; saving alone switches nothing | ✓ 0.1.41 | ✓ 0.1.41 (no screen toggle) | ✓ 0.1.41 | — the own-key form sets the chat provider; pictures and clips are set on their own rows *(40)* |
 | *Use nanoMuse Cloud models*, a switch, not a delete: off, the account leaves the pickers and the automatic order of every slot and nothing spends the allowance but the explicit *Use nanoMuse Cloud this time*; the sign-in stays for sync and the hub, and the Cloud provider row cannot be deleted | ✓ *Settings → Models* | ✓ *Settings → Models* | ✓ *Settings → Models* | ✓ the nanoMuse Cloud card under *Connections* (`POST /api/cloud/models`); refused while the chat model is the account's, since the runtime holds one chat model |
 | With a key of your own the app works signed out (chat, hands, pictures, clips); the first screen offers *Use your own API key instead* and the sign-in waits for the Cloud models, sync and the devices | ✓ | ✓ | ✓ the sign-in was never a wall | ✓ the sign-in page steps aside once a model is ready or the button was taken |
@@ -39,8 +37,8 @@ Legend: **✓** done · **◐** partial (what is missing is in the note) · **�
 | "Ways on" ordered by region (Bailian first on the mainland, OpenRouter first elsewhere) | ✓ 0.1.34 | ✓ 0.1.34 | ✓ 0.1.34 | ✓ 0.1.34 |
 | Own-key catalogue (`providers.json`: 28 providers, what each covers (chat · screen · pictures · clips), key pages, regions; one file, generated for every client) | ✓ 0.1.39 | ✓ 0.1.40 `NanoMuseCatalogue` *(32)* | ✓ 0.1.39 | ✓ 0.1.39 |
 | "Ways on" from the catalogue: the region's lead first, *more providers*, the plans one can sign in with, the key taken inline | ✓ 0.1.39 | ✓ 0.1.40 the pinned card, Settings → nanoMuse Cloud and the own-key sheet, one list (`NanoMuseWaysList`) *(32)* | ✓ 0.1.39 Settings → nanoMuse Cloud, the own-key first-run step | ✓ 0.1.39 |
-| The ways read from the relay's `spend.guidance` (providers for the region, plans, caveats, docs) rather than a list in the app; the bundled catalogue only when the relay sends none | ✓ 0.1.40 `guidance` first, the catalogue when none *(34)* | ✓ 0.1.40 the same (`NanoMuseWays`) *(32)* | ✓ 0.1.40 the chat card and Settings → nanoMuse Cloud, one component | ✓ 0.1.39 |
-| A refused turn (`429 allowance_exhausted`) is a card under it in the chat: one sentence, the three ways on, *Open Settings*, *Try again*; never the relay's reply as text | ✓ 0.1.39 `AllowanceWaysCard` | ✓ 0.1.40 pinned under the header like the star card (`NanoMuseAllowanceCard`) *(33)* | ✓ 0.1.40 *(before: the JSON, after five retries as a rate limit)* | ✓ 0.1.39 notice with the ways |
+| The ways read from the bundled catalogue (the relay used to send `spend.guidance`; it sends none now, so the catalogue is the list) | ✓ 0.1.40 `guidance` first, the catalogue when none *(34)* | ✓ 0.1.40 the same (`NanoMuseWays`) *(32)* | ✓ 0.1.40 the chat card and Settings → nanoMuse Cloud, one component | ✓ 0.1.39 |
+| A refused turn (`429 allowance_exhausted`) is a card under it in the chat: one sentence, the ways on, *Open Settings*, *Try again*; never the relay's reply as text. The relay never sends this refusal, so the card is only drawn if it ever arrives | ✓ 0.1.39 `AllowanceWaysCard` | ✓ 0.1.40 pinned under the header like the star card (`NanoMuseAllowanceCard`) *(33)* | ✓ 0.1.40 *(before: the JSON, after five retries as a rate limit)* | ✓ 0.1.39 notice with the ways |
 | The relay's other refusals as one sentence and a button: 413 *too large* → *New chat*, 401 → *Sign in*, 403, 429 busy (with the wait), the daily cap, 404 model, 5xx / no answer → *Try again*; never a status code or JSON | ✓ 0.1.40 `RelayRefusal` + `RelayRefusalCard`, 17 locales *(35)* | ✓ 0.1.40 `NanoMuseRelayRefusal` + `NanoMuseRelayRefusalCard`, 9 locales; a refused chat turn goes through `describe` *(35)* | ✓ 0.1.40 | ✓ 0.1.40 `failures.py` (413, `not_invited`, `too_many_in_flight`, `provider_busy` added) |
 | The operator's switches (relay 0.22, [cloud.md](cloud.md#controls)) as plain sentences: the allowance *paused, not used up* (the same card), `service_paused`, `sync_paused`, `hub_paused`, `signup_closed` at sign-in | ✓ 0.1.40 *(35)* | ✓ 0.1.40 *(35)* | ✓ 0.1.40 | ✓ 0.1.40 |
 | Sign in with a ChatGPT plan: chat and the hands' screen reading only, with the line about OpenAI's terms | ✓ 0.1.39 upstream's sign-ins (also Claude, Kimi, OpenRouter) | ✓ 0.1.40 upstream's Codex OAuth from the ways on (also Claude, Kimi, OpenRouter) *(32)* | ✓ 0.1.39 through the bundled runtime | ✓ 0.1.39 the runtime's `nanomuse chatgpt login` |
@@ -55,7 +53,7 @@ Legend: **✓** done · **◐** partial (what is missing is in the note) · **�
 | Status line = the step's own words (`step`: *打开携程网站*), never the raw command | ✓ 0.1.33 | ✓ 0.1.33 | ✓ 0.1.33 | ✓ 0.1.33 |
 | The wait before the first token: nothing for 10 s, then *The model is busy, 15 s so far* with *Cancel*; *3 ahead of you* from the relay's status chunks (relay 0.31) | ✓ 1.0.8 | ✓ 1.0.8 | ✓ 1.0.8 (the seconds only) | – |
 | "Show the agent's steps", on by default since 0.1.37 (a stored off stays off) | ✓ 0.1.37 (`nm.show_steps`) | ✓ 0.1.37 (`nanomuse.show_steps`) *(2)* | ✓ 0.1.37 | ✓ 0.1.37 |
-| Star asks at the relay's moments (`/v1/nudges`: sign-in · 3rd / 10th / 30th task · 7th / 30th day · a goal reached · a new look · allowance spent; 7 days apart, 4 per device; never in the first conversation). Every card has *I already starred* next to *Star on GitHub*; either ends the asks on that device for good | ✓ 0.1.35 | ✓ 0.1.35 *(3)* | ✓ 0.1.35 | ✓ 0.1.35 |
+| Star asks at the built-in moments (sign-in · 3rd / 10th / 30th task · 7th / 30th day · a goal reached · a new look · allowance spent; 7 days apart, 4 per device; never in the first conversation). The relay always answers `/v1/nudges` with star disabled, so once the policy has been read the app never asks; before the first read the built-in defaults still allow asks. Every card has *I already starred* next to *Star on GitHub*; either ends the asks on that device for good | ✓ 0.1.35 | ✓ 0.1.35 *(3)* | ✓ 0.1.35 | ✓ 0.1.35 |
 | First conversation: the app speaks first, asks what to call you, the model's `nanomuse-naming` fence becomes the naming card | ✓ | ✓ 0.1.34 | ✓ 0.1.35 *(25)* | ✓ *(39)* |
 | First run: "Sign in (free)" before anything else | ✓ | ✓ 0.1.32 *(4)* | ✓ | ✓ |
 | Approval cards, three tiers, remembered grants; a Permissions page listing the remembered grants by risk tier, with Revoke | ✓ | upstream's; since 1.0.4 the card for a step another device's Muse asks about (*Allow once / Allow for this chat / Always allow this on 〈device〉 / Deny*), the standing answers under *Approvals* on the agent's page with Revoke | ✓ Settings → Permissions → *Standing grants*: the remote-control switch, the trusted devices and the hands' per-app grants under the phone's three tiers | ✓ |
@@ -82,7 +80,7 @@ Legend: **✓** done · **◐** partial (what is missing is in the note) · **�
 | Hub, inbound: the device answers the others (shell · files · open · screen · notify · task) | ✓ `HubActions` | ◐ info · open · notify · task; shell, files and screen answer *not supported* *(10)* | ✓ `actions.ts` | ✓ the runtime; a browser tab is not a device |
 | Hands: the device's own screen as a hand | ✓ | n/a *(10)* | ✓ Linux X11 (Wayland *(21)*); macOS one window while the person keeps the mouse, per-app grants, glow and capsule out of the shots *(19)*; Windows to be tried *(31)* | n/a |
 | Report a problem: one tap opens a GitHub issue | ✓ Settings → Account | ✓ About → *Report an issue* | ✓ the corner menu; under the shell a screenshot goes to Downloads and the issue opens filled in | ✓ Settings → Feedback |
-| Installed and latest version, side by side (`nanomuse.cn/dl/index.json` first, GitHub second, a day's cache) | ✓ 0.1.35 Settings → Version | ✓ 0.1.35 Settings → Version | ✓ 0.1.35 About, Settings row | ✓ 0.1.35 Settings |
+| Installed version only (there is no update check; a new release is installed by downloading it from the fork's GitHub Releases page by hand) | ✓ 0.1.35 Settings → Version | ✓ 0.1.35 Settings → Version | ✓ 0.1.35 About, Settings row | ✓ 0.1.35 Settings |
 | A black capture is an error with the fix (Screen Recording, Wayland), never a picture | n/a | n/a | ✓ 0.1.33 | n/a |
 | macOS permissions read back live; *Open System Settings* after an ask; Screen Recording relaunch notice | n/a | n/a | ✓ 0.1.33; 0.1.35: one row to switch on, *Try it* rows, a restart dialog when Screen Recording flips on; since 0.1.38 the row is *nanoMuse Computer Use*, the helper app *(26)* | n/a |
 | Mini-Linux sandbox on the device | ✓ | ✓ upstream (iSH) | n/a (the runtime's own sandbox) | n/a |
@@ -253,8 +251,9 @@ notes above; a settled item keeps its number and says how it went.
 27. **Web · motion clips.** The clips are per device (drawn where the face lives: the phone, the
     iPhone, the desktop). The web app shows the still face. *Decision: draw them in the runtime
     too, or leave the web still?*
-28. **Star asks · what counts.** The policy is the relay's (`/v1/admin/nudges`, console → Star
-    asks) and reaches every client within a day without an update. Two small differences left:
+28. **Star asks · what counts.** The relay always answers `/v1/nudges` with star disabled,
+    so once a client has read the policy it never asks; before the first read the built-in
+    defaults still allow asks. Two small differences left:
     Android asks once per phone when the allowance is spent (the other clients the same); the
     first feed day is not written when the person changes the face during the naming conversation
     (the first run never reaches *done*). Small.
@@ -385,7 +384,7 @@ notes above; a settled item keeps its number and says how it went.
   all four, with the sentence in every locale the client has; the desktop's `tests/refusals.test.mjs`
   and `tests/refusal-card.test.mjs` are the shape of the test to copy.
 - The star asks follow one policy everywhere, the relay's `/v1/nudges` (contract C1 in
-  `docs/cloud.md`), with the same defaults built into every client: a *task* is a turn the person
+  `docs/cloud.md`), which always answers star disabled, with the same defaults built into every client: a *task* is a turn the person
   started that got a reply, never the first conversation, a routine, a feed post or a goal
   check-in; once per moment, `cooldown_days` apart, `max_asks` per device, never again after
   *Star on GitHub* (`nm.star.*` / `nanomuse.star.*`). Every card also offers *I already starred*;
@@ -395,9 +394,9 @@ notes above; a settled item keeps its number and says how it went.
   until it is told once. Clients: `nanomuse/nudges.py`,
   `harness/dsh-nanomuse/src/nudges.ts`, `web/src/nudges.ts`, `io.github.nanomuse.community.Nudges`,
   `NanoMuse/NanoMuseNudges.swift`.
-- The release check reads the same two sources in the same order on every client:
-  `https://nanomuse.cn/dl/index.json`, then GitHub's `releases/latest`; a day's cache; the row
-  always shows the installed version too.
+- There is no release check on any client: the Version row shows the installed version
+  only, and a new release is installed by downloading it from the fork's GitHub Releases
+  page by hand.
 - Conversation sync speaks one wire format (contract C7 in `docs/cloud.md`) from four clients and
   one relay: `cloud/nanomuse_cloud/sync.py`, `nanomuse/sync/` (runtime and web), `harness/dsh-nanomuse/src/sync.ts`
   (desktop), `io.github.nanomuse.sync` (Android), `NanoMuse/NanoMuseSync.swift` (iOS). Every client

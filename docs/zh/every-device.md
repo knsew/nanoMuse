@@ -127,11 +127,9 @@ Mac 支持只操作一个应用窗口，而非整个屏幕。通过 `[hands] mod
 
 从 0.1.12/0.1.13/0.1.17 起，手机已同时具备本机和远程职责：本地有沙箱 shell 与「手」，向外通过 `nanomuse-pc`、hub 发请求，向内通过无界面聊天执行器接收 `task`。本阶段 Android 按顺序处理 hub `approve` 接入 RiskGate、在抽屉增加「设备」入口，以及实时显示电脑的手操作事件。前两项在 0.1.19 完成，见[手机在 0.1.19 的进展](#the-phone-in-0-1-19)。这些工作不阻塞桌面开发。
 
-## 浏览器：一台模拟手机上的演示 {#the-browser-a-demo-on-a-simulated-phone}
+## 浏览器：nanoMuse Web {#the-browser-nanomuse-web}
 
-[nanomuse.cn/web](https://nanomuse.cn/web/) 打开展示站，在浏览器内显示 MobileGym 模拟手机，前台为 `demo/mobilegym/apps/nanoMuse`。展示网关为每次访问启动独立的 nanoMuse，使用 `ghcr.io/nano-muse/nanomuse` 镜像，网络出口仅限网关，调用展示站模型，访问结束后移除。访客先通过手机或邮箱验证码、或账号密码登录 nanoMuse Cloud，代码位于 `demo/showcase/gateway/showcase_gateway/visitors.py`，使项目知道谁在体验，之后安装 App 仍可沿用该账号。页面会明确说明这是演示，与 Android App 差距较大，并给出 App 下载入口。首页 [nanomuse.cn](https://nanomuse.cn/) 通过框架嵌入同一页面，使用 `?embed=1`，不显示独立页头。模拟手机自动开机；只有页面已完成要求的登录，且检测到可能有人使用，例如进入可见区域数秒、指针、键盘或滚轮动作，才启动后台 Muse。自动化浏览器不会触发。
-
-展示网关仍保留早期网页模式：每个 Cloud 账号有常驻 Muse、命名存储卷，并像普通设备一样接入 hub，对应 `accounts.py` 和 `WEB_ENABLED=1`。自行部署者仍可使用，项目服务器从 0.1.26 起已关闭。配置和细节见 [demo/showcase/README.md](../../demo/showcase/README.md)。
+浏览器运行 nanoMuse Web，即运行时的网页版：同一个智能体，在浏览器标签页里，由运行时服务器直接从 `nanomuse/server/static/` 提供，构建存在即提供。展示演示已移除：没有模拟手机，没有每次访问单独启动的容器，没有网关。曾经控制网页版开关的 `WEB_ENABLED` 也已移除；构建存在，服务器就提供网页版。
 
 ## iOS、网页控制台、眼镜 {#ios-the-web-console-glasses}
 
@@ -147,16 +145,16 @@ iOS 支持 hub 的 `info`、`open`、`notify`、`task`，从 0.1.34 起采用相
 
 ## 现状 {#status}
 
-| | 手机 | 电脑 | nanoMuse Web（`WEB_ENABLED=1`；0.1.26 起是演示手机） | 网页控制台 | iOS |
+| | 手机 | 电脑 | nanoMuse Web | 网页控制台 | iOS |
 |---|---|---|---|---|---|
-| 本地 shell / 文件 / 浏览器 | 有 | 有（运行时） | 有，在它的容器里 | 不执行本机操作 | 无 |
+| 本地 shell / 文件 / 浏览器 | 有 | 有（运行时） | 有，在服务器上 | 不执行本机操作 | 无 |
 | 操作本机屏幕 | 「手」（0.1.12） | `computer_*`（0.1.19） | — | — | — |
 | 调用其他设备 | `nanomuse-pc`、hub | `device_*`、`delegate`（0.1.19） | 同一个运行时 | 挑一台设备，发一个任务 | — |
 | 回应其他设备 | 会 | 在一个看得见的旁聊里（0.1.19） | 会 | — | info / open / notify / task |
 | 与 Android 一致的界面结构 | 参照 | 网页版（宽屏用侧栏）+ 窗口（0.1.19） | 网页版 | 控制台 | 0.1.34 起 |
 | 屏幕操作时的提示层 | `HandsStage` | 「手」卡片；窗口里的舞台悬浮层 | — | — | — |
 
-0.1.19 发布时提供 APK、桌面安装包 `nanoMuse-Desktop-…`，构建见 [`.github/workflows/desktop-app.yml`](../../.github/workflows/desktop-app.yml)，也提供终端二进制及 nanomuse.cn/web 的 nanoMuse Web。终端二进制在 0.1.39 移除；网页从 0.1.26 起改为模拟手机演示。
+0.1.19 发布时提供 APK、桌面安装包 `nanoMuse-Desktop-…`，构建见 [`.github/workflows/desktop-app.yml`](../../.github/workflows/desktop-app.yml)，也提供终端二进制及 nanoMuse Web。终端二进制在 0.1.39 移除；网页从 0.1.26 起改为模拟手机演示，演示现已移除。
 
 ## 在一台机器上调试整套东西 {#debugging-it-all-on-one-machine}
 
