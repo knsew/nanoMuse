@@ -26,3 +26,9 @@
 # NOTE FOR VERIFICATION: debug builds don't minify, so this bug is invisible
 # there. Any change here must be checked against an assembleRelease APK.
 -keep class io.codeconcept.realtimecutvadlibrary.** { *; }
+
+# nanoMuse: SnakeYAML (skill-frontmatter parsing) references java.beans.*
+# classes through reflection; they do not exist on Android, and R8 fails the
+# release build on the missing classes. The use is guarded at runtime, so
+# silence the warnings instead of keeping the classes.
+-dontwarn java.beans.**
