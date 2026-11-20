@@ -92,12 +92,22 @@ def check(exe: Path) -> None:
     for d in (home, cwd):
         _clear_dir(d)
     cwd.mkdir(parents=True)
-    env = dict(os.environ, NANOMUSE_DATA_DIR=str(home), PYTHONUTF8="1")
+    # The check boots the bundle with no relay configured: it proves the runtime
+    # serves, not that it signs in. Without required=false the boot refuses to
+    # start ([cloud] base_url is required), so the check would fail on a bundle
+    # that works. A stray base URL from the environment goes the way of the keys.
+    env = dict(
+        os.environ,
+        NANOMUSE_DATA_DIR=str(home),
+        PYTHONUTF8="1",
+        NANOMUSE_CLOUD_REQUIRED="0",
+    )
     for key in (
         "OPENAI_API_KEY",
         "DASHSCOPE_API_KEY",
         "ANTHROPIC_API_KEY",
         "OPENAI_BASE_URL",
+        "NANOMUSE_CLOUD_BASE_URL",
         "NANOMUSE_WORKSPACE",
     ):
         env.pop(key, None)
