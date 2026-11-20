@@ -4,6 +4,26 @@ All notable changes to nanoMuse. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Documentation
+
+### Cloud
+
+### Runtime
+
+### Web
+
+### Desktop
+
+### Android
+
+### iOS
+
+### Project
+
+## [1.1.0] - 2026-11-20 · Harbor
+
+Harbor: the first release of this fork, and a private-deployment release. The hosted service is gone from the source: telemetry uploads, the four update checkers, the multi-tenant relay modules (invites, allowances, review codes, GitHub stats, GeoIP, Aliyun SMS, star nudges, the DashScope media proxy), and the demo, docs-site and showcase directories are removed; the relay and the model defaults now point at a self-hosted relay and a local endpoint. The desktop is built for Windows and Linux only, the iPhone app and the Mac builds are gone from the release, and the Android release APK is signed in CI with the fork's own key. It also carries the upstream work since 1.0.9: device-bound conversations on Android and desktop, long turns that keep their context, the Levea video editor in the connector catalogue, and the runtime asking before it repeats a sensitive action. The relay is 0.32.0.
+
 - Removed the hosted service from the source: telemetry uploads, the four update checkers, the multi-tenant relay modules (invites, allowances, review codes, GitHub stats, GeoIP, Aliyun SMS, star nudges, the DashScope media proxy), and the demo, docs-site and showcase directories are gone; the relay and the model defaults now point at a self-hosted relay and a local endpoint. The audit is PRIVATE-DEPLOY-ANALYSIS.md.
 
 - Kept completed sensitive actions and file writes in view after message or token limits removed their tool exchanges, helping long tasks avoid repeats. For #938.

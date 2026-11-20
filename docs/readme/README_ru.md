@@ -27,7 +27,7 @@
 
 **nanoMuse — открытый персональный агент для всех ваших устройств.** Один агент со своим именем и обликом, того же рода, что [Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/) от Meta: он делает дела, а не отвечает на вопросы, продолжает работать при закрытом приложении, помнит вас и останавливается спросить перед тем, что нельзя отменить.
 
-*nano* значит полный комплект, достаточно небольшой, чтобы вы запустили и развернули его сами: приложение для телефона, приложение для компьютера, веб-консоль и реле, которое их связывает: всё это лежит в этом репозитории, под GPL-3.0-or-later. **[Бесплатно, открыто, некоммерчески. Давайте строить вместе.](../../CONTRIBUTING.md)** После входа вы получаете бесплатный лимит на модели через реле сообщества (его оплачивает разработчик); когда он кончится, [подключите свой ключ](../own-key.md). То же реле работает на вашем собственном сервере, и тогда ничего не покидает дом. Последняя версия: **1.0.9 Tiller**, [заметки о выпуске](https://github.com/knsew/nanoMuse/releases/tag/v1.0.9).
+*nano* значит полный комплект, достаточно небольшой, чтобы вы запустили и развернули его сами: приложение для телефона, приложение для компьютера, веб-консоль и реле, которое их связывает: всё это лежит в этом репозитории, под GPL-3.0-or-later. **[Бесплатно, открыто, некоммерчески. Давайте строить вместе.](../../CONTRIBUTING.md)** После входа вы получаете бесплатный лимит на модели через реле сообщества (его оплачивает разработчик); когда он кончится, [подключите свой ключ](../own-key.md). То же реле работает на вашем собственном сервере, и тогда ничего не покидает дом. Последняя версия: **1.1.0 Harbor**, [заметки о выпуске](https://github.com/knsew/nanoMuse/releases/tag/v1.1.0).
 
 > [!NOTE]
 > **nanoMuse продолжает развиваться**
@@ -52,11 +52,9 @@ https://github.com/user-attachments/assets/c7694d5a-9450-4f99-9254-5d70560d7565
 
 | | |
 |---|---|
-| **Android** 8.0+, arm64 | [nanoMuse-1.0.9-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-1.0.9-arm64.apk): все версии подписаны одним ключом и ставятся поверх предыдущей |
-| **iPhone / iPad** | [TestFlight](https://testflight.apple.com/join/ZHexbDqc): бета, прошедшая бета-проверку Apple; ссылка устанавливает её · [iOS](../ios.md) |
-| **macOS** 12+ | [Apple Silicon](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-arm64.dmg) · [Intel](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-x64.dmg). Без нотаризации: в первый раз правый клик → «Открыть» |
-| **Windows** 10+ | [nanoMuse-Desktop-1.0.9-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-win-x64.exe): один раз нажмите «Выполнить в любом случае» |
-| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.tar.gz) |
+| **Android** 8.0+, arm64 | [nanoMuse-1.1.0-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-1.1.0-arm64.apk): все версии подписаны одним ключом и ставятся поверх предыдущей |
+| **Windows** 10+ | [nanoMuse-Desktop-1.1.0-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-win-x64.exe): один раз нажмите «Выполнить в любом случае» |
+| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.tar.gz) |
 | **Docker** | `bash scripts/self-host.sh --local` для своего реле; `docker compose up -d app` для веб-приложения на своём сервере; см. [самостоятельный хостинг](../self-hosting.md) |
 
 Все загрузки берутся из [последнего выпуска на GitHub](https://github.com/knsew/nanoMuse/releases/latest). Откройте приложение, укажите свой релей, войдите по e-mail, и у агента есть модель, чтобы думать. Телефон, компьютер и веб делят один аккаунт и показывают одни и те же разговоры.

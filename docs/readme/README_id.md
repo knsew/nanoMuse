@@ -27,7 +27,7 @@
 
 **nanoMuse adalah agen pribadi sumber terbuka untuk setiap perangkat yang kamu miliki.** Satu agen dengan nama dan rupa sendiri, seperti [Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/) dari Meta: ia mengerjakan sesuatu alih-alih sekadar menjawab pertanyaan, terus bekerja saat aplikasinya ditutup, mengingatmu, dan berhenti untuk bertanya sebelum melakukan apa pun yang tidak bisa kamu batalkan.
 
-*nano* berarti satu paket lengkap yang cukup kecil untuk kamu jalankan dan pasang sendiri: aplikasi ponsel, aplikasi desktop, konsol web, dan relay yang menghubungkan semuanya ada di repositori ini, di bawah GPL-3.0-or-later. **[Gratis, sumber terbuka, nirlaba. Mari bangun bersama.](../../CONTRIBUTING.md)** Masuk dan kamu mendapat jatah gratis pemakaian model di relay komunitas (pengembang yang membayarnya); kalau habis, [pakai kunci sendiri](../own-key.md). Relay yang sama bisa berjalan di servermu, jadi tidak ada data yang harus keluar dari rumahmu. Versi terbaru: **1.0.9 Tiller**, [catatan rilis](https://github.com/knsew/nanoMuse/releases/tag/v1.0.9).
+*nano* berarti satu paket lengkap yang cukup kecil untuk kamu jalankan dan pasang sendiri: aplikasi ponsel, aplikasi desktop, konsol web, dan relay yang menghubungkan semuanya ada di repositori ini, di bawah GPL-3.0-or-later. **[Gratis, sumber terbuka, nirlaba. Mari bangun bersama.](../../CONTRIBUTING.md)** Masuk dan kamu mendapat jatah gratis pemakaian model di relay komunitas (pengembang yang membayarnya); kalau habis, [pakai kunci sendiri](../own-key.md). Relay yang sama bisa berjalan di servermu, jadi tidak ada data yang harus keluar dari rumahmu. Versi terbaru: **1.1.0 Harbor**, [catatan rilis](https://github.com/knsew/nanoMuse/releases/tag/v1.1.0).
 
 > [!NOTE]
 > **nanoMuse terus berkembang**
@@ -52,11 +52,9 @@ Semua versi: [releases](https://github.com/knsew/nanoMuse/releases).
 
 | | |
 |---|---|
-| **Android** 8.0+, arm64 | [nanoMuse-1.0.9-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-1.0.9-arm64.apk): setiap versi ditandatangani dengan kunci yang sama dan dipasang menimpa versi sebelumnya |
-| **iPhone / iPad** | [TestFlight](https://testflight.apple.com/join/ZHexbDqc): versi beta yang sudah lolos tinjauan beta Apple; pasang dari tautan ini · [iOS](../ios.md) |
-| **macOS** 12+ | [Apple Silicon](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-arm64.dmg) · [Intel](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-mac-x64.dmg). Belum dinotarisasi: klik kanan → *Open* saat pertama kali |
-| **Windows** 10+ | [nanoMuse-Desktop-1.0.9-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-win-x64.exe): klik *Run anyway* sekali |
-| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.0.9/nanoMuse-Desktop-1.0.9-linux-x64.tar.gz) |
+| **Android** 8.0+, arm64 | [nanoMuse-1.1.0-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-1.1.0-arm64.apk): setiap versi ditandatangani dengan kunci yang sama dan dipasang menimpa versi sebelumnya |
+| **Windows** 10+ | [nanoMuse-Desktop-1.1.0-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-win-x64.exe): klik *Run anyway* sekali |
+| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.tar.gz) |
 | **Docker** | `bash scripts/self-host.sh --local` untuk relay sendiri; `docker compose up -d app` untuk aplikasi web di servermu; lihat [self-hosting](../self-hosting.md) |
 
 Semua unduhan berasal dari [rilis terbaru](https://github.com/knsew/nanoMuse/releases/latest). Buka aplikasinya, arahkan ke relay-mu, masuk dengan e-mail, dan agen langsung punya model untuk berpikir. Ponsel, desktop, dan web memakai satu akun dan menampilkan percakapan yang sama.

@@ -48,8 +48,8 @@ IOS = ROOT / "android" / "src" / "ios"
 
 APP_ID = "io.github.nanomuse.app"
 NAME = "nanoMuse"
-VERSION_NAME = "1.0.9"
-VERSION_CODE = 52
+VERSION_NAME = "1.1.0"
+VERSION_CODE = 53
 REPO = "knsew/nanoMuse"
 REPO_URL = f"https://github.com/{REPO}"
 PRIVACY_URL = f"{REPO_URL}/blob/main/docs/privacy.md"
@@ -61,6 +61,11 @@ changed: list[str] = []
 
 
 def edit(path: Path, subs: list[tuple[str, str]], count: int = 0) -> None:
+    # A file the fork removed has nothing to rebrand: the update checker went
+    # with the update checks, so its link edits are moot. Skip it rather than
+    # failing the whole run.
+    if not path.is_file():
+        return
     text = path.read_text(encoding="utf-8")
     new = text
     for pattern, repl in subs:
