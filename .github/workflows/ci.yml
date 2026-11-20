@@ -48,14 +48,13 @@ jobs:
               - ".github/workflows/ci.yml"
             relay:
               - "cloud/**"
-              - "demo/showcase/mirror/**" # the cloud's tests load the mirror scripts (#656)
               - ".github/workflows/ci.yml"
       # Every npm lock file in the repository, on every pull request, whatever it touched:
       # a private mirror's host must never land in one. harness.yml repeats it for tag builds
       # and pages.yml for the site; pnpm-lock.yaml records integrity hashes, not URLs.
       - name: Lock files resolve against the public registry only
         run: |
-          if grep -HoE '"resolved": "https?://[^/]+' web/package-lock.json harness/desktop/package-lock.json website/package-lock.json cloud/console/package-lock.json | grep -v 'registry.npmjs.org'; then
+          if grep -HoE '"resolved": "https?://[^/]+' web/package-lock.json harness/desktop/package-lock.json cloud/console/package-lock.json | grep -v 'registry.npmjs.org'; then
             echo "a package-lock.json resolves packages from a host other than registry.npmjs.org (a private mirror leaked in); regenerate it against the public registry" >&2
             exit 1
           fi

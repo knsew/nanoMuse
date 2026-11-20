@@ -21,7 +21,7 @@ _default GOROOT "$HOME/.local/toolchains/go"
 _default GOPATH "$HOME/go"
 
 export ANDROID_SDK_ROOT="${ANDROID_HOME:-}"
-# Go's own default module proxy (the same as demo/showcase); an exported GOPROXY wins.
+# Go's own default module proxy; an exported GOPROXY wins.
 # On a mainland-China network: export GOPROXY=https://goproxy.cn,direct
 export GOPROXY="${GOPROXY:-https://proxy.golang.org,direct}"
 export GOFLAGS="${GOFLAGS:--mod=mod}"
