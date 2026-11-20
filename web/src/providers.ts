@@ -24,20 +24,16 @@ export const CATALOGUE: CatalogueProvider[] = (catalogue as { providers: Catalog
 /** The local servers: listed apart, never first. */
 export const LOCAL_IDS = ["ollama", "lm-studio", "vllm"];
 
-/** Who goes first for a region: the mainland to Bailian (one key for all four), elsewhere OpenRouter then OpenAI. */
-const FIRST: Record<Region, string[]> = { cn: ["bailian"], global: ["openrouter", "openai"] };
-
 /**
- * The runtime's preset id for a catalogue id (the Connections card's provider tiles are
- * the runtime's presets, named before the catalogue existed).
+ * The runtime's preset id for a catalogue id. The runtime's presets share the catalogue ids
+ * now (the old cloud renames went away with the cloud entries), so this is the identity.
  */
-const PRESET_OF: Record<string, string> = { bailian: "qwen", moonshot: "kimi", zhipu: "glm", volcengine: "doubao" };
 export function presetFor(id: string): string {
-  return PRESET_OF[id] ?? id;
+  return id;
 }
 /** …and back: the catalogue entry a preset tile stands for. */
 export function catalogueIdFor(preset: string): string {
-  return Object.entries(PRESET_OF).find(([, p]) => p === preset)?.[0] ?? (preset === "openai_responses" ? "openai" : preset);
+  return preset;
 }
 
 /** The person's region for the catalogue: mainland China → `cn`, everyone else → `global`. */
@@ -63,17 +59,12 @@ function fits(p: CatalogueProvider, region: Region): boolean {
 }
 
 /**
- * The providers for a region, in order: the region's first picks, then the rest by how
- * much the key covers; local servers and "custom" left out. `cap` keeps only those that
- * have the capability.
+ * The providers for a region, in order: by how much the key covers; local servers and
+ * "custom" left out. `cap` keeps only those that have the capability. The catalogue holds
+ * local servers only now, so this is usually empty; the callers handle that.
  */
 export function providersFor(region: Region, cap?: Capability, list: CatalogueProvider[] = CATALOGUE): CatalogueProvider[] {
-  const byId = new Map(list.map((p) => [p.id, p]));
-  const first = FIRST[region].map((id) => byId.get(id)).filter((p): p is CatalogueProvider => !!p && fits(p, region));
-  const rest = list
-    .filter((p) => !first.includes(p) && !LOCAL_IDS.includes(p.id) && p.id !== "custom" && fits(p, region))
-    .sort((a, b) => b.capabilities.length - a.capabilities.length);
-  const all = [...first, ...rest];
+  const all = list.filter((p) => !LOCAL_IDS.includes(p.id) && p.id !== "custom" && fits(p, region)).sort((a, b) => b.capabilities.length - a.capabilities.length);
   return cap ? all.filter((p) => p.capabilities.includes(cap)) : all;
 }
 
@@ -125,13 +116,27 @@ export function coversLine(t: (s: string, v?: Record<string, string | number>) =
 
 /**
  * The one sentence for a feature nobody configured can do (contract C11):
- * *Pictures need a provider with image models: Bailian, OpenAI, Gemini or OpenRouter (how).*
- * The names are the region's providers with the capability, four at most.
+ * *Pictures need a provider with image models: Acme or Globex.*
+ * The names are the region's providers with the capability, four at most; with none
+ * (the usual case now, the catalogue holding local servers only) the sentence stands
+ * without a list.
  */
 export function unavailableLine(t: (s: string, v?: Record<string, string | number>) => string, cap: Capability, region: Region, locale: string, list: CatalogueProvider[] = CATALOGUE): string {
   const names = providersFor(region, cap, list)
     .slice(0, 4)
     .map((p) => providerName(p, locale));
+  if (!names.length) {
+    switch (cap) {
+      case "image":
+        return t("Pictures need a provider with image models.");
+      case "video":
+        return t("Clips need a provider with video models.");
+      case "vision":
+        return t("The hands need a model that sees pictures.");
+      case "chat":
+        return t("Chat needs a model.");
+    }
+  }
   const last = names.pop() ?? "";
   const joined = names.length ? `${names.join(t(", "))}${t(" or ")}${last}` : last;
   switch (cap) {
@@ -147,7 +152,7 @@ export function unavailableLine(t: (s: string, v?: Record<string, string | numbe
 }
 
 /** The guide every unavailable line links to. */
-export const OWN_KEY_DOCS_URL = "https://nanomuse.cn/own-key";
+export const OWN_KEY_DOCS_URL = "https://github.com/knsew/nanoMuse";
 
 /**
  * The runtime's view when it has one; else the bundled catalogue with nothing known about

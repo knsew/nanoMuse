@@ -471,12 +471,6 @@ export interface CloudMe {
   region?: "cn" | "intl" | "unknown" | string;
   /** Relay 0.4/0.5: the account's invite code and what came of it (`earned_cny` since 0.5). */
   invite?: { code: string; url: string; invites: number; bonus_cny: number; invitee_bonus_cny?: number; earned_cny?: number; friends: Array<{ hint: string; joined_at: number }> };
-  /**
-   * Data controls: whether "Help improve nanoMuse's AI models" is on for this account, how many
-   * turns the relay keeps, what the relay's default for new accounts is (0.9), what a kept turn
-   * holds and where its privacy policy is.
-   */
-  contribute?: { on: boolean; samples: number; default_on?: boolean; keeps?: { kept: string[]; not_kept: string[] }; privacy_url?: string };
   /** Relay 0.4 counted clips; 0.5 no longer does (always unlimited here). */
   clips?: { unlimited: boolean; allowed: number | null; used: number; left: number | null; per_face: number };
   models?: Array<{ id: string; name?: string; nanomuse?: { kind?: string; recommended?: boolean } }>;
@@ -862,23 +856,6 @@ export interface ToolInfo {
   name: string;
   risk: RiskLevel;
   description: string;
-}
-
-/** `GET /api/update`: the installed and the latest release (contract C2). */
-export interface UpdateView {
-  current: string;
-  enabled: boolean;
-  latest: string | null;
-  newer: boolean;
-  /** The release page of the latest. */
-  url: string;
-  /** The download page (nanomuse.cn/dl). */
-  download_url?: string;
-  /** When the runtime last asked (ISO, UTC), or null before the first check. */
-  checked_at?: string | null;
-  /** Where the answer came from: `nanomuse.cn`, `github`, or null. */
-  source?: string | null;
-  error?: string | null;
 }
 
 /** `GET /api/nudges`: the star-ask policy (contract C1) as the runtime holds it. */

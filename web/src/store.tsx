@@ -159,8 +159,7 @@ export interface AppState {
    */
   firstrun: FirstRunView | null;
   /**
-   * `?ui=lite`: the app as it is shown inside the simulated phone of the showcase
-   * (demo/mobilegym) — the phone layout with its tabs at any width, no sidebar, no first-run
+   * `?ui=lite`: the phone layout with its tabs at any width, no sidebar, no first-run
    * setup and no desktop hints. Kept for the tab (sessionStorage) so a reload inside the frame
    * stays lite.
    */

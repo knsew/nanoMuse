@@ -1,9 +1,8 @@
 /**
- * Where the person is, for the "ways on" copy (contracts C5 and C11): mainland China gets
- * Alibaba Cloud Bailian first (its console only signs up accounts from the mainland);
- * everyone else gets OpenRouter first — one account, one key, pay as you go. The facts
- * about each (key page, endpoint, default models, what the key covers) come from the
- * catalogue `nanomuse/llm/providers.json`, the one file every client reads.
+ * Where the person is, for the "ways on" copy (contracts C5 and C11): the own-key way
+ * leads to a server of one's own now (vLLM on the network, the same in every region),
+ * and the facts about it (key page, endpoint, default models, what the key covers) come
+ * from the catalogue `nanomuse/llm/providers.json`, the one file every client reads.
  *
  * Mainland = the UI language is 简体中文, or the account was signed in with a phone
  * number (codes reach mainland numbers only), or the relay says `region: "cn"`. A relay
@@ -27,10 +26,10 @@ export function looksLikeForeignNumber(value: string): boolean {
 }
 
 export interface OwnKeyWay {
-  /** the catalogue id: "bailian" or "openrouter" */
-  id: "bailian" | "openrouter";
-  /** the preset id in Connections: "qwen" (Bailian) or "openrouter" */
-  preset: "qwen" | "openrouter";
+  /** the catalogue id: "vllm" */
+  id: "vllm";
+  /** the preset id in Connections: "halogen", the self-hosted server on the local network */
+  preset: "halogen";
   label: string;
   keyUrl: string;
   baseUrl: string;
@@ -42,7 +41,7 @@ export interface OwnKeyWay {
 
 const BY_ID = new Map((catalogue as { providers: CatalogueProvider[] }).providers.map((p) => [p.id, p]));
 
-function wayFrom(id: "bailian" | "openrouter", preset: "qwen" | "openrouter"): OwnKeyWay {
+function wayFrom(id: "vllm", preset: "halogen"): OwnKeyWay {
   const p = BY_ID.get(id);
   if (!p) throw new Error(`providers.json has no ${id}`);
   return {
@@ -57,24 +56,20 @@ function wayFrom(id: "bailian" | "openrouter", preset: "qwen" | "openrouter"): O
   };
 }
 
-/** The region's first pick, read from the catalogue: Bailian on the mainland, OpenRouter elsewhere. */
-const BAILIAN = wayFrom("bailian", "qwen");
-const OPENROUTER = wayFrom("openrouter", "openrouter");
+/** The own-key provider to lead with: the local vLLM server, the same in every region. */
+const VLLM = wayFrom("vllm", "halogen");
 
 /** The own-key provider to lead with for this person. */
-export function ownKeyWay(account?: Pick<CloudAccount, "channel" | "region" | "signed_in"> | null): OwnKeyWay {
-  return isMainland(account) ? BAILIAN : OPENROUTER;
+export function ownKeyWay(): OwnKeyWay {
+  return VLLM;
 }
 
 /**
- * The one sentence under "Use your own model key" (contracts C5 and C11): the region's
- * first pick and what one key there covers. English first, then 简体中文 through the
- * dictionary.
+ * The one sentence under "Use your own model key" (contracts C5 and C11): a server of
+ * one's own, and what it answers. English first, then 简体中文 through the dictionary.
  */
-export function ownKeyLine(t: (s: string) => string, account?: Pick<CloudAccount, "channel" | "region" | "signed_in"> | null): string {
-  return isMainland(account)
-    ? t("Alibaba Cloud Bailian is a good start: a new account comes with a free quota, set-up takes about two minutes, and one key covers chat, the hands, pictures and clips.")
-    : t("Alibaba Cloud Bailian only signs up accounts from mainland China. Outside, OpenRouter is the easy way: one account, one key, pay as you go, for chat, the hands and pictures; clips need Bailian.");
+export function ownKeyLine(t: (s: string) => string): string {
+  return t("Use a server of your own: a vLLM server on your network answers chat, and the hands too when the served model sees pictures.");
 }
 
 /** Whether a model id says it sees pictures (the runtime's rule, mirrored for the pickers). */
@@ -88,7 +83,7 @@ export function modelSees(id: string): boolean | null {
 
 /** The presets in the order to show them: the region's own-key provider first. */
 export function orderPresets(ids: string[], presets: Record<string, ProviderPreset>, account?: Pick<CloudAccount, "channel" | "region" | "signed_in"> | null): string[] {
-  const first = ownKeyWay(account).preset;
+  const first = ownKeyWay().preset;
   if (!ids.includes(first)) return ids;
   const mainland = isMainland(account);
   // outside the mainland, the mainland-only vendor goes last in its group

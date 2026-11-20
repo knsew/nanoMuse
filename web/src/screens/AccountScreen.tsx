@@ -1,4 +1,4 @@
-import { Check, Clapperboard, Copy, DatabaseZap, Gift, Image as ImageIcon, KeyRound, Loader2, LogOut, MessageCircle, Phone, Share2, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
+import { Check, Clapperboard, Copy, Gift, Image as ImageIcon, KeyRound, Loader2, LogOut, MessageCircle, Phone, Share2, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { passwordMinLength } from "../cloud-config";
@@ -73,7 +73,6 @@ export function AccountScreen() {
             {me && <Allowance me={me} onChanged={() => void load()} />}
             {me?.invite?.code && <Invite invite={me.invite} />}
             {me && <Usage me={me} />}
-            {me && <DataControlsLink me={me} />}
             <Password account={account} minimum={passwordMinLength(cfg)} onChanged={() => void load()} />
             <Sessions sessions={sessions} loading={loading} onChanged={() => void load()} />
             {events && events.length > 0 && <Timeline events={events} />}
@@ -188,41 +187,10 @@ function Allowance({ me, onChanged }: { me: CloudMe; onChanged: () => void }) {
             allowance: (spend.allowance_cny ?? 10).toFixed(0),
             invite: (info.invite_bonus_cny ?? 5).toFixed(0),
           })}{" "}
-          {!exhausted && !warn && ownKeyLine(t, { signed_in: true, channel: me.account.channel, region: me.account.region })}
+          {!exhausted && !warn && ownKeyLine(t)}
         </p>
       )}
       {(exhausted || warn) && <AllowanceWays info={info} exhausted={exhausted} onChanged={onChanged} />}
-    </Section>
-  );
-}
-
-/**
- * Where the one switch over what the relay keeps lives: Settings → Data controls. The account
- * page only says how it stands and leads there.
- */
-function DataControlsLink({ me }: { me: CloudMe }) {
-  const t = useT();
-  const { setTab } = useStore();
-  const ct = me.contribute ?? { on: false, samples: 0 };
-  const open = () => {
-    window.location.hash = "data";
-    setTab("you");
-  };
-  return (
-    <Section title={t("Data controls")}>
-      <button type="button" onClick={open} className="flex w-full items-center gap-3 text-left">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-fg">
-          <DatabaseZap size={18} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[14px] font-medium">{t("Help improve nanoMuse's AI models")}</span>
-          <span className="block text-[12.5px] text-muted">
-            {ct.on ? t("On") : t("Off")}
-            {ct.samples > 0 && ` · ${t("{n} turns kept so far", { n: String(ct.samples) })}`}
-          </span>
-        </span>
-        <span className="text-[13px] font-medium text-accent">{t("Open")}</span>
-      </button>
     </Section>
   );
 }
@@ -231,7 +199,7 @@ function DataControlsLink({ me }: { me: CloudMe }) {
 function Invite({ invite: inv }: { invite: NonNullable<CloudMe["invite"]> }) {
   const t = useT();
   const { toast } = useStore();
-  const link = inv.url || `https://nanomuse.cn/web/?invite=${inv.code}`;
+  const link = inv.url || "";
   const earned = inv.earned_cny ?? inv.invites * inv.bonus_cny;
   const copy = async (text: string) => {
     try {
@@ -268,14 +236,16 @@ function Invite({ invite: inv }: { invite: NonNullable<CloudMe["invite"]> }) {
           <Copy size={14} /> {t("Copy")}
         </button>
       </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={() => void share()} className={cx(primaryBtn, "inline-flex flex-1 items-center justify-center gap-1.5 py-2.5")}>
-          <Share2 size={14} /> {t("Share the link")}
-        </button>
-        <button type="button" onClick={() => void copy(link)} className={cx(secondaryBtn, "inline-flex items-center gap-1.5")}>
-          <Gift size={14} /> {t("Copy the link")}
-        </button>
-      </div>
+      {link && (
+        <div className="flex gap-2">
+          <button type="button" onClick={() => void share()} className={cx(primaryBtn, "inline-flex flex-1 items-center justify-center gap-1.5 py-2.5")}>
+            <Share2 size={14} /> {t("Share the link")}
+          </button>
+          <button type="button" onClick={() => void copy(link)} className={cx(secondaryBtn, "inline-flex items-center gap-1.5")}>
+            <Gift size={14} /> {t("Copy the link")}
+          </button>
+        </div>
+      )}
       <p className="text-[12.5px] text-muted">
         {t("{n} friends joined", { n: String(inv.invites) })}
         {earned > 0 && <> · {t("¥{amount} added by invitations", { amount: earned.toFixed(0) })}</>}

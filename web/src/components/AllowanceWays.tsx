@@ -33,8 +33,8 @@ export const OWN_KEY_DOCS = OWN_KEY_DOCS_URL;
 const PRESET_HINT = "nm.connections.preset";
 
 /**
- * Send the person to Connections with the region's own-key provider preselected (contract
- * C5): Alibaba Cloud Bailian on the mainland, OpenRouter elsewhere.
+ * Send the person to Connections with the own-key provider preselected (contract C5):
+ * the local vLLM server.
  */
 export function openOwnKeySetup(setTab: (tab: "connections") => void, preset: string = ownKeyWay().preset): void {
   try {
@@ -58,9 +58,7 @@ export function takePresetHint(): string | null {
 
 /**
  * The ways on when the free allowance is (nearly) spent (contracts C5 and C11): one's own
- * model key (Alibaba Cloud Bailian first on the mainland — free quota for new accounts,
- * one key for chat, the hands, pictures and clips; OpenRouter first elsewhere, since
- * Bailian only signs up mainland accounts; the rest of the catalogue folded under "more",
+ * model key (a server of one's own first, the rest of the catalogue folded under "more",
  * each with what its key covers), a plan one already pays for (ChatGPT here, through the
  * runtime; Claude and Kimi on the phones), and inviting a friend (the bonus goes to
  * both). Sign-in and the devices keep working whichever is chosen: the allowance only
@@ -82,7 +80,7 @@ export function AllowanceWays({
   const t = useT();
   const { toast, setTab, state } = useStore();
   const account = state.hub?.account;
-  const way = ownKeyWay(account);
+  const way = ownKeyWay();
   const region = regionOf(account);
   const locale = getLocale();
   const inviteBonus = info.invite_bonus_cny ?? 5;
@@ -136,7 +134,7 @@ export function AllowanceWays({
       </div>
 
       <Way icon={<KeyRound size={16} />} tone="bg-accent/12 text-accent" title={t("Use your own model key")}>
-        <p className="text-[12.5px] text-muted">{ownKeyLine(t, account)}</p>
+        <p className="text-[12.5px] text-muted">{ownKeyLine(t)}</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => openOwnKeySetup(setTab, way.preset)} className={cx(primaryBtn, "inline-flex items-center gap-1.5 py-2")}>
             <KeyRound size={14} /> {t("Set it up")}
@@ -178,7 +176,9 @@ export function AllowanceWays({
 
       <Way icon={<LogIn size={16} />} tone="bg-emerald-500/12 text-emerald-600 dark:text-emerald-300" title={t("Sign in with a plan you already pay for")}>
         <p className="text-[12.5px] text-muted">
-          {t("{plans}: the plan's models answer here, no key to make. ChatGPT works on every device, the others on the phones. A ChatGPT sign-in covers chat and the hands; pictures and clips still want a key.", { plans: planNames.join(t(", ")) })}
+          {planNames.length
+            ? t("{plans}: the plan's models answer here, no key to make. ChatGPT works on every device, the others on the phones. A ChatGPT sign-in covers chat and the hands; pictures and clips still want a key.", { plans: planNames.join(t(", ")) })
+            : t("A plan's models answer here, no key to make. ChatGPT works on every device. A ChatGPT sign-in covers chat and the hands; pictures and clips still want a key.")}
         </p>
         {signIn ? (
           <ChatGptSignIn compact onChanged={() => setSignIn(false)} />

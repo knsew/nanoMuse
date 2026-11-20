@@ -1,49 +1,74 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { setLocaleSetting, t } from "./i18n";
 import { CATALOGUE, catalogueIdFor, plans, presetFor, providersFor, unavailableLine } from "./providers";
+import type { Capability, CatalogueProvider } from "./types";
+
+/** a catalogue entry with just the fields the list functions read */
+function fake(id: string, name: string, capabilities: Capability[], regions: Array<"cn" | "global"> = ["cn", "global"]): CatalogueProvider {
+  return {
+    id,
+    name,
+    name_zh: name,
+    protocol: "openai",
+    base_url: `https://${id}.example.com/v1`,
+    key_url: `https://${id}.example.com/key`,
+    auth: ["key"],
+    regions,
+    capabilities,
+    defaults: {},
+    note: "",
+    note_zh: "",
+    verified: "2026-11",
+  };
+}
 
 describe("the own-key catalogue (contract C11)", () => {
   // the sentences below are the English ones; `t` follows the machine's language otherwise
   beforeAll(() => setLocaleSetting("en"));
 
-  it("is the runtime's file, with the four capabilities and chat on every entry", () => {
-    expect(CATALOGUE.length).toBeGreaterThan(10);
+  it("is the runtime's file, slimmed to the local servers and custom, chat on every entry", () => {
+    expect(CATALOGUE.map((p) => p.id).sort()).toEqual(["custom", "lm-studio", "ollama", "vllm"]);
     for (const p of CATALOGUE) expect(p.capabilities, p.id).toContain("chat");
-    expect(CATALOGUE.find((p) => p.id === "bailian")?.capabilities).toEqual(["chat", "vision", "image", "video"]);
+    expect(CATALOGUE.find((p) => p.id === "vllm")?.capabilities).toEqual(["chat"]);
   });
 
-  it("leads with Bailian on the mainland and OpenRouter then OpenAI elsewhere", () => {
-    expect(providersFor("cn").slice(0, 1).map((p) => p.id)).toEqual(["bailian"]);
-    expect(providersFor("global").slice(0, 2).map((p) => p.id)).toEqual(["openrouter", "openai"]);
-    // the local servers and "custom" are not in the list; the mainland-only vendor is not offered abroad
-    for (const p of providersFor("global")) expect(["ollama", "lm-studio", "vllm", "custom", "bailian"]).not.toContain(p.id);
+  it("lists no cloud provider: the local servers and custom are not in the list", () => {
+    expect(providersFor("cn")).toEqual([]);
+    expect(providersFor("global")).toEqual([]);
+    expect(providersFor("global", "image")).toEqual([]);
+    expect(providersFor("cn", "video")).toEqual([]);
   });
 
-  it("keeps only the providers with the capability", () => {
-    for (const p of providersFor("global", "image")) expect(p.capabilities).toContain("image");
-    expect(providersFor("global", "video")).toEqual([]);
-    expect(providersFor("cn", "video").map((p) => p.id)).toEqual(["bailian"]);
+  it("writes the one sentence without a list when no provider has the capability", () => {
+    expect(unavailableLine(t, "image", "global", "en")).toBe("Pictures need a provider with image models.");
+    expect(unavailableLine(t, "video", "cn", "en")).toBe("Clips need a provider with video models.");
+    expect(unavailableLine(t, "vision", "global", "en")).toBe("The hands need a model that sees pictures.");
+    expect(unavailableLine(t, "chat", "global", "en")).toBe("Chat needs a model.");
   });
 
-  it("writes the one sentence with the region's providers, four at most", () => {
-    const line = unavailableLine(t, "image", "global", "en");
+  it("writes the one sentence with the region's providers, four at most, when a list is given", () => {
+    const list = [
+      fake("acme", "Acme", ["chat", "vision", "image", "video"]),
+      fake("globex", "Globex", ["chat", "image"]),
+      fake("initech", "Initech", ["chat", "image"]),
+      fake("umbrella", "Umbrella", ["chat", "image"]),
+      fake("hooli", "Hooli", ["chat", "image"]),
+    ];
+    const line = unavailableLine(t, "image", "global", "en", list);
     expect(line).toMatch(/^Pictures need a provider with image models: .+ or .+\.$/);
     expect(line.split(", ").length).toBeLessThanOrEqual(4);
-    expect(unavailableLine(t, "video", "cn", "en")).toBe("Clips need a provider with video models: Alibaba Cloud Bailian.");
+    expect(unavailableLine(t, "video", "cn", "en", list)).toBe("Clips need a provider with video models: Acme.");
   });
 
   it("maps the catalogue's ids to the runtime's presets and back", () => {
-    expect(presetFor("bailian")).toBe("qwen");
-    expect(presetFor("moonshot")).toBe("kimi");
-    expect(presetFor("openai")).toBe("openai");
-    expect(catalogueIdFor("qwen")).toBe("bailian");
-    expect(catalogueIdFor("openai_responses")).toBe("openai");
+    expect(presetFor("ollama")).toBe("ollama");
+    expect(presetFor("vllm")).toBe("vllm");
+    expect(presetFor("custom")).toBe("custom");
+    expect(catalogueIdFor("ollama")).toBe("ollama");
+    expect(catalogueIdFor("vllm")).toBe("vllm");
   });
 
-  it("knows the plans and that the ChatGPT one covers chat and the hands only", () => {
-    const chatgpt = plans().find((p) => p.id === "chatgpt");
-    expect(chatgpt?.covers).toEqual(["chat", "vision"]);
-    expect(chatgpt?.here).toBe(true);
-    expect(plans().map((p) => p.id)).toEqual(["chatgpt", "claude", "kimi", "openrouter"]);
+  it("knows no plans: the catalogue holds local servers only", () => {
+    expect(plans()).toEqual([]);
   });
 });

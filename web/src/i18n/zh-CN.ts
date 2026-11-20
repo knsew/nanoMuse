@@ -1067,8 +1067,8 @@ const zhCN: Record<string, string> = {
   "Free, open source, non-profit": "免费、开源、非营利",
   "nanoMuse is a non-profit open-source community project, free forever.": "nanoMuse 是非营利的开源社区项目，永久免费。",
   "Chat apps": "聊天入口",
-  "nanoMuse is a non-profit open-source community project, free forever. Sign in with a phone number or an e-mail and the model comes with a free allowance, paid by the developer; when it is gone, use your own key (Alibaba Cloud Bailian in mainland China, OpenRouter elsewhere). Nothing is sold; what the relay keeps is in the privacy policy, and Settings → Data controls is yours. Delete the account whenever you like.":
-    "nanoMuse 是非营利的开源社区项目，永久免费。用手机号或邮箱登录，模型自带一份免费额度，费用由开发者承担；用完可以换自己的 key（中国大陆用阿里云百炼，海外用 OpenRouter）。数据不会出售；服务器保存什么写在隐私政策里，「设置 → 数据控制」由你决定。账号随时可以删除。",
+  "nanoMuse is a non-profit open-source community project, free forever. This copy runs on a relay and a model endpoint of your own; nothing is sold, and nothing leaves your machines except through the providers you configure. Delete the account whenever you like.":
+    "nanoMuse 是非营利的开源社区项目，永久免费。这份部署跑在你自己的中继和模型端点上；不卖任何东西，除了你自己配置的服务商，什么都不会离开你的机器。账号随时可以删除。",
   "The people building it use it every day. Report a bug, ask for a feature, send a pull request: that is what moves the project. A star on GitHub helps others find it.": "做它的人每天都在用。欢迎反馈问题、提需求、贡献代码，项目就是这样往前走的。在 GitHub 点个 Star，能让更多人找到它。",
   "Star on GitHub": "去 GitHub 点个 Star",
   "Report a bug or ask for a feature": "反馈问题 / 提需求",
@@ -1119,6 +1119,8 @@ const zhCN: Record<string, string> = {
     "推荐阿里云百炼：新用户有免费额度，开通约 2 分钟，一个 key 就能对话、动手、画图、生成视频。",
   "Alibaba Cloud Bailian only signs up accounts from mainland China. Outside, OpenRouter is the easy way: one account, one key, pay as you go, for chat, the hands and pictures; clips need Bailian.":
     "海外用户用不了百炼，推荐 OpenRouter：一个账号一把 key，按量付费，对话、动手、画图都行；生成视频需要百炼。",
+  "Use a server of your own: a vLLM server on your network answers chat, and the hands too when the served model sees pictures.":
+    "用自己的服务：局域网里的 vLLM 服务就能回答对话，服务的模型能看图时也能动手。",
   "Other providers and what each key covers": "其他服务商，以及各自的 key 能做什么",
   "Get a key": "去申请 key",
   "covers {list}": "支持{list}",
@@ -1127,6 +1129,8 @@ const zhCN: Record<string, string> = {
   "Sign in with a plan you already pay for": "用你已经在付费的套餐登录",
   "{plans}: the plan's models answer here, no key to make. ChatGPT works on every device, the others on the phones. A ChatGPT sign-in covers chat and the hands; pictures and clips still want a key.":
     "{plans}：套餐里的模型直接在这里回答，不用申请 key。ChatGPT 在每台设备上都可以，其他的在手机上。ChatGPT 登录只覆盖对话和动手；画图和生成视频仍需要一把 key。",
+  "A plan's models answer here, no key to make. ChatGPT works on every device. A ChatGPT sign-in covers chat and the hands; pictures and clips still want a key.":
+    "已付费套餐的模型可直接在这里回答，不用申请 key。ChatGPT 在每台设备上都能用。ChatGPT 登录只覆盖对话和动手；画图和生成视频仍需要一把 key。",
   // the ChatGPT sign-in card
   "Sign in with ChatGPT": "用 ChatGPT 登录",
   "Or sign in with a ChatGPT plan": "或者用 ChatGPT 套餐登录",
@@ -1153,6 +1157,10 @@ const zhCN: Record<string, string> = {
   "Clips need a provider with video models: {providers}.": "生成视频需要一个有视频模型的服务商：{providers}。",
   "The hands need a model that sees pictures: {providers}.": "动手需要一个能看图的模型：{providers}。",
   "Chat needs a model: {providers}.": "对话需要一个模型：{providers}。",
+  "Pictures need a provider with image models.": "画图需要一个有图像模型的服务商。",
+  "Clips need a provider with video models.": "生成视频需要一个有视频模型的服务商。",
+  "The hands need a model that sees pictures.": "动手需要一个能看图的模型。",
+  "Chat needs a model.": "对话需要一个模型。",
   How: "怎么做",
   "Automatic · {model}": "自动 · {model}",
   "E-mail (or a mainland China phone number)": "邮箱（或中国大陆手机号）",
@@ -1273,8 +1281,12 @@ const zhCN: Record<string, string> = {
   "{first} first, then {others}": "首选 {first}，其次 {others}",
   "DeepSeek, Kimi, OpenAI, ChatGPT…": "DeepSeek、Kimi、OpenAI、ChatGPT…",
   "OpenAI, ChatGPT, Gemini, DeepSeek…": "OpenAI、ChatGPT、Gemini、DeepSeek…",
+  "Ollama, LM Studio, custom endpoints…": "Ollama、LM Studio、自定接口…",
   "Which model answers?": "让哪个模型来回答？",
   "Your account already brings one. You can add your own API key as well and switch at any time.": "你的账号已经自带了一个。也可以加上自己的 API key，随时切换。",
+  "The account's model answers. Nothing to configure.": "账号自带的模型来回答，不用配置。",
+  "A vLLM server on your network, Ollama on this machine, or any OpenAI-compatible endpoint. Keys stay on this device.":
+    "局域网里的 vLLM 服务、本机的 Ollama，或任何兼容 OpenAI 接口的服务。key 只留在这台设备上。",
   "DeepSeek for the chat and Qwen for the hands, with a free allowance per account paid by the developer. Nothing to configure.": "对话用 DeepSeek，动手用 Qwen；每个账号都有一份由开发者承担的免费额度，不用配置。",
   "I have my own API key": "我有自己的 API key",
   "Alibaba Cloud Bailian first (one key covers chat, the hands, pictures and clips), then DeepSeek, Kimi, Zhipu, OpenAI, OpenRouter and any OpenAI-compatible endpoint. The key stays on this device.":

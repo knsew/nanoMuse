@@ -223,7 +223,7 @@ export function Onboarding() {
                 )}
                 {!modelReady && (
                   <p className="px-1 text-[12.5px] text-muted">
-                    <span className="font-medium">{t("Or bring your own key")}</span> · {ownKeyLine(t, state.hub?.account)}
+                    <span className="font-medium">{t("Or bring your own key")}</span> · {ownKeyLine(t)}
                   </p>
                 )}
                 <ModelCard data={conn} onChange={() => void loadConn()} compact />

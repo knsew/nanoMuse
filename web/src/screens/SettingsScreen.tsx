@@ -29,7 +29,7 @@ import {
   TerminalSquare,
   Zap,
 } from "lucide-react";
-import { Fragment, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { androidApp, keepRunningStatus, type KeepRunningStatus } from "../android";
 import { api, setToken } from "../api";
 import { DRAGON } from "../avatars";
@@ -45,14 +45,14 @@ import { CommunityNotice } from "../components/CommunityNotice";
 import { DataControls, PRIVACY_URL } from "../components/DataControls";
 import { getLocale, LOCALES, setLocaleSetting, useLocaleSetting, useT } from "../i18n";
 import { has, regionOf, unavailableLine, useProviders } from "../providers";
-import { isMainland, ownKeyWay } from "../region";
+import { ownKeyWay } from "../region";
 import { setThemeSetting, useThemeSetting } from "../theme";
 import { disablePush, enablePush, pushState, type PushState } from "../push";
 import { useStore } from "../store";
-import type { Proactivity, PushInfo, UpdateView } from "../types";
+import type { Proactivity, PushInfo } from "../types";
 import { MuseCaption, MuseCard, MuseDivider, MuseRow } from "../components/MuseList";
 import { useWide } from "../useWide";
-import { cx, relativeTime } from "../util";
+import { cx } from "../util";
 import { Toggle } from "../components/Form";
 
 const settingsInput = "w-full rounded-2xl bg-surface-2 px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-accent/40";
@@ -86,8 +86,6 @@ export function SettingsScreen() {
   const t = useT();
   const localeSetting = useLocaleSetting();
   const themeSetting = useThemeSetting();
-  const [release, setRelease] = useState<UpdateView | null>(null);
-  const [checking, setChecking] = useState(false);
   // the four selects and the label beside each: one id per pair, so the label names the control
   const ids = useId();
   const intervalId = `${ids}-interval`;
@@ -98,21 +96,6 @@ export function SettingsScreen() {
   useEffect(() => {
     if (!s) void refreshSettings();
   }, [s, refreshSettings]);
-
-  // the runtime asks nanomuse.cn/dl (then GitHub) at most once a day; "Check now" asks again
-  const checkRelease = useCallback(async (refresh = false) => {
-    setChecking(true);
-    try {
-      setRelease(await api.update(refresh));
-    } catch {
-      setRelease(null);
-    } finally {
-      setChecking(false);
-    }
-  }, []);
-  useEffect(() => {
-    void checkRelease();
-  }, [checkRelease]);
 
   useEffect(() => {
     if (state.profile) setIdentity(identityOf(state.profile, "", AVATAR_COLORS[0]));
@@ -236,7 +219,7 @@ export function SettingsScreen() {
   }, [wanted, s, wide]);
 
   if (!wide && page === null) {
-    return <SettingsHome release={release} onOpen={setPage} sections={sections} query={query} onQuery={setQuery} />;
+    return <SettingsHome onOpen={setPage} sections={sections} query={query} onQuery={setQuery} />;
   }
   const current = sections.find((x) => x.id === page);
 
@@ -436,10 +419,10 @@ export function SettingsScreen() {
             </button>
           )}
           {s?.llm.cloud && (
-            <button type="button" onClick={() => openOwnKeySetup(setTab, ownKeyWay(state.hub?.account).preset)} className="w-full text-[13.5px] flex items-center justify-between">
+            <button type="button" onClick={() => openOwnKeySetup(setTab, ownKeyWay().preset)} className="w-full text-[13.5px] flex items-center justify-between">
               <span className="text-muted">{t("Use my own API key or a plan I pay for")}</span>
               <span className="text-[12.5px] text-muted flex items-center gap-1">
-                {t("{first} first, then {others}", { first: ownKeyWay(state.hub?.account).label, others: isMainland(state.hub?.account) ? t("DeepSeek, Kimi, OpenAI, ChatGPT…") : t("OpenAI, ChatGPT, Gemini, DeepSeek…") })} <ChevronRight size={14} />
+                {t("{first} first, then {others}", { first: ownKeyWay().label, others: t("Ollama, LM Studio, custom endpoints…") })} <ChevronRight size={14} />
               </span>
             </button>
           )}
@@ -553,11 +536,11 @@ export function SettingsScreen() {
                 {t("Runtime:")} {window.location.origin} · <span className="text-fg/70">{t("the token is in the server_token file in the data folder")}</span>
               </div>
               <div>
-                <a href="https://github.com/nano-muse/nanoMuse/blob/main/docs/cli.md" target="_blank" rel="noreferrer" className="text-accent underline-offset-2 hover:underline">
+                <a href="https://github.com/knsew/nanoMuse/blob/main/docs/cli.md" target="_blank" rel="noreferrer" className="text-accent underline-offset-2 hover:underline">
                   {t("The command line and the API")}
                 </a>
                 {" · "}
-                <a href="https://github.com/nano-muse/nanoMuse/blob/main/docs/harness.md" target="_blank" rel="noreferrer" className="text-accent underline-offset-2 hover:underline">
+                <a href="https://github.com/knsew/nanoMuse/blob/main/docs/harness.md" target="_blank" rel="noreferrer" className="text-accent underline-offset-2 hover:underline">
                   {t("nanoMuse on DeepSeek Harness")}
                 </a>
               </div>
@@ -570,7 +553,7 @@ export function SettingsScreen() {
         {show("about") && (
         <Section title={t("About")} id="about" plain={!wide}>
           <CommunityNotice />
-          <VersionRows installed={state.version} release={release} checking={checking} onCheck={() => void checkRelease(true)} />
+          <VersionRows installed={state.version} />
           <div className="text-[13px] text-muted space-y-1">
             {s && <div className="break-all">{t("Data:")} {s.data_dir}</div>}
             {s && <div className="break-all">{t("Workspace:")} {s.agent.workspace}</div>}
@@ -603,41 +586,14 @@ type SectionId = "who" | "sentinel" | "proactivity" | "notifications" | "keep-ru
 const SECTION_IDS: SectionId[] = ["who", "sentinel", "proactivity", "notifications", "keep-running", "model", "appearance", "desktop", "data", "developer", "about"];
 
 /**
- * The Version card (contract C2): the installed release, and the latest one as the runtime
- * found it on nanomuse.cn/dl or GitHub — "you have it", "x is out" with Update, or "could
- * not check" with a try again. Permanent: both lines are there whatever the answer. A phone
- * shell checks on its own, so the latest line says so instead.
+ * The Version card: the installed release, one line. There is no update check: this build
+ * is deployed privately, and a new version arrives by redeploying, not by asking.
  */
-function VersionRows({ installed, release, checking, onCheck }: { installed: string; release: UpdateView | null; checking: boolean; onCheck: () => void }) {
+function VersionRows({ installed }: { installed: string }) {
   const t = useT();
-  const phone = Boolean(androidApp());
-  const checkNow = (
-    <button type="button" onClick={onCheck} disabled={checking} className="text-accent underline-offset-2 hover:underline disabled:opacity-60">
-      {checking ? t("Checking…") : t("Check now")}
-    </button>
-  );
-  let latest: ReactNode;
-  if (phone) latest = t("The phone app checks for updates on its own.");
-  else if (release && !release.enabled) latest = t("Update checks are off here.");
-  else if (checking && !release) latest = t("Checking…");
-  else if (release?.latest && release.newer)
-    latest = (
-      <>
-        {t("{version} is out", { version: release.latest })}
-        {" · "}
-        <a href={release.download_url || release.url} target="_blank" rel="noreferrer" className="font-medium text-accent underline-offset-2 hover:underline">
-          {t("Update")}
-        </a>
-      </>
-    );
-  else if (release?.latest) latest = <>{t("Latest {version}; you have it", { version: release.latest })} · {checkNow}</>;
-  else latest = <>{t("Could not check")} · {checkNow}</>;
   return (
     <div className="rounded-2xl bg-surface-2/60 px-3.5 py-2.5 text-[13px]">
       <div className="font-medium">{t("nanoMuse {version}", { version: installed })}</div>
-      <div className="mt-0.5 text-muted">{latest}</div>
-      {!phone && release?.latest && release.newer && <div className="mt-1 text-[12px] text-muted">{t("To update: pip install -U nanomuse, pull the new image, or use the desktop app's Update.")}</div>}
-      {!phone && release?.checked_at && <div className="mt-1 text-[12px] text-muted">{t("Checked {when}", { when: relativeTime(release.checked_at) })}</div>}
     </div>
   );
 }
@@ -648,13 +604,11 @@ function VersionRows({ installed, release, checking, onCheck }: { installed: str
  * behaves, the app, about — each row opening its own page or screen.
  */
 function SettingsHome({
-  release,
   onOpen,
   sections,
   query,
   onQuery,
 }: {
-  release: UpdateView | null;
   onOpen: (id: SectionId) => void;
   sections: Array<{ id: SectionId; title: string }>;
   query: string;
@@ -825,11 +779,11 @@ function SettingsHome({
 
         {/* about */}
         <MuseCard className="mb-3">
-          <MuseRow icon={<Info size={22} />} label={t("About nanoMuse")} value={release?.newer && release.latest ? t("{version} is out", { version: release.latest }) : undefined} onClick={() => onOpen("about")} />
+          <MuseRow icon={<Info size={22} />} label={t("About nanoMuse")} onClick={() => onOpen("about")} />
           <MuseDivider />
           <MuseRow icon={<Hand size={22} />} label={t("Privacy policy")} onClick={() => window.open(PRIVACY_URL, "_blank", "noopener")} external />
           <MuseDivider />
-          <MuseRow icon={<MessageSquareWarning size={22} />} label={t("Feedback")} onClick={() => window.open("https://github.com/nano-muse/nanoMuse/issues/new/choose", "_blank", "noopener")} external />
+          <MuseRow icon={<MessageSquareWarning size={22} />} label={t("Feedback")} onClick={() => window.open("https://github.com/knsew/nanoMuse/issues/new/choose", "_blank", "noopener")} external />
         </MuseCard>
         <MuseCaption>nanoMuse {state.version}</MuseCaption>
       </div>

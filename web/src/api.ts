@@ -48,7 +48,6 @@ import type {
   TriggerKind,
   TriggersData,
   UpcomingData,
-  UpdateView,
   WsMessage,
 } from "./types";
 import { signedParams } from "./ticket";
@@ -187,8 +186,6 @@ export const api = {
   cloudMe: () => request<CloudMe>("/api/cloud/me"),
   /** The relay's public figures (relay 0.15); {} from an older relay. */
   cloudConfig: () => request<CloudConfig>("/api/cloud/config"),
-  cloudContribute: (on: boolean) => request<{ on: boolean; samples: number; default_on?: boolean; privacy_url?: string }>("/api/cloud/contribute", json({ on })),
-  cloudDeleteSamples: () => request<{ deleted: number }>("/api/cloud/samples", { method: "DELETE" }),
   cloudUseAsModel: (model = "") => request<Record<string, unknown>>("/api/cloud/use-as-model", json({ model })),
   // ---- conversations synced between the account's devices (contract C7)
   syncState: () => request<SyncState>("/api/sync/state"),
@@ -340,8 +337,6 @@ export const api = {
     const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "nanomuse-data.zip";
     return { blob: await res.blob(), name };
   },
-  /** Installed and latest release (a day's cache on the runtime; `refresh` asks now). */
-  update: (refresh = false) => request<UpdateView>(`/api/update${refresh ? "?refresh=1" : ""}`),
   /** When the app may ask for a star (contract C1): the relay's policy, through the runtime. */
   nudges: () => request<NudgesView>("/api/nudges"),
   updateSettings: (body: Record<string, unknown>) =>

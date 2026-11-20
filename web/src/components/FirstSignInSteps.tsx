@@ -63,8 +63,8 @@ export function useFirstSignIn(): boolean {
 export function FirstSignInSteps() {
   const t = useT();
   const minimum = passwordMinLength(useCloudConfig());
-  const { toast, refreshHub, setTab, state } = useStore();
-  const way = ownKeyWay(state.hub?.account);
+  const { toast, refreshHub, setTab } = useStore();
+  const way = ownKeyWay();
   const [step, setStep] = useState<"password" | "source">("password");
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
@@ -167,7 +167,7 @@ export function FirstSignInSteps() {
                 <CloudCog size={16} className="mt-0.5 shrink-0 text-accent" />
                 <span>
                   <span className="font-medium">{t("Use the nanoMuse Cloud model")}</span>
-                  <span className="block text-muted">{t("DeepSeek for the chat and Qwen for the hands, with a free allowance per account paid by the developer. Nothing to configure.")}</span>
+                  <span className="block text-muted">{t("The account's model answers. Nothing to configure.")}</span>
                 </span>
               </li>
               <li className="flex items-start gap-2.5 rounded-2xl bg-surface-2 px-3 py-2.5">
@@ -175,9 +175,7 @@ export function FirstSignInSteps() {
                 <span>
                   <span className="font-medium">{t("I have my own API key")}</span>
                   <span className="block text-muted">
-                    {way.preset === "qwen"
-                      ? t("Alibaba Cloud Bailian first (one key covers chat, the hands, pictures and clips), then DeepSeek, Kimi, Zhipu, OpenAI, OpenRouter and any OpenAI-compatible endpoint. The key stays on this device.")
-                      : t("OpenRouter first (one account, one key, pay as you go), then OpenAI, Anthropic, Gemini, DeepSeek and any OpenAI-compatible endpoint. The key stays on this device.")}
+                    {t("A vLLM server on your network, Ollama on this machine, or any OpenAI-compatible endpoint. Keys stay on this device.")}
                   </span>
                 </span>
               </li>

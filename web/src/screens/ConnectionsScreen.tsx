@@ -171,7 +171,8 @@ export function ModelCard({
         p.base_url &&
         data.llm.base_url.startsWith(p.base_url),
     )?.[0] ??
-    (data.llm.base_url ? "custom" : "deepseek");
+    // nothing matched (or nothing configured yet): the custom slot, where any address goes
+    "custom";
   // a tile's preset: the runtime's, the one that adds an endpoint, or one standing for an
   // endpoint of the list
   const presetOf = (id: string): ProviderPreset | undefined => {
@@ -362,8 +363,8 @@ export function ModelCard({
     setNoKey(false);
   };
 
-  // "Set it up" on the allowance card lands here with a provider already chosen (Alibaba
-  // Cloud Bailian by default): the card opens on that preset, the key field waits for a paste.
+  // "Set it up" on the allowance card lands here with a provider already chosen (the local
+  // Halogen server by default): the card opens on that preset, the key field waits for a paste.
   useEffect(() => {
     const hint = takePresetHint();
     if (hint && presets[hint]) {
@@ -461,7 +462,7 @@ export function ModelCard({
     (groups.find((g) => g.id === (q.group ?? "openai")) ?? groups[0]).ids.push(
       id,
     );
-  // the region's own-key provider first (contract C5): Bailian on the mainland, OpenRouter elsewhere
+  // the own-key provider first (contract C5): the local Halogen server
   for (const g of groups) g.ids = orderPresets(g.ids, presets, state.hub?.account);
   // the endpoints of the list stand first, the tile that adds one last (#294); the single
   // "custom" slot stays only while the chat model is on an unlisted host outside the list
