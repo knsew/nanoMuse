@@ -57,8 +57,8 @@ android {
         applicationId = "io.github.nanomuse.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 53
-        versionName = "1.1.0"
+        versionCode = 54
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "io.github.nanomuse.testing.AccessibilityPreservingRunner"
 

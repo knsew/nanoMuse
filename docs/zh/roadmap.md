@@ -114,3 +114,4 @@ App 提供英文和中文。Android 还沿用了上游的十五种其他语言�
 | 1.0.8 | Crew | Logbook 四天后完善设备协作：电脑定时任务可在手机请求审批，各设备显示远端步骤和等待状态，首字等待显示队列位置，记录调用发起者和反馈；中继保持慢请求连接，按问题计数和读取记录；运行时保护 Windows 私密文件，兼容其文件编码，并恢复压缩网页抓取；桌面资源库支持导入文档；修复手机停止语音时崩溃并缩小提示词；iPhone 保持音乐播放并补齐繁体中文；目录加入 Opper、AtmoRouter、API Route 和 Keenable |
 | 1.0.9 | Tiller | Crew 同日发布修复版：修复已登录桌面端无法启动（[#703](https://github.com/knsew/nanoMuse/pull/703)，对应 [#701](https://github.com/knsew/nanoMuse/issues/701)）和中继控制台无法加载大量记录（[#708](https://github.com/knsew/nanoMuse/pull/708)）；运行时增加任务预算和全记忆库检索（[#697](https://github.com/knsew/nanoMuse/pull/697)、[#696](https://github.com/knsew/nanoMuse/pull/696)） |
 | 1.1.0 | Harbor | 本 fork 首个版本，私有部署版：官方云从源码中拿掉，默认自托管中继与本地模型，桌面端只构建 Windows 与 Linux 版，Android 正式版 APK 由 CI 用 fork 自己的密钥签名。 |
+| 1.1.1 | Beacon | 补丁版，Harbor 数小时后发布：Android 正式构建因 SnakeYAML 的 java.beans 引用在 R8 报错，1.1.0 没能产出 APK；1.1.1 在 ProGuard 规则里补上这一条，补齐整个发布，桌面安装包与 Docker 镜像也从新 tag 重新构建。 |

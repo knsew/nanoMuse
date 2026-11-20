@@ -27,7 +27,7 @@
 
 **nanoMuse est un agent personnel open source pour chacun de vos appareils.** Un seul agent, avec un nom et une apparence à lui, dans l'esprit du [Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/) de Meta : il agit au lieu de répondre à des questions, continue de travailler quand l'app est fermée, se souvient de vous, et s'arrête pour demander avant tout ce que vous ne pourriez pas annuler.
 
-*nano* veut dire l'ensemble complet, assez petit pour que vous le fassiez tourner et le déployiez vous-même : l'app du téléphone, l'app de bureau, la console web et le relais qui les relie sont tous dans ce dépôt, sous GPL-3.0-or-later. **[Gratuit, open source, à but non lucratif. Construisons-le ensemble.](../../CONTRIBUTING.md)** Connectez-vous et vous recevez un crédit gratuit d'utilisation des modèles sur le relais de la communauté (payé par le développeur) ; quand il est épuisé, [utilisez votre propre clé](../own-key.md). Le même relais tourne sur un serveur à vous, et rien n'a besoin de sortir de chez vous. Dernière version : **1.1.0 Harbor**, [notes de version](https://github.com/knsew/nanoMuse/releases/tag/v1.1.0).
+*nano* veut dire l'ensemble complet, assez petit pour que vous le fassiez tourner et le déployiez vous-même : l'app du téléphone, l'app de bureau, la console web et le relais qui les relie sont tous dans ce dépôt, sous GPL-3.0-or-later. **[Gratuit, open source, à but non lucratif. Construisons-le ensemble.](../../CONTRIBUTING.md)** Connectez-vous et vous recevez un crédit gratuit d'utilisation des modèles sur le relais de la communauté (payé par le développeur) ; quand il est épuisé, [utilisez votre propre clé](../own-key.md). Le même relais tourne sur un serveur à vous, et rien n'a besoin de sortir de chez vous. Dernière version : **1.1.1 Beacon**, [notes de version](https://github.com/knsew/nanoMuse/releases/tag/v1.1.1).
 
 > [!NOTE]
 > **nanoMuse continue d'évoluer**
@@ -52,9 +52,9 @@ Toutes les versions : [releases](https://github.com/knsew/nanoMuse/releases).
 
 | | |
 |---|---|
-| **Android** 8.0+, arm64 | [nanoMuse-1.1.0-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-1.1.0-arm64.apk) : chaque version est signée avec la même clé et s'installe par-dessus la précédente |
-| **Windows** 10+ | [nanoMuse-Desktop-1.1.0-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-win-x64.exe) : cliquez une fois sur *Exécuter quand même* |
-| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.tar.gz) |
+| **Android** 8.0+, arm64 | [nanoMuse-1.1.1-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-1.1.1-arm64.apk) : chaque version est signée avec la même clé et s'installe par-dessus la précédente |
+| **Windows** 10+ | [nanoMuse-Desktop-1.1.1-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-win-x64.exe) : cliquez une fois sur *Exécuter quand même* |
+| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.tar.gz) |
 | **Docker** | `bash scripts/self-host.sh --local` pour votre propre relais ; `docker compose up -d app` pour l'app web sur un serveur à vous ; voir [auto-hébergement](../self-hosting.md) |
 
 Tous les téléchargements viennent de la [dernière version](https://github.com/knsew/nanoMuse/releases/latest). Ouvrez l'app, pointez-la vers votre relais, connectez-vous avec une adresse e-mail, et l'agent a un modèle pour réfléchir. Le téléphone, le bureau et le web partagent un compte et montrent les mêmes conversations.

@@ -25,14 +25,14 @@ hero:
 
 | | |
 |---|---|
-| **Android** 8.0 及以上，arm64 | [nanoMuse-1.1.0-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-1.1.0-arm64.apk) · [安装说明](android.md) |
-| **Windows** 10 以上 | [nanoMuse-Desktop-1.1.0-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-win-x64.exe) |
-| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.tar.gz) |
+| **Android** 8.0 及以上，arm64 | [nanoMuse-1.1.1-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-1.1.1-arm64.apk) · [安装说明](android.md) |
+| **Windows** 10 以上 | [nanoMuse-Desktop-1.1.1-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-win-x64.exe) |
+| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.tar.gz) |
 | **Docker** | 用 `bash scripts/self-host.sh --local` 部署自己的中继，用 `docker compose up -d app` 运行网页版。Docker 用容器封装程序及其运行环境 · [部署说明](self-hosting.md) |
 
 全部安装包都在[最新版本下载页](https://github.com/knsew/nanoMuse/releases/latest)。
 
-[1.1.0 Harbor 更新内容](https://github.com/knsew/nanoMuse/releases/tag/v1.1.0) · [各客户端的功能对照](parity.md) · [参与贡献与后续计划](roadmap.md) · [中继保存的数据](privacy.md) · [手机数据的保存与归属](sync.md)
+[1.1.1 Beacon 更新内容](https://github.com/knsew/nanoMuse/releases/tag/v1.1.1) · [各客户端的功能对照](parity.md) · [参与贡献与后续计划](roadmap.md) · [中继保存的数据](privacy.md) · [手机数据的保存与归属](sync.md)
 
 ::: info 参与改进 nanoMuse
 nanoMuse 提供开源、低成本的个人智能体方案：你可以在自己的设备上运行，选择模型，也可以自行部署中继。项目希望与各地的开发者和使用者一起完善这些功能，让使用者自己掌握智能体。你可以提交 [issue](https://github.com/knsew/nanoMuse/issues/new/choose)（问题或建议），也可以提交 [PR](../../CONTRIBUTING.md)（供项目维护者审阅的代码或文档修改）。

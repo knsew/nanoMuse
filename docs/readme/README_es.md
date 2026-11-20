@@ -27,7 +27,7 @@
 
 **nanoMuse es un agente personal de código abierto para todos tus dispositivos.** Un solo agente con nombre y aspecto propios, al estilo del [Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/) de Meta: hace cosas en vez de responder preguntas, sigue trabajando con la app cerrada, se acuerda de ti y se detiene a preguntar antes de cualquier cosa que no podrías deshacer.
 
-*nano* significa el conjunto completo, lo bastante pequeño para que lo ejecutes y lo despliegues tú mismo: la app del teléfono, la de escritorio, la consola web y el relay que las une están en este repositorio, bajo GPL-3.0-or-later. **[Gratuito, de código abierto y sin ánimo de lucro. Construyámoslo juntos.](../../CONTRIBUTING.md)** Al iniciar sesión recibes un crédito gratuito de uso de modelos en el relay de la comunidad (lo paga el desarrollador); cuando se agota, [usa tu propia clave](../own-key.md). El mismo relay funciona en un servidor tuyo, así que nada tiene que salir de casa. Última versión: **1.1.0 Harbor**, [notas de la versión](https://github.com/knsew/nanoMuse/releases/tag/v1.1.0).
+*nano* significa el conjunto completo, lo bastante pequeño para que lo ejecutes y lo despliegues tú mismo: la app del teléfono, la de escritorio, la consola web y el relay que las une están en este repositorio, bajo GPL-3.0-or-later. **[Gratuito, de código abierto y sin ánimo de lucro. Construyámoslo juntos.](../../CONTRIBUTING.md)** Al iniciar sesión recibes un crédito gratuito de uso de modelos en el relay de la comunidad (lo paga el desarrollador); cuando se agota, [usa tu propia clave](../own-key.md). El mismo relay funciona en un servidor tuyo, así que nada tiene que salir de casa. Última versión: **1.1.1 Beacon**, [notas de la versión](https://github.com/knsew/nanoMuse/releases/tag/v1.1.1).
 
 > [!NOTE]
 > **nanoMuse sigue evolucionando**
@@ -52,9 +52,9 @@ Todas las versiones: [releases](https://github.com/knsew/nanoMuse/releases).
 
 | | |
 |---|---|
-| **Android** 8.0+, arm64 | [nanoMuse-1.1.0-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-1.1.0-arm64.apk): todas las versiones se firman con la misma clave y se instalan sobre la anterior |
-| **Windows** 10+ | [nanoMuse-Desktop-1.1.0-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-win-x64.exe): pulsa *Ejecutar de todos modos* una vez |
-| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.0/nanoMuse-Desktop-1.1.0-linux-x64.tar.gz) |
+| **Android** 8.0+, arm64 | [nanoMuse-1.1.1-arm64.apk](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-1.1.1-arm64.apk): todas las versiones se firman con la misma clave y se instalan sobre la anterior |
+| **Windows** 10+ | [nanoMuse-Desktop-1.1.1-win-x64.exe](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-win-x64.exe): pulsa *Ejecutar de todos modos* una vez |
+| **Linux** x64 | [AppImage](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.AppImage) · [.deb](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.deb) · [tar.gz](https://github.com/knsew/nanoMuse/releases/download/v1.1.1/nanoMuse-Desktop-1.1.1-linux-x64.tar.gz) |
 | **Docker** | `bash scripts/self-host.sh --local` para tu propio relay; `docker compose up -d app` para la app web en un servidor tuyo; véase [autoalojamiento](../self-hosting.md) |
 
 Todas las descargas vienen de la [última versión](https://github.com/knsew/nanoMuse/releases/latest). Abre la app, apunta a tu relay, inicia sesión con un correo, y el agente ya tiene un modelo con el que pensar. El teléfono, el escritorio y la web comparten una cuenta y muestran las mismas conversaciones.
