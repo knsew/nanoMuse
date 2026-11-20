@@ -1,6 +1,6 @@
-"""The runtime's side of the star-ask policy (contract C1), the release check (C2) and the
-feed's daily routine (C5). No request leaves the machine: every relay here is a mock
-transport or a monkeypatched client."""
+"""The runtime's side of the star-ask policy (contract C1) and the feed's daily routine
+(C5). No request leaves the machine: every relay here is a mock transport or a
+monkeypatched client."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from nanomuse import nudges
 from nanomuse.config import Settings
 from nanomuse.llm import MockLLM
 from nanomuse.schema import LLMResponse
-from nanomuse.server import create_app, update
+from nanomuse.server import create_app
 from nanomuse.server.service import MuseService
 
 
@@ -176,83 +176,6 @@ def test_api_nudges_serves_the_policy_and_the_sign_in_copy(server, monkeypatch):
     assert client.get("/api/cloud/me").json()["nudges"]["version"] == 5
     assert service.nudges.policy["version"] == 5 and service.nudges.policy["star"]["max_asks"] == 2
     assert service.nudges.source == "me"
-
-
-# ----------------------------------------------------------------------------- release check
-def test_release_check_asks_the_mirror_first_and_github_second(monkeypatch):
-    asked: list[str] = []
-    index = {
-        "repo": "nano-muse/nanoMuse",
-        "releases": [
-            {"tag": "v0.1.40", "name": "0.1.40", "published_at": "2026-10-01", "assets": []},
-            {"tag": "v0.1.39", "name": "0.1.39", "published_at": "2026-09-20", "assets": []},
-        ],
-    }
-    mirror_ok = True
-
-    class Client:
-        def __init__(self, *a, **k): ...
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *a):
-            return False
-
-        async def get(self, url, **kwargs):  # noqa: ANN001
-            asked.append(url)
-            if url == update.INDEX_URL:
-                assert kwargs["timeout"] == update.INDEX_TIMEOUT_S
-                if not mirror_ok:
-                    raise update.httpx.ConnectError("mirror down")
-                return httpx.Response(200, json=index, request=httpx.Request("GET", url))
-            return httpx.Response(
-                200,
-                json={
-                    "tag_name": "v0.1.41",
-                    "html_url": "https://github.com/nano-muse/nanoMuse/releases/tag/v0.1.41",
-                },
-                request=httpx.Request("GET", url),
-            )
-
-    monkeypatch.setattr(update.httpx, "AsyncClient", Client)
-    monkeypatch.delenv("NANOMUSE_CLOUD_KEY", raising=False)
-    monkeypatch.delenv("NANOMUSE_NO_UPDATE_CHECK", raising=False)
-
-    check = update.UpdateCheck(True, current="0.1.35")
-    view = asyncio.run(check.view())
-    assert asked == [update.INDEX_URL]  # the mirror answered: GitHub is not asked
-    assert view["latest"] == "0.1.40" and view["newer"] is True and view["source"] == "nanomuse.cn"
-    assert view["url"].endswith("/releases/tag/v0.1.40")
-    assert view["download_url"] == update.DOWNLOAD_PAGE
-    assert view["checked_at"] and datetime.fromisoformat(view["checked_at"]).tzinfo is not None
-    # the cache holds for a day; "check now" asks again
-    asyncio.run(check.view())
-    assert len(asked) == 1
-    mirror_ok = False
-    view = asyncio.run(check.view(force=True))
-    assert asked[1:] == [update.INDEX_URL, update.RELEASES_API]
-    assert view["latest"] == "0.1.41" and view["source"] == "github" and view["error"] is None
-    assert update.latest_from_index({"releases": [{"tag": "nightly"}]}) == ""
-    assert (
-        update.latest_from_index({"releases": [{"tag": "v0.1.2"}, {"tag": "v0.1.10"}]}) == "v0.1.10"
-    )
-
-
-def test_api_update_check_now(server, monkeypatch):
-    client, _, _ = server
-    monkeypatch.delenv("NANOMUSE_CLOUD_KEY", raising=False)
-    monkeypatch.delenv("NANOMUSE_NO_UPDATE_CHECK", raising=False)
-    forced: list[bool] = []
-
-    async def fake_view(self: update.UpdateCheck, force: bool = False) -> dict:
-        forced.append(force)
-        return {"current": self.current, "enabled": True, "latest": None, "newer": False}
-
-    monkeypatch.setattr(update.UpdateCheck, "view", fake_view)
-    client.get("/api/update")
-    client.get("/api/update?refresh=1")
-    assert forced == [False, True]
 
 
 # ----------------------------------------------------------------------------- feed routine

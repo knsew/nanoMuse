@@ -32,6 +32,10 @@ def test_model_ids_say_whether_they_see():
         model_takes_images("qwen/qwen3.8-27b") is True
         and model_takes_images("qwen3.8-flash") is True
     )
+    # a halogen id that names the qwen3.8 family sees; any other halogen id is unknown
+    assert model_takes_images("halogen-qwen3.8-flash-next") is True
+    assert model_takes_images("halogen-qwen3-vl-plus") is True
+    assert model_takes_images("halogen-something-else") is None
     assert model_takes_images("qwen3.7-plus") is None  # not known from the id: the endpoint decides
     assert model_takes_images("gpt-5-mini") is None and model_takes_images("") is None
 
@@ -51,14 +55,21 @@ def test_chat_client_starts_with_what_the_id_says():
 
 
 def test_defaults_and_presets():
-    assert DEFAULT_CHAT_MODEL == DEFAULT_GUI_MODEL == "Qwen/Qwen3.6-27B-FP8"
-    bailian, openrouter = PROVIDERS["qwen"], PROVIDERS["openrouter"]
-    assert bailian["models"][0] == "deepseek-v4.1-flash" and bailian["gui_model"] == "qwen3.8-27b"
-    assert bailian["region"] == "cn"
-    assert openrouter["models"][0] == "deepseek/deepseek-v4.1-flash"
-    assert openrouter["gui_model"] == "qwen/qwen3.8-27b"
-    assert openrouter["key_url"] == "https://openrouter.ai/keys"
-    assert openrouter["base_url"] == "https://openrouter.ai/api/v1"
+    assert DEFAULT_CHAT_MODEL == DEFAULT_GUI_MODEL == "halogen-qwen3.8-flash-next"
+    assert list(PROVIDERS) == ["halogen", "ollama", "custom"]
+    halogen = PROVIDERS["halogen"]
+    assert halogen["base_url"] == "http://10.1.1.52:8000/v1"
+    assert halogen["models"] == ["halogen-qwen3.8-flash-next"]
+    assert halogen["key_optional"] is True
+    assert PROVIDERS["ollama"]["no_key"] is True
+    assert PROVIDERS["custom"]["key_optional"] is True
+
+
+def test_the_default_slot_is_the_local_halogen_endpoint():
+    llm = LLMSettings()
+    assert llm.provider == "openai"
+    assert llm.model == "halogen-qwen3.8-flash-next"
+    assert llm.base_url == "http://10.1.1.52:8000/v1"
 
 
 def test_hands_model_follows_the_account(settings: Settings):
@@ -66,6 +77,7 @@ def test_hands_model_follows_the_account(settings: Settings):
     # own key, nothing under [gui]: the hands use the chat model
     assert not app.llm_is_cloud() and app.gui_model() == settings.llm.model
     # the account as the model: the relay's hands model, not the chat one
+    settings.cloud.base_url = "https://relay.example.test"
     settings.llm.base_url = model_url(settings.cloud.base_url)
     assert app.llm_is_cloud() and app.gui_model() == DEFAULT_GUI_MODEL
     app.cloud_gui_model = "qwen3.9-vl"  # what the relay's `for` field said
@@ -98,17 +110,23 @@ def test_llm_ready_reads_the_vault_and_the_sign_in(settings: Settings, tmp_path:
     from nanomuse.vault import CredentialVault
 
     vault = CredentialVault(tmp_path / "v.json", tmp_path / "v.key")
-    llm = LLMSettings(api_key="")
+    remote = "https://api.example.test/v1"
+    llm = LLMSettings(api_key="", base_url=remote)
     assert llm_ready(llm, vault, tmp_path) is False
-    assert llm_ready(LLMSettings(api_key="sk-literal"), vault, tmp_path) is True
+    assert llm_ready(LLMSettings(api_key="sk-literal", base_url=remote), vault, tmp_path) is True
     # the app stores keys as placeholders: ready once the vault has the secret
-    stored = LLMSettings(api_key="{{vault:LLM_API_KEY}}")
+    stored = LLMSettings(api_key="{{vault:LLM_API_KEY}}", base_url=remote)
     assert llm_ready(stored, vault, tmp_path) is False
     vault.set("LLM_API_KEY", "sk-real")
     assert llm_ready(stored, vault, tmp_path) is True
-    # a local server needs no key; a ChatGPT sign-in is a key of its own
+    # a local server needs no key: this machine, and the private ranges too
     assert llm_ready(LLMSettings(base_url="http://localhost:11434/v1"), vault, tmp_path) is True
     assert llm_ready(LLMSettings(base_url="http://127.0.0.1:8000/v1"), vault, tmp_path) is True
+    assert llm_ready(LLMSettings(base_url="http://10.1.1.52:8000/v1"), vault, tmp_path) is True
+    assert llm_ready(LLMSettings(base_url="http://172.16.0.9:8000/v1"), vault, tmp_path) is True
+    assert llm_ready(LLMSettings(base_url="http://192.168.1.9:8000/v1"), vault, tmp_path) is True
+    # the default slot is the local endpoint, so it is ready with no key at all
+    assert llm_ready(LLMSettings(api_key=""), vault, tmp_path) is True
     assert (
         llm_ready(LLMSettings(base_url="http://notlocalhost.example/v1"), vault, tmp_path) is False
     )

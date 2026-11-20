@@ -1,13 +1,12 @@
 """Where a model call sits, told to the relay (relay 0.31): the run that set it going, the
 turn and the call within it, the screen-operation trace and step, the platform; the id the
-relay gives a turn, kept for the notes about it; turns on the person's own key sent up to
-the account's record; client events for what happened around a turn."""
+relay gives a turn, kept for the notes about it. A call to any other provider carries
+nothing of the turn: no headers, no upload."""
 
 from __future__ import annotations
 
 import importlib
 import json
-import re
 import sys
 from collections.abc import Iterator
 from types import ModuleType
@@ -16,17 +15,14 @@ from typing import Any
 import pytest
 from openai import AsyncOpenAI
 
-from nanomuse import telemetry as telemetry_mod
-from nanomuse.cloud import CloudError
 from nanomuse.config import LLMSettings, Settings
 from nanomuse.llm import openai_chat as chat_mod
 from nanomuse.llm import openai_responses as responses_mod
 from nanomuse.llm import session
 from nanomuse.llm.factory import create_llm
 from nanomuse.schema import LLMResponse, Message
-from nanomuse.telemetry import telemetry
 
-RELAY = "https://cloud.nanomuse.cn/v1"
+RELAY = "https://relay.example.test/v1"
 ELSEWHERE = "https://api.example-vendor.test/v1"
 
 
@@ -53,7 +49,7 @@ class Wire:
         self.requests.append(request)
         body = json.loads(request.content)
         headers = {}
-        if request.url.host == "cloud.nanomuse.cn":
+        if request.url.host == "relay.example.test":
             headers["x-nanomuse-request"] = f"req-{len(self.requests)}"
         if request.url.path.endswith("/responses"):
             return httpx.Response(
@@ -126,54 +122,12 @@ def wire(monkeypatch: pytest.MonkeyPatch) -> Wire:
     return w
 
 
-class FakeCloud:
-    """What the runtime would send the relay, kept in lists."""
-
-    def __init__(self) -> None:
-        self.api_key = ""
-        self.turns: list[tuple[dict[str, Any], dict[str, str]]] = []
-        self.events: list[tuple[list[dict[str, Any]], dict[str, str]]] = []
-        self.blobs: dict[str, tuple[str, bytes]] = {}
-        self.fail: CloudError | None = None
-
-    async def post_turn(self, turn: dict[str, Any], headers: dict[str, str] | None = None) -> dict:
-        if self.fail:
-            raise self.fail
-        self.turns.append((turn, dict(headers or {})))
-        return {"id": turn.get("id")}
-
-    async def post_events(
-        self, events: list[dict[str, Any]], headers: dict[str, str] | None = None
-    ) -> dict:
-        if self.fail:
-            raise self.fail
-        self.events.append((events, dict(headers or {})))
-        return {"kept": len(events), "dropped": 0}
-
-    async def has_blob(self, sha256: str) -> bool:
-        return sha256 in self.blobs
-
-    async def put_blob(self, sha256: str, mime: str, data: bytes) -> dict[str, Any]:
-        self.blobs[sha256] = (mime, data)
-        return {"sha256": sha256}
-
-    def all_events(self) -> list[dict[str, Any]]:
-        return [e for batch, _ in self.events for e in batch]
-
-    def noted(self) -> list[dict[str, Any]]:
-        """Every event made so far: sent already, or still queued."""
-        return [*self.all_events(), *telemetry._events]
-
-
 @pytest.fixture()
-def cloud() -> Iterator[FakeCloud]:
-    """A signed-in runtime: the fake relay installed, the device named; undone after."""
-    fake = FakeCloud()
-    telemetry.install(fake, lambda: "key-1")  # type: ignore[arg-type]
+def cloud() -> Iterator[None]:
+    """A signed-in runtime: the device named, the relay's address set; undone after."""
     session.set_device("pc-test0001")
     session.set_cloud_base(RELAY)
-    yield fake
-    telemetry.install(None)
+    yield
     session.set_device("")
 
 
@@ -183,14 +137,14 @@ def slot(**kw: Any) -> LLMSettings:
 
 
 # ------------------------------------------------------------------ the headers
-def test_outside_a_turn_only_the_device_and_platform_are_said(cloud: FakeCloud):
+def test_outside_a_turn_only_the_device_and_platform_are_said(cloud: None):
     headers = session.relay_headers()
     assert headers["X-NanoMuse-Device"] == "pc-test0001"
     assert headers["X-NanoMuse-Platform"] in ("macos", "windows", "linux", "runtime")
     assert "X-NanoMuse-Run" not in headers and "X-NanoMuse-Turn" not in headers
 
 
-def test_a_turn_names_its_run_number_and_each_call(cloud: FakeCloud):
+def test_a_turn_names_its_run_number_and_each_call(cloud: None):
     with session.turn("schedule", 4):
         first = session.relay_headers(session.next_call())
         with session.trajectory("pt-20261027-101010-ab12"):
@@ -206,7 +160,7 @@ def test_a_turn_names_its_run_number_and_each_call(cloud: FakeCloud):
     assert "X-NanoMuse-Run" not in after
 
 
-def test_a_run_without_a_turn_is_still_named(cloud: FakeCloud):
+def test_a_run_without_a_turn_is_still_named(cloud: None):
     with session.run("feed"):
         headers = session.relay_headers()
     assert headers["X-NanoMuse-Run"] == "feed" and "X-NanoMuse-Turn" not in headers
@@ -231,9 +185,7 @@ def test_an_id_that_is_no_header_value_is_not_sent():
 
 
 # ------------------------------------------------------------------ the clients
-async def test_a_call_to_the_relay_carries_the_provenance_and_keeps_its_id(
-    wire: Wire, cloud: FakeCloud
-):
+async def test_a_call_to_the_relay_carries_the_provenance_and_keeps_its_id(wire: Wire, cloud: None):
     llm = create_llm(slot(base_url=RELAY))
     token = session.enter("thread-9")
     try:
@@ -249,13 +201,9 @@ async def test_a_call_to_the_relay_carries_the_provenance_and_keeps_its_id(
     assert wire.header("x-nanomuse-platform")[0] in ("macos", "windows", "linux", "runtime")
     # the relay's id for the turn it kept, on the response and for the notes after it
     assert resp.request_id == "req-1" and resp.turn_source == "cloud"
-    # and nothing sent up as an own-key turn: the relay already has it
-    assert cloud.turns == []
-    await telemetry.flush()
-    assert cloud.turns == []
 
 
-async def test_the_responses_client_sends_the_same(wire: Wire, cloud: FakeCloud):
+async def test_the_responses_client_sends_the_same(wire: Wire, cloud: None):
     llm = create_llm(slot(base_url=RELAY, protocol="responses"))
     with session.turn("goal", 1):
         resp = await llm.ask([Message.user("hi")])
@@ -264,175 +212,29 @@ async def test_the_responses_client_sends_the_same(wire: Wire, cloud: FakeCloud)
     assert resp.request_id == "req-1"
 
 
-async def test_another_vendor_hears_nothing_of_it(wire: Wire, cloud: FakeCloud):
+async def test_another_vendor_hears_nothing_of_it(wire: Wire, cloud: None):
     llm = create_llm(slot(base_url=ELSEWHERE))
     with session.turn("person", 1):
-        await llm.ask([Message.user("hi")])
+        resp = await llm.ask([Message.user("hi")])
     assert wire.header("x-nanomuse-run") == [None]
     assert wire.header("x-nanomuse-device") == [None]
     assert wire.header("x-nanomuse-platform") == [None]
-
-
-async def test_a_turn_on_the_persons_own_key_goes_up_to_the_record(wire: Wire, cloud: FakeCloud):
-    llm = create_llm(slot(base_url=ELSEWHERE, model="their-model"))
-    token = session.enter("thread-3")
-    try:
-        with session.turn("schedule", 5):
-            resp = await llm.ask([Message.system("be brief"), Message.user("hi")])
-    finally:
-        session.leave(token)
-    assert re.fullmatch(r"[0-9a-f]{16}", resp.request_id) and resp.turn_source == "own"
-    await telemetry.flush()
-    assert len(cloud.turns) == 1
-    turn, headers = cloud.turns[0]
-    assert turn["id"] == resp.request_id
-    assert turn["model"] == "their-model"
-    assert turn["provider"]  # the catalogue's word or the protocol's, never the URL
-    assert "example-vendor" not in turn["provider"]
-    assert [m["role"] for m in turn["messages"]] == ["system", "user"]
-    assert turn["response"]["message"] == {
-        "role": "assistant",
-        "content": "ok",
-        "finish_reason": "stop",
-    }
-    assert turn["response"]["usage"] == {"prompt_tokens": 7, "completion_tokens": 1}
-    assert turn["conversation"] == "thread-3"
-    assert turn["run"] == "schedule" and turn["turn"] == 5 and turn["step"] == 1
-    assert turn["platform"] in ("macos", "windows", "linux", "runtime")
-    assert "api_key" not in json.dumps(turn) and "Authorization" not in json.dumps(turn)
-    # the device goes with it (the user agent does not say which computer)
-    assert headers["X-NanoMuse-Device"] == "pc-test0001"
-    assert "X-NanoMuse-Run" not in headers
-
-
-async def test_signed_out_nothing_is_sent_up(wire: Wire):
-    telemetry.install(None)
-    llm = create_llm(slot(base_url=ELSEWHERE))
-    resp = await llm.ask([Message.user("hi")])
+    # and the response carries no turn id: nothing was sent up anywhere
     assert resp.request_id == "" and resp.turn_source == ""
-    telemetry.event("turn.feedback", {"vote": "up"})
-    await telemetry.flush()  # nothing installed: a no-op
 
 
-async def test_a_turn_is_sent_once_the_relay_is_back(cloud: FakeCloud):
-    telemetry.own_turn(
-        {
-            "id": "a" * 16,
-            "model": "m",
-            "messages": [{"role": "user", "content": "x"}],
-            "response": {"message": {"role": "assistant", "content": "y"}},
-        }
-    )
-    cloud.fail = CloudError(0, "offline", "away")
-    await telemetry.flush()
-    assert cloud.turns == []
-    cloud.fail = None
-    telemetry._paused_until = 0.0
-    await telemetry.flush()
-    assert [t["id"] for t, _ in cloud.turns] == ["a" * 16]
-
-
-async def test_a_relay_that_refuses_a_turn_does_not_get_it_again(cloud: FakeCloud):
-    telemetry.own_turn(
-        {
-            "id": "b" * 16,
-            "model": "m",
-            "messages": [{"role": "user", "content": "x"}],
-            "response": {"message": {"role": "assistant", "content": "y"}},
-        }
-    )
-    cloud.fail = CloudError(400, "bad_request", "no")
-    await telemetry.flush()
-    cloud.fail = None
-    await telemetry.flush()
-    assert cloud.turns == []
-
-
-async def test_pictures_go_up_as_files_first(cloud: FakeCloud, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(telemetry_mod, "INLINE_LIMIT", 10)
-    data_url = "data:image/png;base64," + ("QUJD" * 20)
-    telemetry.own_turn(
-        {
-            "id": "c" * 16,
-            "model": "m",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "what is this"},
-                        {"type": "image_url", "image_url": {"url": data_url}},
-                    ],
-                }
-            ],
-            "response": {"message": {"role": "assistant", "content": "a picture"}},
-        }
-    )
-    await telemetry.flush()
-    ((turn, _),) = cloud.turns
-    part = turn["messages"][0]["content"][1]
-    assert part["image_url"]["url"].startswith("blob:sha256:")
-    sha = part["image_url"]["url"].split(":")[-1]
-    assert cloud.blobs[sha][0] == "image/png"
-
-
-# ------------------------------------------------------------------ client events
-def test_an_event_keeps_codes_and_numbers_and_drops_prose(cloud: FakeCloud):
-    session.note_own_turn("f" * 16)
-    try:
-        telemetry.event(
-            "sentinel.decision",
-            {
-                "tool": "shell",
-                "risk": "moderate",
-                "decision": "allow",
-                "waited_s": 2.5,
-                "tainted": False,
-                "note": "the user said: please run `rm -rf` on everything",
-                "nested": {"a": 1},
-            },
-            conversation="thread-1",
-        )
-    finally:
-        session.clear_last_turn()
-    (e,) = telemetry._events
-    assert e["kind"] == "sentinel.decision"
-    assert e["turn"] == "f" * 16 and e["source"] == "own"
-    assert e["conversation"] == "thread-1"
-    assert e["data"] == {
-        "tool": "shell",
-        "risk": "moderate",
-        "decision": "allow",
-        "waited_s": 2.5,
-        "tainted": False,
-    }
-    telemetry._events.clear()
-
-
-async def test_events_go_up_in_batches_with_the_device(cloud: FakeCloud):
-    for i in range(205):
-        telemetry.event("hands.step", {"step": i})
-    await telemetry.flush()
-    assert [len(b) for b, _ in cloud.events] == [100, 100, 5]
-    assert cloud.events[0][1]["X-NanoMuse-Device"] == "pc-test0001"
-
-
-async def test_too_many_requests_pauses_the_notes(cloud: FakeCloud):
-    telemetry.event("hands.step", {"step": 1})
-    cloud.fail = CloudError(429, "too_many_requests", "slow down")
-    await telemetry.flush()
-    cloud.fail = None
-    await telemetry.flush()  # still paused
-    assert cloud.events == []
-    telemetry._paused_until = 0.0
-    await telemetry.flush()
-    assert len(cloud.all_events()) == 1
-
-
-def test_forgetting_the_key_drops_what_was_queued(cloud: FakeCloud):
-    telemetry.event("hands.step", {"step": 1})
-    telemetry.own_turn({"id": "d" * 16})
-    telemetry.forget()
-    assert not telemetry._events and not telemetry._turns
+def test_a_call_with_no_endpoint_is_not_the_relay() -> None:
+    """No relay configured yet means no slot is the relay: an empty cloud host must not
+    match an empty base URL (``begin_call(None)`` for one), or the provenance headers
+    would ride along to whatever the SDK's own default endpoint is."""
+    session.set_cloud_base("")
+    assert session.is_cloud(None) is False
+    assert session.is_cloud("") is False
+    assert session.is_cloud("https://api.openai.com/v1") is False
+    session.set_cloud_base(RELAY)
+    assert session.is_cloud(RELAY) is True
+    assert session.is_cloud(None) is False
+    session.set_cloud_base("")
 
 
 # ------------------------------------------------------------------ the agent loop
@@ -465,47 +267,8 @@ async def test_the_agent_loop_counts_its_turns_and_names_the_run(settings: Setti
     assert session.current_turn() is None
 
 
-async def test_the_sentinel_notes_its_decisions(settings: Settings, cloud: FakeCloud):
-    from nanomuse.schema import Function, RiskLevel, ToolCall, ToolResult
-    from nanomuse.sentinel import AuditLog, Sentinel
-    from nanomuse.tools import ToolCollection
-    from nanomuse.tools.base import BaseTool, CallAssessment
-    from nanomuse.ui import HeadlessUI
-
-    class Careful(BaseTool):
-        name: str = "careful"
-        description: str = "a tool that asks"
-        parameters: dict[str, Any] = {"type": "object", "properties": {}}
-
-        def assess(self, args: dict[str, Any]) -> CallAssessment:
-            return CallAssessment(risk=RiskLevel.SENSITIVE, summary="do the careful thing")
-
-        async def execute(self, **kwargs: Any) -> ToolResult:
-            return ToolResult(output="done")
-
-    ui = HeadlessUI(approve=True)
-    audit = AuditLog(settings.audit_file)
-    sentinel = Sentinel(settings.sentinel, audit, ui)
-    tool = Careful()
-    ToolCollection(tool)
-    call = ToolCall(function=Function(name="careful", arguments="{}"))
-    result = await sentinel.guard(call, tool)
-    assert result.ok
-    kinds = [e["kind"] for e in telemetry._events]
-    assert "approval.result" in kinds and "sentinel.decision" in kinds
-    approval = next(e for e in telemetry._events if e["kind"] == "approval.result")
-    assert approval["data"]["tool"] == "careful" and approval["data"]["allow"] is True
-    assert approval["data"]["by"] == "person" and approval["data"]["risk"] == "sensitive"
-    decision = next(e for e in telemetry._events if e["kind"] == "sentinel.decision")
-    assert decision["data"]["decision"] == "allow" and decision["data"]["policy"] == "ask"
-    assert decision["data"]["by"] == "person" and decision["data"]["grant"] == "once"
-    # nothing of the arguments or the summary travels
-    assert "careful thing" not in json.dumps(list(telemetry._events))
-    telemetry._events.clear()
-
-
 # ------------------------------------------------------------------ the server
-def test_a_thumb_and_a_stop_reason_reach_the_record(settings: Settings, cloud: FakeCloud):
+def test_a_thumb_and_a_stop_reason_are_accepted(settings: Settings):
     import time
 
     from fastapi.testclient import TestClient
@@ -519,9 +282,6 @@ def test_a_thumb_and_a_stop_reason_reach_the_record(settings: Settings, cloud: F
     service = MuseService(settings, llm=llm)
     app = create_app(settings, service)
     with TestClient(app) as client:
-        # the hub installed the real relay client at start; this runtime is signed in to
-        # the fake one for the test
-        telemetry.install(cloud, lambda: "key-1")  # type: ignore[arg-type]
         client.headers["Authorization"] = "Bearer secret-token"
         client.post("/api/threads/main/send", json={"text": "hi"})
         deadline = time.time() + 5
@@ -549,10 +309,3 @@ def test_a_thumb_and_a_stop_reason_reach_the_record(settings: Settings, cloud: F
         assert r.status_code == 400
         r = client.post("/api/threads/main/feedback", json={"event": "nope", "vote": "up"})
         assert r.status_code == 404
-        noted = cloud.noted()
-        kinds = [(e["kind"], e["data"]) for e in noted]
-        assert ("turn.feedback", {"vote": "up", "turn_no": 1}) in kinds
-        assert ("turn.feedback", {"vote": "down", "turn_no": 1, "reason": "unhelpful"}) in kinds
-        assert ("turn.stopped", {"reason": "slow", "turn_no": 1}) in kinds
-        assert all(e["conversation"] == "main" for e in noted)
-        telemetry._events.clear()

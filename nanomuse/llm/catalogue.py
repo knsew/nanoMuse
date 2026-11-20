@@ -277,24 +277,9 @@ class Catalogue:
 
 
 # The draft table from the shared brief: enough to gate and to name providers when the
-# JSON is not there. The file, when present, wins in every detail.
-_FALLBACK: tuple[tuple[str, str, str, str, str, str, str], ...] = (
-    # id, name, name_zh, base_url, regions, capabilities, protocol
-    ("bailian", "Alibaba Cloud Bailian", "阿里云百炼", "https://dashscope.aliyuncs.com/compatible-mode/v1", "cn", "chat vision image video", "openai"),
-    ("deepseek", "DeepSeek", "DeepSeek", "https://api.deepseek.com/v1", "cn global", "chat vision", "openai"),
-    ("moonshot", "Kimi (Moonshot AI)", "Kimi（月之暗面）", "https://api.moonshot.cn/v1", "cn global", "chat vision", "openai"),
-    ("zhipu", "Zhipu GLM", "智谱 GLM", "https://open.bigmodel.cn/api/paas/v4", "cn", "chat vision image", "openai"),
-    ("siliconflow", "SiliconFlow", "硅基流动", "https://api.siliconflow.cn/v1", "cn", "chat vision image", "openai"),
-    ("volcengine", "Volcengine Ark (Doubao)", "火山方舟（豆包）", "https://ark.cn-beijing.volces.com/api/v3", "cn", "chat vision image", "openai"),
-    ("minimax", "MiniMax", "MiniMax", "https://api.minimaxi.com/v1", "cn global", "chat vision", "openai"),
-    ("openrouter", "OpenRouter", "OpenRouter", "https://openrouter.ai/api/v1", "global", "chat vision image", "openai"),
-    ("openai", "OpenAI", "OpenAI", "https://api.openai.com/v1", "global", "chat vision image", "openai"),
-    ("anthropic", "Anthropic Claude", "Anthropic Claude", "https://api.anthropic.com", "global", "chat vision", "anthropic"),
-    ("gemini", "Google Gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "global", "chat vision image", "gemini"),
-    ("xai", "xAI Grok", "xAI Grok", "https://api.x.ai/v1", "global", "chat vision image", "openai"),
-    ("groq", "Groq", "Groq", "https://api.groq.com/openai/v1", "global", "chat vision", "openai"),
-    ("mistral", "Mistral AI", "Mistral AI", "https://api.mistral.ai/v1", "global", "chat vision", "openai"),
-)  # fmt: skip
+# JSON is not there. The file, when present, wins in every detail. Only local servers
+# and the custom row live here: no cloud endpoint comes back through the fallback.
+_FALLBACK: tuple[tuple[str, str, str, str, str, str, str], ...] = ()  # fmt: skip
 
 
 def _fallback() -> Catalogue:

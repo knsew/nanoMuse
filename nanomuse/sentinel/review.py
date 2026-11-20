@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from nanomuse.config import ReviewSettings
-from nanomuse.llm.base import BaseLLM, without_turn_upload
+from nanomuse.llm.base import BaseLLM
 from nanomuse.schema import LLMResponse, Message
 from nanomuse.sentinel.audit import AuditLog
 from nanomuse.tools.base import CallAssessment
@@ -210,22 +210,21 @@ class SentinelReviewer:
                 "provider": self._text(client.provider, secrets)[:80],
                 "model": self._text(client.model, secrets)[:120],
             }
-            with without_turn_upload():
-                request = asyncio.create_task(
-                    client.llm.ask(
-                        [Message.system(_SYSTEM), Message.user(snapshot.payload)],
-                        tools=None,
-                        tool_choice="none",
-                        max_tokens=config.max_output_tokens,
-                    )
+            request = asyncio.create_task(
+                client.llm.ask(
+                    [Message.system(_SYSTEM), Message.user(snapshot.payload)],
+                    tools=None,
+                    tool_choice="none",
+                    max_tokens=config.max_output_tokens,
                 )
-                self._requests.add(request)
-                request.add_done_callback(self._request_done)
-                done, _ = await asyncio.wait({request}, timeout=config.timeout)
-                if not done:
-                    request.cancel()
-                    raise TimeoutError
-                response = request.result()
+            )
+            self._requests.add(request)
+            request.add_done_callback(self._request_done)
+            done, _ = await asyncio.wait({request}, timeout=config.timeout)
+            if not done:
+                request.cancel()
+                raise TimeoutError
+            response = request.result()
             usage = {
                 key: value
                 for key, value in response.usage.items()

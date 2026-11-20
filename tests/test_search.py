@@ -642,6 +642,7 @@ def test_settings_layering(settings: Settings, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("NANOMUSE_CONFIG", raising=False)
     monkeypatch.setenv("NANOMUSE_SEARCH_PROVIDER", "brave")
     monkeypatch.setenv("NANOMUSE_SEARCH_API_KEY", "env-key")
+    monkeypatch.setenv("NANOMUSE_CLOUD_REQUIRED", "0")
     monkeypatch.setenv("NANOMUSE_DATA_DIR", str(settings.data_dir))
     monkeypatch.setenv("NANOMUSE_WORKSPACE", str(settings.agent.workspace))
     from nanomuse.config import load_settings

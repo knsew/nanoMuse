@@ -54,7 +54,7 @@ def test_a_long_id_is_cut_to_the_length_the_record_keeps() -> None:
     assert session.last_turn() == ("a" * 96, "cloud")
 
 
-def test_the_relays_word_replaces_a_turn_of_ours() -> None:
-    session.note_own_turn("0123456789abcdef")
+def test_the_relays_word_replaces_the_previous_turn() -> None:
+    session.note_response(_response({HEADER: "req-7"}))
     session.note_response(_response({HEADER: "req-9"}))
     assert session.last_turn() == ("req-9", "cloud")

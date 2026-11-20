@@ -88,42 +88,53 @@ def test_providers_signed_out_with_the_default_model(server):
     view = client.get("/api/providers").json()
     assert view["region"] == ""
     ids = [p["id"] for p in view["providers"]]
-    assert len(ids) == 28 and "nanomuse_cloud" not in ids
-    # DeepSeek is the default chat model, by its host; the hands follow the chat model
-    assert view["configured"]["chat"]["provider"] == "deepseek"
+    assert len(ids) == 4 and "nanomuse_cloud" not in ids
+    # halogen is the default chat model, on a host the catalogue does not list: custom;
+    # the hands follow the chat model
+    assert view["configured"]["chat"]["provider"] == "custom"
     assert view["configured"]["chat"]["protocol"] == "openai"
     assert view["configured"]["chat"]["source"] == "config"
-    assert view["configured"]["hands"]["provider"] == "deepseek"
+    assert view["configured"]["hands"]["provider"] == "custom"
     assert view["configured"]["image"] is None and view["configured"]["video"] is None
-    deepseek = next(p for p in view["providers"] if p["id"] == "deepseek")
-    assert deepseek["configured"] == ["chat", "hands"] and deepseek["signed_in"] is False
-    assert "key_url" in deepseek and "capabilities" in deepseek  # the catalogue's keys
-    assert view["capabilities"] == ["chat", "vision"]
-    assert view["unavailable"]["chat"] == "" and view["unavailable"]["vision"] == ""
+    custom = next(p for p in view["providers"] if p["id"] == "custom")
+    assert custom["configured"] == ["chat", "hands"] and custom["signed_in"] is False
+    assert "key_url" in custom and "capabilities" in custom  # the catalogue's keys
+    assert view["capabilities"] == ["chat"]
+    assert view["unavailable"]["chat"] == ""
+    assert view["unavailable"]["vision"].startswith(
+        "Hands need a provider with models that read pictures"
+    )
     assert view["unavailable"]["image"].startswith("Pictures need a provider with image models")
     assert view["unavailable"]["video"].startswith("Clips need a provider with video models")
     assert view["chatgpt"] == {"signed_in": False, "label": "", "capabilities": ["chat", "vision"]}
     # the language and the region of the sentence
     zh = client.get("/api/providers?lang=zh&region=cn").json()
     assert zh["region"] == "cn"
-    assert zh["unavailable"]["image"].startswith("生成图片需要有图像模型的服务商：阿里云百炼")
+    assert zh["unavailable"]["image"].startswith("生成图片需要有图像模型的服务商，目前没有可用的")
     en_cn = client.get("/api/providers?region=cn").json()["unavailable"]["image"]
-    assert "Alibaba Cloud Bailian" in en_cn and "OpenRouter" not in en_cn
+    assert "none is available" in en_cn and "Bailian" not in en_cn
 
 
 def test_providers_with_an_image_slot(settings: Settings):
-    settings.image = MediaSettings(provider="bailian", api_key="sk-test")
+    # an image model on a host of the person's own, named explicitly: the catalogue has
+    # no picture defaults left, so the slot carries the model and the address itself
+    settings.image = MediaSettings(
+        provider="openai",
+        base_url="https://images.example.com/v1",
+        model="flux-2",
+        api_key="sk-test",
+    )
     client, service = _make(settings)
     with client:
         view = client.get("/api/providers").json()
-    assert "image" in view["capabilities"] and "video" in view["capabilities"]
-    assert view["unavailable"]["image"] == "" and view["unavailable"]["video"] == ""
+    assert "image" in view["capabilities"] and "video" not in view["capabilities"]
+    assert view["unavailable"]["image"] == "" and view["unavailable"]["video"] != ""
     image = view["configured"]["image"]
-    assert image["provider"] == "bailian" and image["model"] == "qwen-image-3.0"
+    assert image["provider"] == "custom" and image["model"] == "flux-2"
     assert image["source"] == "config"
-    assert view["configured"]["video"]["provider"] == "bailian"
-    bailian = next(p for p in view["providers"] if p["id"] == "bailian")
-    assert bailian["configured"] == ["image", "video"]
+    assert view["configured"]["video"] is None
+    custom = next(p for p in view["providers"] if p["id"] == "custom")
+    assert custom["configured"] == ["chat", "hands", "image"]
     # the key never travels
     assert "sk-test" not in json.dumps(view)
 
@@ -173,7 +184,7 @@ def test_chatgpt_status_with_a_store_never_shows_the_tokens(server):
         "label": "ChatGPT Plus",
         "capabilities": ["chat", "vision"],
     }
-    assert next(p for p in view["providers"] if p["id"] == "openai")["signed_in"] is True
+    assert not any(p["signed_in"] for p in view["providers"])  # no entry carries the sign-in
     assert client.post("/api/chatgpt/logout").json() == {"ok": True, "was_signed_in": True}
     assert not (service.data_dir / "chatgpt.json").exists()
     assert client.get("/api/chatgpt/status").json()["signed_in"] is False
@@ -237,8 +248,8 @@ def test_chatgpt_login_by_pasted_callback_then_use_it_for_the_chat(server, monke
         "source": "chatgpt",
     }
     assert view["configured"]["hands"]["provider"] == "chatgpt"
-    openai = next(p for p in view["providers"] if p["id"] == "openai")
-    assert openai["signed_in"] is True and openai["configured"] == ["chat", "hands"]
+    assert view["chatgpt"]["signed_in"] is True  # the sign-in shows here, not on a catalogue entry
+    assert not any(p["id"] == "openai" for p in view["providers"])
     assert view["capabilities"] == ["chat", "vision"]
     assert view["unavailable"]["image"] != ""  # the sign-in draws no pictures
     # the saved settings carry no key and no endpoint for the sign-in

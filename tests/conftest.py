@@ -65,10 +65,16 @@ def _own_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     config file, so a ``NANOMUSE_DATA_DIR`` exported for a trial run sent a test's skills
     into that data directory, and an exported ``OPENAI_API_KEY`` shows a "no key" test a
     key. Each test starts without them; one that needs a variable sets it itself.
+
+    The relay is off by default too: loading settings with no relay address fails when
+    ``[cloud] required`` is true, and the tests run without a relay unless one says
+    otherwise (``test_a_required_relay_with_no_address_fails_fast`` deletes the override
+    so the default, on, applies).
     """
     for name in list(os.environ):
         if name.startswith("NANOMUSE_") or name in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY"):
             monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("NANOMUSE_CLOUD_REQUIRED", "0")
 
 
 @pytest.fixture()

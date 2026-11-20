@@ -52,7 +52,8 @@ def model_takes_images(model: str) -> bool | None:
     DeepSeek's models are text-only unless the id says ``v4.1``, ``vision`` or ``ocr``, or
     names the Flash line (``deepseek-flash`` and ``deepseek-v4-flash*`` are served by
     DeepSeek-V4.1-Flash, which takes pictures; ``deepseek-chat`` and ``deepseek-v4-pro``
-    do not). Qwen's ``*-vl`` models and the ``qwen3.8`` family take pictures. Anything
+    do not). Qwen's ``*-vl`` models and the ``qwen3.8`` family take pictures, and so does
+    a halogen id that names one of those (``halogen-qwen3.8-flash-next``). Anything
     else is ``None``: unknown, so ``llm.vision = "auto"`` finds out from the endpoint's
     answer, as before.
     """
@@ -63,6 +64,10 @@ def model_takes_images(model: str) -> bool | None:
         if name in ("deepseek-flash",) or name.startswith("deepseek-v4-flash"):
             return True
         return any(mark in name for mark in ("v4.1", "vision", "ocr"))
+    if name.startswith("halogen-"):
+        if "-vl" in name or "qwen3.8" in name:
+            return True
+        return None
     if name.startswith("qwen"):
         if "-vl" in name or name.startswith("qwen3.8"):
             return True

@@ -1252,14 +1252,15 @@ def test_review_key_requires_an_unambiguous_destination(server, settings: Settin
 
 def test_review_protocol_key_stays_at_its_original_endpoint(server, settings: Settings):
     client, service, _ = server
-    settings.llm.provider = "deepseek"
+    settings.llm.provider = "openai"
+    settings.llm.base_url = "https://api.deepseek.com/v1"
     saved = client.put(
         "/api/settings",
         json={
             "sentinel_review": {
                 "provider": "openai",
                 "api_key": "separate-test-key",
-                "base_url": "",
+                "base_url": "https://api.openai.com/v1",
             }
         },
     )
@@ -1421,7 +1422,9 @@ def test_base_url_normalisation():
         == "https://open.bigmodel.cn/api/paas/v4"
     )
     # a preset's host stays as the preset has it
-    assert normalize_base_url("https://api.deepseek.com/") == "https://api.deepseek.com"
+    assert normalize_base_url("http://10.1.1.52:8000/v1/") == "http://10.1.1.52:8000/v1"
+    # a host no preset names gets /v1
+    assert normalize_base_url("https://api.deepseek.com/") == "https://api.deepseek.com/v1"
     assert normalize_base_url("") == ""
 
 
@@ -1485,14 +1488,18 @@ def test_llm_models_live_then_catalogue(server, monkeypatch):
     assert calls[-1][1]["Authorization"] == "Bearer sk-typed"
 
     fallback = client.post(
-        "/api/llm/models", json={"preset": "kimi", "base_url": "https://dead.example.com/v1"}
+        "/api/llm/models", json={"preset": "ollama", "base_url": "https://dead.example.com/v1"}
     ).json()
-    assert fallback["source"] == "catalogue" and "kimi-k2.6" in fallback["models"]
+    assert fallback["source"] == "catalogue" and "qwen3:8b" in fallback["models"]
     assert fallback["error"] == "ConnectError"
     # a preset alone asks the preset's endpoint; a 404 there means the catalogue
-    glm = client.post("/api/llm/models", json={"preset": "glm"}).json()
-    assert glm["source"] == "catalogue" and glm["error"] == "404" and "glm-5" in glm["models"]
-    assert calls[-1][0] == "https://open.bigmodel.cn/api/paas/v4/models"
+    halogen = client.post("/api/llm/models", json={"preset": "halogen"}).json()
+    assert (
+        halogen["source"] == "catalogue"
+        and halogen["error"] == "404"
+        and "halogen-qwen3.8-flash-next" in halogen["models"]
+    )
+    assert calls[-1][0] == "http://10.1.1.52:8000/v1/models"
     # no base URL at all: the catalogue, no request
     before = len(calls)
     assert client.post("/api/llm/models", json={"preset": "custom"}).json() == {
@@ -1608,16 +1615,19 @@ async def test_fetch_models_asks_a_local_endpoint_directly(dead_proxy: str):
 def test_providers_carry_where_keys_come_from(server):
     client, _, _ = server
     providers = client.get("/api/connections").json()["providers"]
-    for pid in ("deepseek", "kimi", "qwen", "glm", "doubao", "minimax"):
-        assert providers[pid]["key_url"].startswith("https://"), pid
-        assert providers[pid]["group"] == "openai" and providers[pid]["subtitle"]
+    # the presets are all local now: no key to fetch anywhere, nothing to link to
+    assert set(providers) == {"halogen", "ollama", "custom"}
+    for pid in ("halogen", "ollama", "custom"):
+        assert providers[pid]["group"] == "local" and providers[pid]["subtitle"]
+        assert not providers[pid].get("key_url")
     assert providers["ollama"]["no_key"] and providers["custom"]["key_optional"]
+    assert providers["halogen"]["key_optional"]
 
 
 def test_connections_model_key_goes_to_the_vault(server, settings: Settings):
     client, service, _ = server
     view = client.get("/api/connections").json()
-    assert view["llm"]["key_source"] == "config" and "deepseek" in view["providers"]
+    assert view["llm"]["key_source"] == "config" and "halogen" in view["providers"]
     assert view["onboarded"] is False
     # the test endpoint talks to the current (mock) model
     service.app.llm.script.append(LLMResponse(content="OK"))
@@ -1645,7 +1655,7 @@ def test_connections_model_key_goes_to_the_vault(server, settings: Settings):
         "/api/connections/llm",
         json={
             "model": "deepseek-chat",
-            "base_url": "https://api.deepseek.com/",
+            "base_url": "https://api.deepseek.com/v1",
             "api_key": "sk-secret-123",
         },
     )
@@ -1658,7 +1668,7 @@ def test_connections_model_key_goes_to_the_vault(server, settings: Settings):
     assert service.app.vault.get("LLM_API_KEY") == "sk-secret-123"
     # settings carry a reference, and every thread now talks to the new client
     assert settings.llm.api_key == "{{vault:LLM_API_KEY}}"
-    assert settings.llm.base_url == "https://api.deepseek.com"
+    assert settings.llm.base_url == "https://api.deepseek.com/v1"
     assert all(t.agent.llm is service.app.llm for t in service.threads.values())
     # the file on disk holds the reference, not the key
     on_disk = (settings.data_dir / "app-settings.json").read_text()
@@ -3108,14 +3118,6 @@ def test_triggers_start_work_from_mail_events_and_webhooks(
     r = plain.post(f"/api/hooks/{hook['id']}?key={hook['secret']}", content="x")
     assert r.status_code == 409  # cancelled: the URL is dead
     assert client.get("/api/triggers").json()["items"][0]["url"] == ""
-
-
-def test_update_endpoint(server, monkeypatch):
-    client, _, _ = server
-    monkeypatch.setenv("NANOMUSE_NO_UPDATE_CHECK", "1")  # no network in tests
-    view = client.get("/api/update").json()
-    assert view["enabled"] is False and view["newer"] is False and view["current"]
-    assert TestClient(client.app).get("/api/update").status_code == 401
 
 
 def test_static_app_caching_headers(server):

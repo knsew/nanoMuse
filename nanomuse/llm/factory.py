@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -26,6 +27,10 @@ def create_llm(settings: LLMSettings, data_dir: Path | None = None) -> BaseLLM:
 
         llm: BaseLLM = CodexLLM(settings, data_dir=data_dir)
     else:
+        if settings.provider == "custom" and not base_url:
+            # the catalogue's `custom` row carries no endpoint of its own; without an
+            # address the SDK would silently point at api.openai.com instead
+            raise ValueError("provider 'custom' needs a base_url: the address of the endpoint")
         if base_url != settings.base_url:
             settings = settings.model_copy(update={"base_url": base_url})
         header = session_header(settings.provider, settings.base_url)
@@ -54,9 +59,15 @@ def session_header(provider: str, base_url: str | None) -> str:
 
 
 def is_local_endpoint(base_url: str | None) -> bool:
-    """A model served on this machine (Ollama, vLLM, LM Studio) needs no key."""
+    """A model served on this machine or the local network (Ollama, vLLM, LM Studio, a
+    self-hosted endpoint on a private address) needs no key."""
     host = (urlparse(base_url or "").hostname or "").lower()
-    return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal")
+    if host in ("localhost", "host.docker.internal"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_private
+    except ValueError:
+        return False
 
 
 def llm_ready(

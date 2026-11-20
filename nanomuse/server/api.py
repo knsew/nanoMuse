@@ -47,7 +47,6 @@
     GET|PUT /api/sync/state {enabled}     conversations synced between the account's devices: the switch, the cursor, the relay's counts
     POST /api/sync/delete                 delete what the relay stores for the account (the switch stays)
     POST /api/sync/pull                   pull the other devices' changes now
-    GET  /api/update (?refresh=1)         installed and latest release (nanomuse.cn/dl first, GitHub second; a day's cache)
     GET  /api/avatar                      the avatar studio: can a face be drawn, the session under way
     POST /api/avatar/begin {description, style?}  a session: the card with the cost in the chat
     POST /api/avatar/start|choose|cancel {session, index?}   draw (or redraw) the four, pick one, stop
@@ -92,7 +91,6 @@ from nanomuse.server import data_export, tickets
 from nanomuse.server.channels_api import install_channels
 from nanomuse.server.events import MAIN_THREAD
 from nanomuse.server.service import MuseService, goal_to_dict
-from nanomuse.server.update import UpdateCheck
 
 if TYPE_CHECKING:
     from starlette.types import Scope
@@ -444,10 +442,6 @@ class CloudModelsBody(BaseModel):
     on: bool = True
 
 
-class CloudContributeBody(BaseModel):
-    on: bool = False
-
-
 class SyncStateBody(BaseModel):
     enabled: bool | None = None
     # C9: this device's side chats too (per device, default off)
@@ -584,14 +578,6 @@ def create_app(settings: Settings, service: MuseService | None = None) -> FastAP
         if svc.starting:
             out["starting"] = svc.starting
         return out
-
-    update_check = UpdateCheck(svc.settings.server.update_check)
-
-    @app.get("/api/update", dependencies=dep)
-    async def update_status(refresh: bool = False) -> dict[str, Any]:
-        """The installed and the latest release (nanomuse.cn/dl first, GitHub second; a day's
-        cache, ``?refresh=1`` asks now; see ``server.update_check``)."""
-        return await update_check.view(force=refresh)
 
     # ------------------------------------------------------------------ threads & chat
     @app.get("/api/threads", dependencies=dep)
@@ -1403,15 +1389,6 @@ def create_app(settings: Settings, service: MuseService | None = None) -> FastAP
         ``409 chat_on_cloud`` while the chat model is the account's."""
         try:
             return svc.hub.set_models(body.on)
-        except CloudError as exc:
-            raise _cloud_http(exc) from exc
-
-    @app.post("/api/cloud/contribute", dependencies=dep)
-    async def cloud_contribute(body: CloudContributeBody) -> dict[str, Any]:
-        """Data controls: turn "Help improve nanoMuse's AI models" on or off for the account
-        (the relay keeps the text of chat turns only while it is on)."""
-        try:
-            return await svc.hub.set_contribute(body.on)
         except CloudError as exc:
             raise _cloud_http(exc) from exc
 

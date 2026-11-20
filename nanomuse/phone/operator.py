@@ -813,57 +813,7 @@ class PhoneOperator:
                 trace.end(outcome)
             finally:
                 await self._task_over(outcome)
-                self._note_outcome(trace.id, outcome)
         return outcome
-
-    @staticmethod
-    def _note_step(
-        trace_id: str, step_no: int, params: dict[str, Any], result: ToolResult, latency_ms: int
-    ) -> None:
-        """One step of the run as a client event (``hands.step``): the kind of action, how
-        it went, how long the model took; nothing of the screen, the text typed or the goal."""
-        try:
-            from nanomuse.telemetry import telemetry
-
-            if result.error and STOP_MARKER in result.error:
-                outcome = "stopped"
-            elif result.error and "Sentinel blocked" in result.error:
-                outcome = "refused"
-            elif result.error:
-                outcome = "failed"
-            else:
-                outcome = "ok"
-            telemetry.event(
-                "hands.step",
-                {
-                    "trajectory": trace_id,
-                    "step": step_no,
-                    "action": str(params.get("action") or "")[:32],
-                    "outcome": outcome,
-                    "latency_ms": int(latency_ms),
-                },
-            )
-        except Exception:  # noqa: BLE001 - a note, never the step
-            pass
-
-    @staticmethod
-    def _note_outcome(trace_id: str, outcome: Outcome) -> None:
-        """How the run ended, as a client event (``hands.step`` with ``action: end``: the
-        number of steps and the status; nothing of the screen or the goal)."""
-        try:
-            from nanomuse.telemetry import telemetry
-
-            telemetry.event(
-                "hands.step",
-                {
-                    "trajectory": trace_id,
-                    "step": outcome.steps,
-                    "action": "end",
-                    "outcome": outcome.status,
-                },
-            )
-        except Exception:  # noqa: BLE001 - a note, never the outcome
-            pass
 
     async def _task_over(self, outcome: Outcome) -> None:
         """``notice`` when the user has to come to the chat; ``end`` for everything else.
@@ -1046,7 +996,6 @@ class PhoneOperator:
                 params=params,
                 error=result.error,
             )
-            self._note_step(trace.id, step_no, params, result, latency_ms)
             if result.error and STOP_MARKER in result.error:
                 outcome.status = "stopped"
                 outcome.message = str(DeviceStopped())

@@ -19,7 +19,6 @@ from nanomuse.config import (
     save_app_settings,
 )
 from nanomuse.llm import MockLLM
-from nanomuse.llm.base import CallContext, end_call, without_turn_upload
 from nanomuse.llm.session import conversation, current_conversation
 from nanomuse.schema import Function, LLMResponse, ToolCall, ToolResult
 from nanomuse.sentinel import AuditLog, Sentinel
@@ -333,9 +332,9 @@ def test_direct_review_configuration_binds_its_own_key_to_a_stable_endpoint(
     with pytest.raises(ValueError, match="provider or address"):
         ReviewSettings(model="review-model", api_key="separate-test-key")
     app = app_for(Settings(), tmp_path)
-    review = ReviewSettings(provider="deepseek", model="review-model", api_key="separate-test-key")
+    review = ReviewSettings(provider="ollama", model="review-model", api_key="separate-test-key")
     original_endpoint = review.base_url
-    assert original_endpoint and "deepseek" in original_endpoint
+    assert original_endpoint and "11434" in original_endpoint
     active = MockLLM()
     active.settings = LLMSettings(base_url="https://one-turn.example/v1", api_key="one-turn-key")
     app.settings.llm.base_url = "https://changed-chat.example/v1"
@@ -391,24 +390,6 @@ async def test_review_binds_vault_key_before_a_later_configuration_change(
         assert audit.tail()[-1]["reason"] == "configuration_changed"
     else:
         assert len(llm.calls) == 1
-
-
-def test_turn_upload_suppression_is_scoped(monkeypatch: pytest.MonkeyPatch) -> None:
-    from nanomuse.telemetry import Telemetry, telemetry
-
-    sent: list[dict[str, Any]] = []
-    monkeypatch.setattr(Telemetry, "ready", property(lambda self: True))
-    monkeypatch.setattr(telemetry, "own_turn", sent.append)
-    kwargs = {
-        "settings": LLMSettings(),
-        "params": {"messages": [{"role": "user", "content": "isolated review"}]},
-        "response": LLMResponse(content='{"decision":"ask"}', reasoning="private reasoning"),
-    }
-    with without_turn_upload():
-        end_call(CallContext(False, 1, {}, {}), **kwargs)
-    assert not sent
-    end_call(CallContext(False, 1, {}, {}), **kwargs)
-    assert len(sent) == 1
 
 
 async def test_plain_config_and_active_turn_credentials_are_redacted_in_free_text(

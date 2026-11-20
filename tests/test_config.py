@@ -20,6 +20,9 @@ extra_headers = { "X-User" = "${TEST_USER:-anon}" }
 [sentinel]
 mode = "strict"
 
+[cloud]
+required = false
+
 [[sentinel.rules]]
 tool = "shell"
 match = { command = "*rm*" }
@@ -67,7 +70,7 @@ def test_a_config_file_a_windows_program_wrote_is_read(
     monkeypatch.delenv("NANOMUSE_CONFIG", raising=False)
     monkeypatch.delenv("NANOMUSE_WORKSPACE", raising=False)
     monkeypatch.delenv("NANOMUSE_DATA_DIR", raising=False)
-    body = f'data_dir = "{data_dir.as_posix()}"\n[agent]\nworkspace = "./mine"\n'
+    body = f'data_dir = "{data_dir.as_posix()}"\n[agent]\nworkspace = "./mine"\n[cloud]\nrequired = false\n'
     cfg = tmp_path / "config.toml"
     for name, data in (
         ("utf-8 with a mark", b"\xef\xbb\xbf" + body.encode()),
@@ -87,11 +90,31 @@ def test_missing_explicit_config_raises(tmp_path: Path):
 def test_defaults_without_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("NANOMUSE_CONFIG", raising=False)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-from-env")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
+    monkeypatch.setenv("NANOMUSE_CLOUD_REQUIRED", "0")
     monkeypatch.setenv("HOME", str(tmp_path))
     s = load_settings()
     assert s.llm.api_key == "sk-from-env"
     assert s.source == "defaults+env"
+
+
+def test_a_required_relay_with_no_address_fails_fast(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """There is no default relay: loading with ``[cloud] required`` (the default) and no
+    ``base_url`` anywhere is an error, not a silent sign-in to nowhere."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("NANOMUSE_CONFIG", raising=False)
+    monkeypatch.delenv("NANOMUSE_CLOUD_REQUIRED", raising=False)
+    monkeypatch.delenv("NANOMUSE_CLOUD_BASE_URL", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    with pytest.raises(ValueError, match="base_url is required"):
+        load_settings()
+    monkeypatch.setenv("NANOMUSE_CLOUD_BASE_URL", "https://relay.example.test")
+    assert load_settings().cloud.base_url == "https://relay.example.test"
+    monkeypatch.delenv("NANOMUSE_CLOUD_BASE_URL")
+    monkeypatch.setenv("NANOMUSE_CLOUD_REQUIRED", "0")
+    assert load_settings().cloud.base_url == ""
 
 
 def test_provider_key_fallback_follows_the_host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -103,29 +126,38 @@ def test_provider_key_fallback_follows_the_host(tmp_path: Path, monkeypatch: pyt
 
     def key_for(base_url: str | None) -> str | None:
         line = f'base_url = "{base_url}"\n' if base_url else ""
-        cfg.write_text(f'data_dir = "{(tmp_path / "data").as_posix()}"\n[llm]\n{line}')
+        cfg.write_text(
+            f'data_dir = "{(tmp_path / "data").as_posix()}"\n[llm]\n{line}[cloud]\nrequired = false\n'
+        )
         return load_settings(cfg).llm.api_key
 
-    assert key_for(None) == "sk-deepseek"  # the default endpoint is DeepSeek's
+    assert key_for(None) == "sk-openai"  # the default endpoint is local: the shared convention
     assert key_for("https://api.deepseek.com") == "sk-deepseek"
     assert key_for("https://api.openai.com/v1") == "sk-openai"
     assert key_for("https://openrouter.ai/api/v1") == "sk-openai"  # the shared convention
     monkeypatch.delenv("OPENAI_API_KEY")
     assert not key_for("https://api.openai.com/v1")  # DeepSeek's key does not stand in
     assert key_for("https://api.deepseek.com") == "sk-deepseek"
-    # a catalogue id with no base_url resolves to that provider's endpoint first: Moonshot's
+    # a catalogue id with no base_url resolves to that provider's endpoint first: Ollama's
     # host is not DeepSeek's, so the generic variable applies, not DEEPSEEK_API_KEY
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
-    cfg.write_text(f'data_dir = "{(tmp_path / "data").as_posix()}"\n[llm]\nprovider = "moonshot"\n')
+    cfg.write_text(
+        f'data_dir = "{(tmp_path / "data").as_posix()}"\n[llm]\nprovider = "ollama"\n[cloud]\nrequired = false\n'
+    )
     assert load_settings(cfg).llm.api_key == "sk-openai"
-    cfg.write_text(f'data_dir = "{(tmp_path / "data").as_posix()}"\n[llm]\nprovider = "deepseek"\n')
-    assert load_settings(cfg).llm.api_key == "sk-deepseek"
+    # a cloud provider id the catalogue no longer lists fails to load, loudly
+    cfg.write_text(
+        f'data_dir = "{(tmp_path / "data").as_posix()}"\n[llm]\nprovider = "deepseek"\n[cloud]\nrequired = false\n'
+    )
+    with pytest.raises(ValueError, match="unknown provider"):
+        load_settings(cfg)
 
 
 def test_bad_server_port_in_the_environment_is_ignored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.setenv("NANOMUSE_SERVER_PORT", "eight")
+    monkeypatch.setenv("NANOMUSE_CLOUD_REQUIRED", "0")
     cfg = tmp_path / "config.toml"
     cfg.write_text(f'data_dir = "{(tmp_path / "data").as_posix()}"\n')
     assert load_settings(cfg).server.port == Settings().server.port
@@ -139,6 +171,7 @@ def test_workspace_defaults_under_the_data_dir(tmp_path: Path, monkeypatch: pyte
     started — a launcher's cwd may be Program Files or System32 (the 0.1.21 Windows failure)."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("NANOMUSE_WORKSPACE", raising=False)
+    monkeypatch.setenv("NANOMUSE_CLOUD_REQUIRED", "0")
     monkeypatch.setenv("NANOMUSE_DATA_DIR", str(tmp_path / "data"))
     assert load_settings().agent.workspace == tmp_path / "data" / "workspace"
 
@@ -151,6 +184,7 @@ def test_workspace_defaults_under_the_data_dir(tmp_path: Path, monkeypatch: pyte
     cfg = tmp_path / "config.toml"
     cfg.write_text(
         f'data_dir = "{(tmp_path / "data").as_posix()}"\n[agent]\nworkspace = "./mine"\n'
+        "[cloud]\nrequired = false\n"
     )
     assert load_settings(cfg).agent.workspace == Path("./mine")
 
@@ -187,6 +221,8 @@ rsk = "x"
 [channels.telegram]
 enabled = true
 anything = 1
+[cloud]
+required = false
 '''
     )
     with cfg.open("rb") as fh:

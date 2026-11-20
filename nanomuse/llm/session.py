@@ -16,10 +16,9 @@ who started the turn (:func:`turn`: a person, a scheduled task, the feed's routi
 check, another device through the hub), which turn of the conversation it is and which model
 call within it, and for a screen operation which task and step (:func:`trajectory`). The
 same context variables carry them; :func:`relay_headers` writes them as the ``X-NanoMuse-*``
-headers for a call to the relay, and :func:`provenance` as the fields of a turn sent up from
-a key of the person's own. The relay's answer names the turn it kept
+headers for a call to the relay. The relay's answer names the turn it kept
 (``x-nanomuse-request``); :func:`note_response` keeps that id for the turn's later word on
-it (a thumb, why it was stopped), see :mod:`nanomuse.telemetry`.
+it (a thumb, why it was stopped).
 """
 
 from __future__ import annotations
@@ -133,13 +132,12 @@ _turn: ContextVar[Turn | None] = ContextVar("nanomuse_turn", default=None)
 _trajectory: ContextVar[Trajectory | None] = ContextVar("nanomuse_trajectory", default=None)
 _run_only: ContextVar[str] = ContextVar("nanomuse_run", default="")
 #: the id the relay gave the last call made in this context, and where it ran
-#: ("cloud": the relay's `x-nanomuse-request`; "own": the id of the turn sent up from the
-#: person's own key); ("", "") before any
+#: ("cloud": the relay's `x-nanomuse-request`); ("", "") before any
 _last_turn: ContextVar[tuple[str, str]] = ContextVar("nanomuse_last_turn", default=("", ""))
 
 #: what this runtime says of itself to the relay, set once by the hub service
 _device_id = ""
-_cloud_host = "cloud.nanomuse.cn"
+_cloud_host = ""
 
 
 def run_of(source: str) -> str:
@@ -226,7 +224,11 @@ def set_cloud_base(base_url: str) -> None:
 
 
 def is_cloud(base_url: str | None) -> bool:
-    """Whether a slot's endpoint is nanoMuse Cloud (its models, under the account's key)."""
+    """Whether a slot's endpoint is nanoMuse Cloud (its models, under the account's key).
+    No relay configured yet means no slot is the relay: an empty ``_cloud_host`` must not
+    match an empty base URL (``begin_call(None)`` for one)."""
+    if not _cloud_host:
+        return False
     return (urlparse(base_url or "").hostname or "").lower() == _cloud_host
 
 
@@ -297,18 +299,13 @@ def note_response(response: Any) -> None:
         _last_turn.set((str(rid)[:96], "cloud"))
 
 
-def note_own_turn(turn_id: str) -> None:
-    """A turn sent up from the person's own key: its id, as the relay will know it."""
-    _last_turn.set((_ident(turn_id), "own"))
-
-
 def clear_last_turn() -> None:
     _last_turn.set(("", ""))
 
 
 def last_turn() -> tuple[str, str]:
     """The relay's id for the last model call made in this context and where it ran
-    (``cloud`` or ``own``); ``("", "")`` when there was none."""
+    (``cloud``); ``("", "")`` when there was none."""
     return _last_turn.get()
 
 
@@ -338,7 +335,6 @@ __all__ = [
     "leave",
     "new_fallback",
     "next_call",
-    "note_own_turn",
     "note_response",
     "provenance",
     "relay_headers",

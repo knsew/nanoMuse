@@ -64,7 +64,6 @@ from nanomuse.server.providers import ChatGPTSignIn, Providers
 from nanomuse.server.push import PushService
 from nanomuse.server.webui import WebUI, current_thread
 from nanomuse.sync import ConversationSync, parse_mention, system_note
-from nanomuse.telemetry import telemetry
 from nanomuse.tools.browser import Browser
 from nanomuse.tools.coding_tool import CodingAgents
 from nanomuse.tools.reminder_tools import Reminders
@@ -1088,13 +1087,6 @@ class MuseService:
         self.ui.emit(
             {"type": "notice", "level": "info", "text": STOPPED_NOTICE, "thread": thread.id}
         )
-        # the stop itself; the person's reason, if they give one, follows as its own note
-        telemetry.event(
-            "turn.ended",
-            {"ended": "aborted", "turn_no": agent.turns},
-            turn=agent.last_call,
-            conversation=thread.id,
-        )
 
     # ------------------------------------------------------------------ feedback
     FEEDBACK_VOTES = ("up", "down", "")
@@ -1105,9 +1097,7 @@ class MuseService:
         self, thread_id: str, event_id: str, vote: str, reason: str = ""
     ) -> dict[str, Any]:
         """A thumb up or down on a reply (``vote`` "" takes it back), with a word on why
-        when the person gave one. The bubble keeps the mark; the account's record hears
-        ``turn.feedback`` for the turn the reply came from, when the runtime is signed in.
-        The reply's words stay here."""
+        when the person gave one. The bubble keeps the mark. The reply's words stay here."""
         thread = self.threads.get(thread_id)
         if thread is None:
             raise KeyError(thread_id)
@@ -1119,29 +1109,16 @@ class MuseService:
         if ev is None or ev.get("type") != "assistant":
             raise KeyError(event_id)
         self.ui.patch(thread_id, event_id, feedback=vote)
-        turn = (str(ev.get("turn") or ""), str(ev.get("turn_source") or ""))
-        if not turn[0]:
-            turn = thread.agent.last_call
-        data: dict[str, Any] = {"vote": vote or "none", "turn_no": thread.agent.turns}
-        if reason:
-            data["reason"] = reason
-        telemetry.event("turn.feedback", data, turn=turn, conversation=thread_id)
         return ev
 
     def stop_reason(self, thread_id: str, reason: str) -> None:
         """Why the person pressed Stop, in one of a few words (``skipped`` when they did not
-        say); ``turn.stopped`` in the record for the run that was stopped."""
+        say)."""
         thread = self.threads.get(thread_id)
         if thread is None:
             raise KeyError(thread_id)
         if reason not in self.STOP_REASONS:
             raise ValueError("reason is one of " + ", ".join(self.STOP_REASONS))
-        telemetry.event(
-            "turn.stopped",
-            {"reason": reason, "turn_no": thread.agent.turns},
-            turn=thread.agent.last_call,
-            conversation=thread_id,
-        )
 
     def clear_thread(self, thread_id: str) -> bool:
         thread = self.threads.get(thread_id)

@@ -40,8 +40,8 @@ _ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 
 # ----------------------------------------------------------------------------- models
 #: the wire protocols the runtime speaks, as ``provider`` values; besides these, ``provider``
-#: may name a catalogue entry (``nanomuse/llm/providers.json``: ``bailian``, ``openai``,
-#: ``openrouter``, …), which fills in the protocol and the endpoint, or ``chatgpt`` — the
+#: may name a catalogue entry (``nanomuse/llm/providers.json``: ``ollama``, ``lm-studio``,
+#: ``vllm``, ``custom``), which fills in the protocol and the endpoint, or ``chatgpt`` — the
 #: ChatGPT sign-in (``nanomuse chatgpt login``), which needs no key and no URL
 PROTOCOLS: tuple[str, ...] = ("openai", "openai_responses")
 CHATGPT_PROVIDER = "chatgpt"
@@ -84,8 +84,8 @@ def resolve_provider(provider: str, base_url: str | None) -> tuple[str, str | No
 
 class LLMSettings(BaseModel):
     provider: str = "openai"
-    model: str = "deepseek-flash"
-    base_url: str | None = "https://api.deepseek.com"
+    model: str = "halogen-qwen3.8-flash-next"
+    base_url: str | None = "http://10.1.1.52:8000/v1"
     api_key: str = ""
     max_tokens: int = 4096
     temperature: float = 0.3
@@ -138,7 +138,7 @@ class LLMSettings(BaseModel):
 
     @model_validator(mode="after")
     def _provider_defaults(self) -> LLMSettings:
-        """The DeepSeek defaults for ``model`` and ``base_url`` belong to the plain
+        """The halogen defaults for ``model`` and ``base_url`` belong to the plain
         ``openai`` protocol; a slot that names the ChatGPT sign-in or a catalogue entry and
         leaves them out gets that provider's own."""
         if self.provider in PROTOCOLS:
@@ -168,9 +168,9 @@ class LLMSettings(BaseModel):
 
 class MediaSettings(BaseModel):
     """One of the ``[image]`` / ``[video]`` slots: where pictures or clips come from when it
-    is not the chat model's host. ``provider`` is a catalogue id (``bailian``, ``openai``,
-    ``gemini``, …) or empty; ``base_url`` fills in from the catalogue when empty; ``api_key``
-    falls back to the chat model's key when the host is the same. All empty (the default):
+    is not the chat model's host. ``provider`` is a catalogue id (``ollama``,
+    ``lm-studio``, ``vllm``, ``custom``) or empty; ``base_url`` fills in from the catalogue
+    when empty; ``api_key`` falls back to the chat model's key when the host is the same. All empty (the default):
     pictures and clips come from the chat model's host as before — the account's model, or
     Alibaba Cloud Model Studio's — and ``[llm] image_model`` / ``video_model`` still work."""
 
@@ -640,9 +640,11 @@ class HandsSettings(BaseModel):
 class CloudSettings(BaseModel):
     """nanoMuse Cloud: the relay the phone signs in to with a phone-number or e-mail code. The
     account key lives in the vault (``NANOMUSE_CLOUD_KEY``); ``base_url`` is the relay.
-    Signed in, the relay can be the model provider and the hub is reachable."""
+    Signed in, the relay can be the model provider and the hub is reachable. There is no
+    default relay: ``base_url`` is required unless ``required`` is false, and loading the
+    settings without one is an error."""
 
-    base_url: str = "https://cloud.nanomuse.cn"
+    base_url: str = ""
     # Sign-in is part of setting up: the first-run flow does not finish without
     # an account (with it, the relay can be the model and the devices meet).
     # Self-hosters who run without a relay set this to false.
@@ -700,10 +702,6 @@ class ServerSettings(BaseModel):
     cors_origins: list[str] = Field(default_factory=list)
     # Largest file the app may attach to a message (photos from a phone run 3–12 MB).
     max_upload_mb: int = 25
-    # Ask the download mirror's index, then GitHub Releases (once a day, or on "Check now")
-    # whether a newer nanoMuse is out, and say so under Settings → About. Nothing is downloaded
-    # or reported. NANOMUSE_NO_UPDATE_CHECK=1 also turns it off.
-    update_check: bool = True
     # How long the services (tools, MCP servers, the cloud account) may take before the
     # socket opens anyway; past it the app answers and /api/health names the step still running.
     start_grace: float = 4.0
@@ -1244,6 +1242,12 @@ def load_settings(path: str | Path | None = None) -> Settings:
     settings.sandbox.share = [p.expanduser() for p in settings.sandbox.share]
     settings.sandbox.share_read_only = [p.expanduser() for p in settings.sandbox.share_read_only]
     apply_app_settings(settings, load_app_settings(settings.data_dir))
+    if settings.cloud.required and not settings.cloud.base_url.strip():
+        # after the app settings: the relay's address may live there, not in the file
+        raise ValueError(
+            "[cloud] base_url is required: point it at the relay this runtime signs in "
+            "to, or set [cloud] required = false to run with no relay at all"
+        )
     return settings
 
 

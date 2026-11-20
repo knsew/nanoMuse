@@ -1,5 +1,6 @@
-"""A vendor that wants one id per conversation (OpenCode Go's ``x-opencode-session``) gets it,
-with nanoMuse's own user agent; every other vendor gets neither."""
+"""No vendor gets a conversation id in a header anymore: the catalogue that used to name
+OpenCode Go's ``x-opencode-session`` carries only local entries now, and every vendor gets
+nanoMuse's own user agent instead."""
 
 from __future__ import annotations
 
@@ -93,47 +94,38 @@ def slot(**kw: Any) -> LLMSettings:
     return LLMSettings(**{**base, **kw})
 
 
-async def test_go_calls_carry_the_conversation_and_name_nanomuse(wire: Wire):
-    llm = create_llm(slot(provider="opencode-go", base_url=None))
+async def test_a_slot_pointed_at_a_host_the_catalogue_does_not_list_gets_no_session_header(
+    wire: Wire,
+):
+    """The catalogue no longer names OpenCode Go, so a slot pointed at its old address is
+    just another unlisted host: no conversation header, only the user agent."""
+    assert session_header("openai", GO) == ""
+    llm = create_llm(slot(provider="openai", base_url=GO))
     with session.conversation("thread-1"):
         await llm.ask([Message.user("hi")])
         await llm.ask([Message.user("again")])
-    with session.conversation("thread-2"):
-        await llm.ask([Message.user("another chat")])
     assert str(wire.requests[0].url) == f"{GO}/chat/completions"
-    assert wire.headers("x-opencode-session") == ["thread-1", "thread-1", "thread-2"]
-    assert wire.headers("user-agent") == [f"nanoMuse/{__version__}"] * 3
+    assert wire.headers("x-opencode-session") == [None, None]
+    assert wire.headers("user-agent") == [f"nanoMuse/{__version__}"] * 2
 
 
-async def test_a_call_outside_a_conversation_carries_the_clients_own_stable_id(wire: Wire):
-    llm = create_llm(slot(provider="opencode-go", base_url=None))
-    await llm.ask([Message.user("Reply with the single word OK.")])
-    await llm.ask([Message.user("Reply with the single word OK.")])
-    first, second = wire.headers("x-opencode-session")
-    assert first == second and uuid.UUID(first or "")
-
-
-async def test_an_openai_shaped_slot_pointed_at_go_sends_it_too(wire: Wire):
-    assert session_header("openai", GO) == "x-opencode-session"
-    llm = create_llm(slot(provider="openai", base_url=GO + "/"))
-    with session.conversation("t"):
-        await llm.ask([Message.user("hi")])
-    assert wire.headers("x-opencode-session") == ["t"]
-
-
-async def test_the_responses_client_sends_it_as_well(wire: Wire):
+async def test_the_responses_client_gets_no_session_header_either(wire: Wire):
     llm = create_llm(slot(provider="openai_responses", base_url=GO, model="gpt-5.6-luna"))
     with session.conversation("t"):
         await llm.ask([Message.user("hi")])
     assert wire.requests[0].url.path.endswith("/responses")
-    assert wire.headers("x-opencode-session") == ["t"]
+    assert wire.headers("x-opencode-session") == [None]
 
 
 async def test_other_vendors_get_no_session_header_but_are_told_the_name(wire: Wire):
     """nanoMuse Cloud answers the nanoMuse clients only (relay 0.28) and reads the user
-    agent for it, so the runtime names itself to every vendor, as the phones do; the
-    conversation id goes only where a vendor asks for one."""
-    for provider, base_url in (("opencode-zen", None), ("deepseek", None), ("openai", None)):
+    agent for it, so the runtime names itself to every vendor, as the phones do; no vendor
+    gets a conversation id in a header anymore."""
+    for provider, base_url in (
+        ("ollama", None),
+        ("openai", "https://api.example.test/v1"),
+        ("custom", "https://gateway.example.test/v1"),
+    ):
         llm = create_llm(slot(provider=provider, base_url=base_url))
         with session.conversation("t"):
             await llm.ask([Message.user("hi")])
@@ -142,13 +134,11 @@ async def test_other_vendors_get_no_session_header_but_are_told_the_name(wire: W
 
 
 async def test_a_user_agent_the_person_set_stands(wire: Wire):
-    llm = create_llm(
-        slot(provider="opencode-go", base_url=None, extra_headers={"User-Agent": "x/1"})
-    )
+    llm = create_llm(slot(provider="openai", base_url=GO, extra_headers={"User-Agent": "x/1"}))
     with session.conversation("t"):
         await llm.ask([Message.user("hi")])
     assert wire.headers("user-agent") == ["x/1"]
-    assert wire.headers("x-opencode-session") == ["t"]
+    assert wire.headers("x-opencode-session") == [None]
 
 
 def test_an_id_that_is_no_header_value_is_sent_as_a_stable_uuid():

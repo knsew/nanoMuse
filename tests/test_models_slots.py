@@ -21,7 +21,8 @@ from nanomuse.llm import MockLLM
 from nanomuse.server import create_app
 from nanomuse.server.service import MuseService
 
-BAILIAN = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+OLLAMA = "http://127.0.0.1:11434/v1"
+HALOGEN = "http://10.1.1.52:8000/v1"
 RELAY = "http://127.0.0.1:9"
 RELAY_MODELS: list[dict[str, Any]] = [
     {"id": "qwen3.8-27b", "nanomuse": {"kind": "chat", "for": ["chat", "gui"], "recommended_for": ["gui"]}},
@@ -61,21 +62,21 @@ def test_gui_accepts_a_catalogue_id_like_the_chat_slot(settings: Settings) -> No
     with client:
         view = client.put(
             "/api/connections/gui",
-            json={"provider": "bailian", "model": "qwen3.8-27b", "api_key": "sk-hands"},
+            json={"provider": "ollama", "model": "qwen3:8b", "api_key": "sk-hands"},
         ).json()
-        assert view["provider"] == "bailian" and view["provider_id"] == "bailian"
-        assert view["model"] == "qwen3.8-27b" and view["key_source"] == "vault"
-        assert view["effective_model"] == "qwen3.8-27b" and view["effective_source"] == "gui"
+        assert view["provider"] == "ollama" and view["provider_id"] == "ollama"
+        assert view["model"] == "qwen3:8b" and view["key_source"] == "vault"
+        assert view["effective_model"] == "qwen3:8b" and view["effective_source"] == "gui"
         # the id brings the catalogue's endpoint; the key is a vault reference
-        assert settings.gui.endpoint == BAILIAN
+        assert settings.gui.endpoint == OLLAMA
         saved = _settings_file(settings)["gui"]
-        assert saved["provider"] == "bailian" and saved["api_key"] == "{{vault:GUI_API_KEY}}"
+        assert saved["provider"] == "ollama" and saved["api_key"] == "{{vault:GUI_API_KEY}}"
         llm = getattr(service.app.make_gui_llm(), "inner", None) or service.app.make_gui_llm()
-        assert llm.settings.base_url == BAILIAN and llm.settings.api_key == "sk-hands"
+        assert llm.settings.base_url == OLLAMA and llm.settings.api_key == "sk-hands"
         hands = client.get("/api/providers").json()["configured"]["hands"]
         assert hands == {
-            "provider": "bailian",
-            "model": "qwen3.8-27b",
+            "provider": "ollama",
+            "model": "qwen3:8b",
             "protocol": "openai",
             "source": "app",
         }
@@ -84,16 +85,16 @@ def test_gui_accepts_a_catalogue_id_like_the_chat_slot(settings: Settings) -> No
             "/api/connections/gui",
             json={
                 "provider": "openai",
-                "base_url": "https://api.moonshot.cn/v1",
-                "model": "kimi-k2.6",
+                "base_url": OLLAMA,
+                "model": "qwen3:8b",
             },
         ).json()
-        assert view["provider"] == "openai" and view["provider_id"] == "moonshot"
+        assert view["provider"] == "openai" and view["provider_id"] == "ollama"
         assert (
             client.put("/api/connections/gui", json={"provider": "openai_responses"}).status_code
             == 200
         )
-        # ids the catalogue lacks, or whose protocol the runtime does not speak, are refused
+        # ids the catalogue lacks are refused
         r = client.put("/api/connections/gui", json={"provider": "nope"})
         assert r.status_code == 400 and "unknown provider" in r.json()["detail"]
         r = client.put("/api/connections/gui", json={"provider": "anthropic"})
@@ -101,37 +102,45 @@ def test_gui_accepts_a_catalogue_id_like_the_chat_slot(settings: Settings) -> No
         assert "sk-hands" not in json.dumps(client.get("/api/connections").json())
 
 
-def test_hands_follow_an_own_chat_provider_that_sees(settings: Settings) -> None:
-    """Contract §3: with no ``[gui]`` model, the chat provider's own hands model when the
-    chat provider is an own provider with vision — by id, and by the URL's host."""
+def test_hands_follow_the_chat_model_on_a_host_the_catalogue_does_not_list(
+    settings: Settings,
+) -> None:
+    """Contract §3: with no ``[gui]`` model, a host the catalogue does not list is whatever
+    the person installed — the hands are the chat model itself; a listed entry without
+    vision falls back the same way while the account is out."""
     settings.llm.provider = "openai"
-    settings.llm.base_url = BAILIAN
-    settings.llm.model = "qwen3.7-plus"
+    settings.llm.base_url = HALOGEN
+    settings.llm.model = "halogen-qwen3.8-flash-next"
     client, service = _make(settings)
     with client:
-        assert service.app.hands_choice() == ("chat", "qwen3.8-27b")
+        assert service.app.hands_choice() == ("chat", "halogen-qwen3.8-flash-next")
         gui = client.get("/api/connections").json()["gui"]
-        assert gui["effective_model"] == "qwen3.8-27b" and gui["effective_source"] == "chat"
-        assert gui["default_model"] == "qwen3.8-27b" and gui["cloud"] is False
+        assert (
+            gui["effective_model"] == "halogen-qwen3.8-flash-next"
+            and gui["effective_source"] == "chat"
+        )
+        assert gui["default_model"] == "halogen-qwen3.8-flash-next" and gui["cloud"] is False
         hands = client.get("/api/providers").json()["configured"]["hands"]
-        assert hands["provider"] == "bailian" and hands["model"] == "qwen3.8-27b"
+        assert hands["provider"] == "custom" and hands["model"] == "halogen-qwen3.8-flash-next"
         llm = getattr(service.app.make_gui_llm(), "inner", None) or service.app.make_gui_llm()
-        assert llm.settings.model == "qwen3.8-27b" and llm.settings.base_url == BAILIAN
+        assert (
+            llm.settings.model == "halogen-qwen3.8-flash-next" and llm.settings.base_url == HALOGEN
+        )
         assert llm.settings.api_key == "test"  # the chat model's key, same host
         # an explicit choice always wins
         client.put("/api/connections/gui", json={"model": "qwen3.7-max"})
         assert service.app.hands_choice() == ("gui", "qwen3.7-max")
-        assert service.app.gui_model(default_only=True) == "qwen3.8-27b"
+        assert service.app.gui_model(default_only=True) == "halogen-qwen3.8-flash-next"
 
     by_id = settings.model_copy(deep=True)
     by_id.gui.model = ""
-    by_id.llm.provider = "bailian"
+    by_id.llm.provider = "ollama"
     by_id.llm.base_url = None
-    by_id.llm.model = "qwen3.7-plus"
+    by_id.llm.model = "qwen3:8b"
     by_id.data_dir = settings.data_dir / "by-id"
     by_id.ensure_dirs()
     service2 = MuseService(by_id, llm=MockLLM([]))
-    assert service2.app.hands_choice() == ("chat", "qwen3.8-27b")
+    assert service2.app.hands_choice() == ("chat", "qwen3:8b")
 
 
 def test_the_account_takes_the_hands_when_the_chat_provider_cannot_see(
@@ -173,48 +182,65 @@ def test_image_and_video_slots_round_trip(settings: Settings) -> None:
         )
         assert client.get("/api/providers").json()["configured"]["image"] is None
 
+        # the catalogue has no picture defaults left: the slot names the host and the model
         image = client.put(
-            "/api/connections/image", json={"provider": "zhipu", "api_key": "sk-img"}
+            "/api/connections/image",
+            json={
+                "provider": "openai",
+                "base_url": "https://images.example.com/v1",
+                "model": "flux-2",
+                "api_key": "sk-img",
+            },
         ).json()
-        assert image["provider"] == "zhipu" and image["provider_id"] == "zhipu"
-        assert image["model"] == "" and image["key_source"] == "vault" and image["from_app"] is True
-        # an empty model is the catalogue's default; the slot is the answer, from the app
-        assert image["effective_provider"] == "zhipu" and image["effective_model"] == "glm-image"
+        assert image["provider"] == "openai" and image["provider_id"] == ""
+        assert image["model"] == "flux-2" and image["key_source"] == "vault"
+        assert image["from_app"] is True
+        # the slot is the answer, from the app, on a host the catalogue does not list
+        assert image["effective_provider"] == "custom" and image["effective_model"] == "flux-2"
         assert image["effective_source"] == "app"
         assert client.get("/api/connections/image").json() == image
         assert client.get("/api/connections").json()["image"] == image
         saved = _settings_file(settings)
-        assert saved["image"] == {"provider": "zhipu", "api_key": "{{vault:IMAGE_API_KEY}}"}
+        assert saved["image"] == {
+            "provider": "openai",
+            "base_url": "https://images.example.com/v1",
+            "model": "flux-2",
+            "api_key": "{{vault:IMAGE_API_KEY}}",
+        }
         assert service.app.vault.get("IMAGE_API_KEY") == "sk-img"
         assert (
-            settings.image.provider == "zhipu"
+            settings.image.provider == "openai"
             and settings.image.api_key == "{{vault:IMAGE_API_KEY}}"
         )
         ep = service.avatar.endpoint()
-        assert ep is not None and ep.base_url == "https://open.bigmodel.cn/api/paas/v4"
-        assert ep.api_key == "sk-img" and ep.image_model == "glm-image" and not ep.clips
+        assert ep is not None and ep.base_url == "https://images.example.com/v1"
+        assert ep.api_key == "sk-img" and ep.image_model == "flux-2" and not ep.clips
 
         video = client.put(
             "/api/connections/video",
-            json={"provider": "bailian", "model": "wan2.2-i2v-flash", "api_key": "sk-vid"},
+            json={
+                "provider": "openai",
+                "base_url": "https://video.example.com/v1",
+                "model": "wan2.2-i2v-flash",
+                "api_key": "sk-vid",
+            },
         ).json()
-        assert video["provider"] == "bailian" and video["model"] == "wan2.2-i2v-flash"
-        assert video["effective_provider"] == "bailian" and video["effective_source"] == "app"
+        assert video["provider"] == "openai" and video["model"] == "wan2.2-i2v-flash"
+        assert video["effective_provider"] == "custom" and video["effective_source"] == "app"
         assert client.get("/api/connections/video").json() == video
         assert _settings_file(settings)["video"]["api_key"] == "{{vault:VIDEO_API_KEY}}"
         ep = service.avatar.endpoint()
-        assert ep is not None and ep.clips and ep.video_host == "https://dashscope.aliyuncs.com"
+        assert ep is not None and ep.clips and ep.video_host == "https://video.example.com"
         assert ep.video_key == "sk-vid" and ep.api_key == "sk-img"  # each host its own key
 
         view = client.get("/api/providers").json()
-        assert view["configured"]["image"]["provider"] == "zhipu"
-        assert view["configured"]["image"]["model"] == "glm-image"
+        assert view["configured"]["image"]["provider"] == "custom"
+        assert view["configured"]["image"]["model"] == "flux-2"
         assert view["configured"]["image"]["source"] == "app"
-        assert view["configured"]["video"]["provider"] == "bailian"
+        assert view["configured"]["video"]["provider"] == "custom"
         assert view["configured"]["video"]["model"] == "wan2.2-i2v-flash"
-        zhipu = next(p for p in view["providers"] if p["id"] == "zhipu")
-        assert zhipu["configured"] == ["image"]
-        assert next(p for p in view["providers"] if p["id"] == "bailian")["configured"] == ["video"]
+        custom = next(p for p in view["providers"] if p["id"] == "custom")
+        assert custom["configured"] == ["chat", "hands", "image", "video"]
         assert "image" in view["capabilities"] and "video" in view["capabilities"]
         assert view["unavailable"]["image"] == "" and view["unavailable"]["video"] == ""
         assert "sk-img" not in json.dumps(view) and "sk-vid" not in json.dumps(view)
@@ -225,19 +251,19 @@ def test_image_and_video_slots_round_trip(settings: Settings) -> None:
             "/api/connections/image",
             json={
                 "provider": "openai",
-                "base_url": "https://images.example.com",
-                "model": "flux-2",
+                "base_url": "https://stills.example.com",
+                "model": "flux-3",
             },
         ).json()
-        assert other["base_url"] == "https://images.example.com/v1" and other["provider_id"] == ""
-        assert other["effective_model"] == "flux-2"
+        assert other["base_url"] == "https://stills.example.com/v1" and other["provider_id"] == ""
+        assert other["effective_model"] == "flux-3"
         assert client.get("/api/providers").json()["configured"]["image"]["provider"] == "custom"
 
         # a reference to a key the vault already holds (the account's) is kept as written
         service.app.vault.set("NANOMUSE_CLOUD_KEY", "nmc-key")
         ref = client.put(
             "/api/connections/image",
-            json={"provider": "bailian", "api_key": "{{vault:NANOMUSE_CLOUD_KEY}}"},
+            json={"api_key": "{{vault:NANOMUSE_CLOUD_KEY}}"},
         ).json()
         assert ref["key_source"] == "vault"
         assert _settings_file(settings)["image"]["api_key"] == "{{vault:NANOMUSE_CLOUD_KEY}}"
@@ -262,29 +288,34 @@ def test_image_and_video_slots_round_trip(settings: Settings) -> None:
         assert settings.image.configured is False
         assert client.get("/api/providers").json()["configured"]["image"] is None
         # the clips slot stands on its own
-        assert client.get("/api/connections/video").json()["provider"] == "bailian"
+        assert client.get("/api/connections/video").json()["provider"] == "openai"
 
 
 def test_image_and_video_slots_refuse_what_the_catalogue_rules_out(settings: Settings) -> None:
     client, service = _make(settings)
     with client:
+        # the cloud vendors are gone from the catalogue: their ids are unknown now
         r = client.put("/api/connections/image", json={"provider": "deepseek"})
-        assert r.status_code == 400 and "DeepSeek has no image models" in r.json()["detail"]
-        assert "Pictures need a provider with image models" in r.json()["detail"]
+        assert r.status_code == 400 and "unknown provider" in r.json()["detail"]
         r = client.put("/api/connections/video", json={"provider": "zhipu"})
-        assert r.status_code == 400 and "has no video models" in r.json()["detail"]
+        assert r.status_code == 400 and "unknown provider" in r.json()["detail"]
         r = client.put("/api/connections/image", json={"provider": "chatgpt"})
         assert r.status_code == 400 and "ChatGPT sign-in" in r.json()["detail"]
         r = client.put("/api/connections/image", json={"provider": "nope"})
         assert r.status_code == 400 and "unknown provider" in r.json()["detail"]
         r = client.put("/api/connections/image", json={"provider": "anthropic"})
-        assert r.status_code == 400
-        # a URL whose host the catalogue knows cannot draw
-        r = client.put("/api/connections/image", json={"base_url": "https://api.deepseek.com/v1"})
-        assert r.status_code == 400 and "DeepSeek" in r.json()["detail"]
+        assert r.status_code == 400 and "unknown provider" in r.json()["detail"]
         # nothing was written
         assert "image" not in _settings_file(settings) and settings.image.configured is False
         assert TestClient(client.app).put("/api/connections/image", json={}).status_code == 401
+        # a URL whose host the catalogue does not list is whatever the person installed:
+        # it passes, with a model named
+        ok = client.put(
+            "/api/connections/image",
+            json={"base_url": "https://api.deepseek.com/v1", "model": "some-image-model"},
+        )
+        assert ok.status_code == 200
+        assert ok.json()["effective_model"] == "some-image-model"
 
 
 def test_pictures_follow_the_chat_provider_then_the_account(
@@ -317,19 +348,22 @@ def test_pictures_follow_the_chat_provider_then_the_account(
         conn = client.get("/api/connections").json()
         assert conn["image"]["effective_source"] == "cloud" and conn["image"]["configured"] is False
         assert conn["video"]["effective_model"] == "wan2.2-i2v-flash"
-        # the hands stay with DeepSeek, which sees: Cloud never jumps ahead of an own provider
-        assert view["configured"]["hands"]["provider"] == "deepseek"
+        # the hands stay with the chat model, an unlisted host: Cloud never jumps ahead
+        # of an own provider
+        assert view["configured"]["hands"]["provider"] == "custom"
 
-        # an own chat provider with pictures but no clips: its picture model, the relay's clips
+        # an own chat provider with a picture model named, but no clips: its picture
+        # model, the relay's clips
         settings.llm.base_url = "https://api.openai.com/v1"
         settings.llm.model = "gpt-5.4-mini"
+        settings.llm.image_model = "gpt-image-2.5-flare"
         ep = service.avatar.endpoint()
         assert ep is not None and not ep.cloud and ep.base_url == "https://api.openai.com/v1"
         assert ep.image_model == "gpt-image-2.5-flare" and ep.api_key == "test"
         assert ep.clips and ep.video_cloud and ep.video_host == RELAY
         assert ep.video_key == "cloud-key" and ep.video_model == "wan2.2-i2v-flash"
         view = client.get("/api/providers").json()
-        assert view["configured"]["image"]["provider"] == "openai"
+        assert view["configured"]["image"]["provider"] == "custom"
         assert view["configured"]["image"]["model"] == "gpt-image-2.5-flare"
         assert view["configured"]["video"]["provider"] == "nanomuse_cloud"
         conn = client.get("/api/connections").json()
@@ -337,15 +371,31 @@ def test_pictures_follow_the_chat_provider_then_the_account(
         assert conn["video"]["effective_source"] == "cloud"
 
         # an explicit choice always wins over the account
-        client.put("/api/connections/image", json={"provider": "zhipu", "api_key": "sk-img"})
+        client.put(
+            "/api/connections/image",
+            json={
+                "provider": "openai",
+                "base_url": "https://images.example.com/v1",
+                "model": "flux-2",
+                "api_key": "sk-img",
+            },
+        )
         ep = service.avatar.endpoint()
-        assert ep is not None and not ep.cloud and ep.image_model == "glm-image"
-        assert ep.video_cloud  # clips still the account's: zhipu makes none
-        client.put("/api/connections/video", json={"provider": "bailian", "api_key": "sk-vid"})
+        assert ep is not None and not ep.cloud and ep.image_model == "flux-2"
+        assert ep.video_cloud  # clips still the account's: the picture host makes none
+        client.put(
+            "/api/connections/video",
+            json={
+                "provider": "openai",
+                "base_url": "https://video.example.com/v1",
+                "model": "wan2.2-i2v-flash",
+                "api_key": "sk-vid",
+            },
+        )
         ep = service.avatar.endpoint()
         assert ep is not None and not ep.video_cloud and ep.video_key == "sk-vid"
         assert ep.video_model == "wan2.2-i2v-flash"
-        assert client.get("/api/providers").json()["configured"]["video"]["provider"] == "bailian"
+        assert client.get("/api/providers").json()["configured"]["video"]["provider"] == "custom"
 
 
 # ----------------------------------------------------------------------------- the switch

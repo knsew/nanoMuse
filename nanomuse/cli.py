@@ -1440,8 +1440,8 @@ def config_init(
         shutil.copy(example, path)
     else:  # no example shipped: write a minimal file
         path.write_text(
-            '[llm]\nprovider = "openai"\nmodel = "deepseek-flash"\nbase_url = "https://api.deepseek.com"\n'
-            'api_key = "${DEEPSEEK_API_KEY}"\n\n[sentinel]\nmode = "ask"\n',
+            '[llm]\nprovider = "openai"\nmodel = "halogen-qwen3.8-flash-next"\nbase_url = "http://10.1.1.52:8000/v1"\n'
+            'api_key = "local"\n\n[sentinel]\nmode = "ask"\n',
             "utf-8",
         )
     console.print(f"wrote [cyan]{path}[/cyan]; edit llm.api_key / model, then run `nanomuse chat`")

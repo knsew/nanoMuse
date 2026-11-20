@@ -84,6 +84,7 @@ def test_add_lists_the_models_and_keeps_the_key_in_the_vault(server, listed, set
         ).status_code
         == 400
     )
+    settings.cloud.base_url = "https://relay.example.test"
     relay = client.post(
         "/api/connections/endpoints", json={"base_url": settings.cloud.base_url + "/v1"}
     )
@@ -392,8 +393,8 @@ def test_a_catalogue_slot_or_a_config_slot_is_not_migrated(settings: Settings, t
         settings,
         {
             "provider": "openai",
-            "model": "deepseek-chat",
-            "base_url": "https://api.deepseek.com",
+            "model": "qwen3:8b",
+            "base_url": "http://127.0.0.1:11434/v1",
             "api_key": "{{vault:LLM_API_KEY}}",
         },
     )

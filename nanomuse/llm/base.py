@@ -4,27 +4,12 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
+from collections.abc import Callable
 from typing import Any
 
 from nanomuse.schema import LLMResponse, Message
 
 DeltaCallback = Callable[[str], None]
-
-_upload_turn: ContextVar[bool] = ContextVar("nanomuse_upload_model_turn", default=True)
-
-
-@contextmanager
-def without_turn_upload() -> Iterator[None]:
-    """Keep an observation-only review's text and reasoning out of conversation telemetry."""
-    token = _upload_turn.set(False)
-    try:
-        yield
-    finally:
-        _upload_turn.reset(token)
-
 
 _THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
 
@@ -207,9 +192,9 @@ def proxied_http(proxy: str, timeout: float) -> Any:
 
 # ------------------------------------------------------------------ the relay's view of a call
 #
-# A call to nanoMuse Cloud carries where it sits (the X-NanoMuse-* headers, relay 0.31); a
-# call to any other provider is sent up afterwards as a turn on the person's own key, when
-# the account is signed in (nanomuse.telemetry). Both clients begin and end a call here.
+# A call to nanoMuse Cloud carries where it sits (the X-NanoMuse-* headers, relay 0.31);
+# a call to any other provider carries nothing of the turn. Both clients begin and end a
+# call here.
 
 
 class CallContext:
@@ -244,57 +229,13 @@ def end_call(
     response: LLMResponse,
     messages: list[dict[str, Any]] | None = None,
 ) -> None:
-    """After the answer: a Cloud call's response names the turn the relay kept; any other
-    provider's turn goes up to the record (and, with *Help improve* on, the training view)
-    under an id of our own. The response carries the id either way."""
-    if not _upload_turn.get():
-        return
+    """After the answer: a Cloud call's response names the turn the relay kept. Any other
+    provider's turn stays here: nothing of it is sent up."""
     from nanomuse.llm import session
 
     if ctx.to_cloud:
         response.request_id, response.turn_source = session.last_turn()
         return
-    from nanomuse.telemetry import telemetry, turn_body
-
-    if not telemetry.ready or not telemetry.upload_turns:
-        return
-    import uuid
-
-    turn_id = uuid.uuid4().hex[:16]
-    message: dict[str, Any] = {"role": "assistant", "content": response.content}
-    if response.reasoning:
-        message["reasoning_content"] = response.reasoning
-    if response.tool_calls:
-        message["tool_calls"] = [
-            {
-                "id": tc.id,
-                "type": "function",
-                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-            }
-            for tc in response.tool_calls
-        ]
-    if response.finish_reason:
-        message["finish_reason"] = response.finish_reason
-    if messages is None:
-        # the Chat shape as sent; a Responses client passes the same conversation in it
-        messages = params.get("messages") if isinstance(params.get("messages"), list) else None
-    if not messages:
-        return
-    telemetry.own_turn(
-        turn_body(
-            turn_id=turn_id,
-            model=str(params.get("model") or getattr(settings, "model", "") or ""),
-            provider=provider_id(settings),
-            messages=messages,
-            response=message,
-            usage=response.usage,
-            conversation=session.current_conversation() or "",
-            extra=params,
-            provenance=ctx.where,
-        )
-    )
-    session.note_own_turn(turn_id)
-    response.request_id, response.turn_source = turn_id, "own"
 
 
 def provider_id(settings: Any) -> str:
@@ -325,5 +266,4 @@ __all__ = [
     "proxied_http",
     "says_no_tools",
     "split_think",
-    "without_turn_upload",
 ]

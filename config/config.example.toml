@@ -10,11 +10,16 @@ log_level = "INFO"
 # LLM: any OpenAI-compatible endpoint works. Pick ONE of the presets below.
 # ------------------------------------------------------------------------------
 [llm]
-# --- DeepSeek (default; V4.1 Flash) ---------------------------------------------
+# --- Halogen (default; a self-hosted endpoint on the local network) ------------
 provider = "openai"                 # "openai" = Chat Completions API; "openai_responses" = Responses API
-model = "deepseek-flash"
-base_url = "https://api.deepseek.com"
-api_key = "${DEEPSEEK_API_KEY}"
+model = "halogen-qwen3.8-flash-next"
+base_url = "http://10.1.1.52:8000/v1"
+api_key = "local"                   # a placeholder: halogen does not check the key, but the slot needs a non-empty one
+
+# --- DeepSeek (commented out; uncomment to use it again) ------------------------
+# model = "deepseek-flash"
+# base_url = "https://api.deepseek.com"
+# api_key = "${DEEPSEEK_API_KEY}"
 
 # --- OpenAI --------------------------------------------------------------------
 # model = "gpt-5.6-sol"
@@ -49,8 +54,8 @@ api_key = "${DEEPSEEK_API_KEY}"
 
 # --- A catalogue id as the provider (nanomuse/llm/providers.json) --------------
 # The endpoint and the default model come from the catalogue; only the key is yours.
-# provider = "bailian"
-# api_key = "${DASHSCOPE_API_KEY}"
+# provider = "ollama"
+# api_key = "local"
 
 max_tokens = 4096
 temperature = 0.3
@@ -249,9 +254,9 @@ timeout_ms = 30000
 # ------------------------------------------------------------------------------
 [gui]
 enabled = false
-provider = "openai"      # openai | openai_responses, or a catalogue id (bailian, openrouter, …) that brings its endpoint
+provider = "openai"      # openai | openai_responses, or a catalogue id (ollama, vllm, …) that brings its endpoint
 model = ""               # empty → the chat provider's own hands model when it sees; else the account's; else the chat model
-# base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"   # e.g. 阿里云百炼 with model = "qwen3.8-27b"
+# base_url = "http://10.1.1.52:8000/v1"   # e.g. the local halogen endpoint with model = "halogen-qwen3.8-flash-next"
 # api_key = "{{vault:GUI_API_KEY}}"
 max_steps = 0            # the most one phone task may take; 0 = no cap
 device_timeout_s = 20.0  # how long to wait for the phone to answer one request
@@ -343,7 +348,6 @@ token = ""               # empty → generated once, kept in <data_dir>/server_t
 approval_timeout = 3600  # seconds an approval card waits before it counts as "deny"
 cors_origins = []        # only for the Vite dev server of the web app, e.g. ["http://localhost:5173"]
 max_upload_mb = 25       # largest file the app may attach to a message
-update_check = true      # say under Settings → About when a newer release is out (the download index, then GitHub Releases; once a day; nothing is sent)
 start_grace = 4          # seconds the tools/MCP servers/cloud account may take before the app answers anyway (/api/health names the step still running)
 
 # ------------------------------------------------------------------------------
@@ -361,7 +365,7 @@ side_chats = false
 # nanoMuse Cloud: the relay this runtime signs in to (docs/cloud.md)
 # ------------------------------------------------------------------------------
 [cloud]
-base_url = "https://cloud.nanomuse.cn"   # a relay you run yourself: its public address (docs/self-hosting.md)
+base_url = ""            # required: the relay this runtime signs in to (docs/self-hosting.md); empty is an error unless required = false
 required = true          # the first run does not finish without an account; false for a runtime with no relay at all
 models = true            # the account's models as a source (the apps' "Use nanoMuse Cloud models" switch); false keeps the sign-in for sync and the devices only
 sync = true              # default for the account-wide Data controls → Sync switch (the person's choice, once made, counts)

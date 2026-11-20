@@ -77,105 +77,14 @@ EMAIL_PASSWORD = "EMAIL_PASSWORD"
 # `group` sorts the form: what protocol the endpoint speaks. `gui_model` is the hands model
 # the preset suggests next to its chat model (contract C4): one that sees pictures.
 PROVIDERS: dict[str, dict[str, Any]] = {
-    "deepseek": {
-        "label": "DeepSeek",
-        "subtitle": "深度求索",
-        "group": "openai",
+    "halogen": {
+        "label": "Halogen",
+        "subtitle": "self-hosted, on the local network, no key",
+        "group": "local",
         "provider": "openai",
-        "base_url": "https://api.deepseek.com",
-        "models": ["deepseek-flash", "deepseek-chat", "deepseek-reasoner"],
-        "key_url": "https://platform.deepseek.com/api_keys",
-        "key_hint": "sk-…",
-    },
-    "kimi": {
-        "label": "Kimi",
-        "subtitle": "Moonshot AI · 月之暗面",
-        "group": "openai",
-        "provider": "openai",
-        "base_url": "https://api.moonshot.cn/v1",
-        "models": ["kimi-k2.6", "kimi-k2.7-code"],
-        "key_url": "https://platform.moonshot.cn/console/api-keys",
-        "key_hint": "sk-…",
-    },
-    "qwen": {
-        "label": "Alibaba Cloud Bailian",
-        "subtitle": "阿里云百炼 · DashScope · DeepSeek and Qwen, one key",
-        "group": "openai",
-        "provider": "openai",
-        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "models": ["deepseek-v4.1-flash", "qwen3.8-27b", "qwen3.7-plus", "qwen3.7-max"],
-        "gui_model": "qwen3.8-27b",
-        "key_url": "https://bailian.console.aliyun.com/?apiKey=1",
-        "key_hint": "sk-…",
-        # the console only signs up accounts from mainland China (contract C5)
-        "region": "cn",
-    },
-    "glm": {
-        "label": "GLM",
-        "subtitle": "智谱 AI",
-        "group": "openai",
-        "provider": "openai",
-        "base_url": "https://open.bigmodel.cn/api/paas/v4",
-        "models": ["glm-5.2", "glm-5"],
-        "key_url": "https://open.bigmodel.cn/usercenter/apikeys",
-        "key_hint": "xxxxxxxx.xxxxxxxx",
-    },
-    "doubao": {
-        "label": "豆包",
-        "subtitle": "火山方舟 · Volcengine Ark",
-        "group": "openai",
-        "provider": "openai",
-        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        # Ark models are versioned deployments; the live list has the exact ids
-        "models": ["doubao-seed-2-0-pro-260215", "doubao-seed-2-0-lite-260428"],
-        "key_url": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
-        "key_hint": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    },
-    "minimax": {
-        "label": "MiniMax",
-        "subtitle": "MiniMax · 稀宇科技",
-        "group": "openai",
-        "provider": "openai",
-        "base_url": "https://api.minimaxi.com/v1",
-        "models": ["MiniMax-M3", "MiniMax-M2.7"],
-        "key_url": "https://platform.minimaxi.com/user-center/basic-information/interface-key",
-        "key_hint": "eyJ…",
-    },
-    "openai": {
-        "label": "OpenAI",
-        "subtitle": "Chat Completions",
-        "group": "openai",
-        "provider": "openai",
-        "base_url": "https://api.openai.com/v1",
-        "models": ["gpt-5-mini", "gpt-5", "gpt-4.1"],
-        "key_url": "https://platform.openai.com/api-keys",
-        "key_hint": "sk-proj-…",
-    },
-    "openai_responses": {
-        "label": "OpenAI",
-        "subtitle": "Responses API",
-        "group": "responses",
-        "provider": "openai_responses",
-        "base_url": "https://api.openai.com/v1",
-        "models": ["gpt-5-mini", "gpt-5", "gpt-4.1"],
-        "key_url": "https://platform.openai.com/api-keys",
-        "key_hint": "sk-proj-…",
-    },
-    "openrouter": {
-        "label": "OpenRouter",
-        "subtitle": "one account, one key, pay as you go",
-        "group": "openai",
-        "provider": "openai",
-        "base_url": "https://openrouter.ai/api/v1",
-        "models": [
-            "deepseek/deepseek-v4.1-flash",
-            "qwen/qwen3.8-27b",
-            "anthropic/claude-sonnet-4",
-            "openai/gpt-5-mini",
-        ],
-        "gui_model": "qwen/qwen3.8-27b",
-        "key_url": "https://openrouter.ai/keys",
-        "key_hint": "sk-or-v1-…",
+        "base_url": "http://10.1.1.52:8000/v1",
+        "models": ["halogen-qwen3.8-flash-next"],
+        "key_optional": True,
     },
     "ollama": {
         "label": "Ollama",
@@ -255,7 +164,8 @@ def normalize_base_url(url: str) -> str:
         return ""
     if "://" not in url:
         url = "https://" + url
-    # a preset's own host is left exactly as the preset has it (DeepSeek listens at the root)
+    # a preset's own host is left exactly as the preset has it (one may listen at the
+    # root, not under /v1)
     if any(url == str(p.get("base_url", "")).rstrip("/") for p in PROVIDERS.values()):
         return url
     if not urlsplit(url).path.rstrip("/"):

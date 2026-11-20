@@ -109,9 +109,9 @@ def test_files_get_put(tmp_path: Path) -> None:
 
 
 def test_cloud_urls() -> None:
-    assert hub_url("https://cloud.nanomuse.cn/") == "wss://cloud.nanomuse.cn/v1/hub"
+    assert hub_url("https://relay.example.org/") == "wss://relay.example.org/v1/hub"
     assert hub_url("http://127.0.0.1:8080") == "ws://127.0.0.1:8080/v1/hub"
-    assert model_url("https://cloud.nanomuse.cn") == "https://cloud.nanomuse.cn/v1"
+    assert model_url("https://relay.example.org") == "https://relay.example.org/v1"
     # contract C4: the chat default when offered, else the first chat model; the hands
     # default is a separate pick (the relay's `for` field, else what the id says it sees)
     assert CloudClient.recommended_model([{"id": "x"}, {"id": "deepseek-v4.1-flash"}]) == "x"
@@ -119,7 +119,7 @@ def test_cloud_urls() -> None:
     assert (
         CloudClient.recommended_model([{"id": "x"}, {"id": "qwen3.8-27b"}], "gui") == "qwen3.8-27b"
     )
-    assert CloudClient.recommended_model([{"id": "x"}], "gui") == "Qwen/Qwen3.6-27B-FP8"
+    assert CloudClient.recommended_model([{"id": "x"}], "gui") == "halogen-qwen3.8-flash-next"
     labelled = [
         {"id": "deepseek-v4.1-flash", "for": ["chat"]},
         {"id": "qwen3.8-27b", "for": ["gui"]},
