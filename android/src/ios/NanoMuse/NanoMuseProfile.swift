@@ -22,7 +22,6 @@ enum NanoMuseRelayMedia {
         var leftCny: Double?
         var unlimited: Bool
         var affordable: Bool
-        var inviteBonusCny: Double?
     }
 
     private static let session: URLSession = {
@@ -98,8 +97,7 @@ enum NanoMuseRelayMedia {
             cny: num("cny") ?? 0,
             leftCny: unlimited ? nil : num("left_cny"),
             unlimited: unlimited,
-            affordable: (reply["affordable"] as? Bool) ?? true,
-            inviteBonusCny: num("invite_bonus_cny")
+            affordable: (reply["affordable"] as? Bool) ?? true
         )
     }
 

@@ -200,7 +200,7 @@ export function makeCloudSection(t: Translate, part: 'account' | 'data' = 'accou
         h(OwnKeyPanel, { t, onChanged: refreshStatus }),
         // The proxy for the providers (the shell's setting; drawn inside nanoMuse Desktop only).
         h(NetworkRows, { t, relayURL: status.baseURL }),
-        // The account as the phone shows it — the pool in yuan, the ways on, invite, usage,
+        // The account as the phone shows it — the pool in yuan, the ways on, usage,
         // password, devices holding a key, the timeline, deletion — read live from the relay.
         h(AccountPage, { t, status, locale: rooms.lang, onEnded: apply }),
         h('h3', { style: heading }, t('lookTitle')),

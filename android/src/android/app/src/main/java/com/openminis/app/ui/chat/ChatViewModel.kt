@@ -6475,7 +6475,7 @@ class ChatViewModel(
     // ─── nanoMuse: the free allowance is spent ──────────────────────────────
     // The relay's 429 arrives through the model client as "rate limited"; the
     // structured body was kept aside by AllowanceSignal. When the error is about
-    // to be shown, the card with the two ways on (own key, invite)
+    // to be shown, the card with the ways on (own key, subscription, computer, star)
     // is added under it — virtual, never persisted.
 
     private val nmAllowanceCardId = "nm_allowance_card"
@@ -6541,7 +6541,6 @@ class ChatViewModel(
                     R.string.nm_cloud_warn_line,
                     io.github.nanomuse.ui.cloud.money(a.leftCny.coerceAtLeast(0.0)),
                     io.github.nanomuse.ui.cloud.money(a.grantCny),
-                    io.github.nanomuse.cloud.NanoMuseCloud.inviteBonusText(context),
                 ),
                 "info",
             )

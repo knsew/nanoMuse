@@ -82,8 +82,6 @@ export interface Spend {
   /** From 80 % on. */
   warn: boolean
   usdCny?: number
-  inviteBonusCny?: number
-  inviteeBonusCny?: number
   ownKeyDocs?: string
 }
 
@@ -135,16 +133,6 @@ export interface SignIn {
   apiKey: string
   created: boolean
   account: Account
-}
-
-/** The account's invite code and what it has brought (`GET /v1/me/invite`, trimmed: no friends' hints). */
-export interface Invite {
-  code: string
-  url: string
-  invites: number
-  /** What a friend who signs up with the code gets, and what the inviter earns — the same figure. */
-  bonusCny: number
-  earnedCny: number
 }
 
 /** What the desktop may write to the account's profile: the name and the simple looks. */
@@ -276,10 +264,6 @@ function toSpend(raw: unknown): Spend | undefined {
   if (grant !== undefined) spend.grant = grant
   const usdCny = num(s.usd_cny)
   if (usdCny !== undefined) spend.usdCny = usdCny
-  const inviteBonusCny = num(s.invite_bonus_cny)
-  if (inviteBonusCny !== undefined) spend.inviteBonusCny = inviteBonusCny
-  const inviteeBonusCny = num(s.invitee_bonus_cny)
-  if (inviteeBonusCny !== undefined) spend.inviteeBonusCny = inviteeBonusCny
   if (typeof s.own_key_docs === 'string' && s.own_key_docs) spend.ownKeyDocs = s.own_key_docs
   return spend
 }
@@ -322,7 +306,7 @@ export class Relay {
     return `${this.origin}/v1`
   }
 
-  /** Ask for a six-digit code (SMS for a mainland number, e-mail otherwise). */
+  /** Ask for a six-digit code (by e-mail; a phone number's code is in the relay log). */
   async requestCode(identifier: string, signal?: AbortSignal): Promise<void> {
     const res = await this.fetchImpl(`${this.origin}/v1/auth/code`, {
       method: 'POST',
@@ -334,11 +318,11 @@ export class Relay {
   }
 
   /** Trade the code for this device's key. */
-  async verify(identifier: string, code: string, device: string, signal?: AbortSignal, invite = ''): Promise<SignIn> {
+  async verify(identifier: string, code: string, device: string, signal?: AbortSignal): Promise<SignIn> {
     const res = await this.fetchImpl(`${this.origin}/v1/auth/verify`, {
       method: 'POST',
       headers: JSON_HEADERS,
-      body: JSON.stringify({ identifier, code: code.trim(), device: device.slice(0, 80), ...(invite.trim() ? { invite: invite.trim() } : {}) }),
+      body: JSON.stringify({ identifier, code: code.trim(), device: device.slice(0, 80) }),
       signal: signal ?? null,
     })
     if (!res.ok) await fail(res)
@@ -357,20 +341,6 @@ export class Relay {
     if (!res.ok) await fail(res)
     const body = (await res.json()) as Record<string, unknown>
     return { apiKey: String(body.api_key ?? ''), created: false, account: toAccount(body) }
-  }
-
-  /** The account's invite code and link, and what inviting has brought (`GET /v1/me/invite`). */
-  async invite(apiKey: string, signal?: AbortSignal): Promise<Invite> {
-    const res = await this.fetchImpl(`${this.origin}/v1/me/invite`, { headers: this.auth(apiKey), signal: signal ?? null })
-    if (!res.ok) await fail(res)
-    const body = (await res.json()) as Record<string, unknown>
-    return {
-      code: String(body.code ?? ''),
-      url: String(body.url ?? ''),
-      invites: Number(body.invites ?? 0),
-      bonusCny: Number(body.bonus_cny ?? 0),
-      earnedCny: Number(body.earned_cny ?? 0),
-    }
   }
 
   /**
@@ -482,7 +452,7 @@ export class Relay {
 
   /**
    * The relay's public figures (`GET /v1/config`, relay 0.15): the allowance a new account
-   * gets, the invite bonus, whether sign-up is open, the repository to star. `{}` from an
+   * gets, whether sign-up is open, the repository to star. `{}` from an
    * older relay, which has no such route.
    */
   async config(signal?: AbortSignal): Promise<Record<string, unknown>> {
@@ -492,7 +462,7 @@ export class Relay {
     return body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
   }
 
-  /** The whole account sheet (`GET /v1/me`), as the relay sends it: usage by kind and model, the pool, the invite, the password. */
+  /** The whole account sheet (`GET /v1/me`), as the relay sends it: usage by kind and model, the pool, the password. */
   async meSheet(apiKey: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
     const res = await this.fetchImpl(`${this.origin}/v1/me`, { headers: this.auth(apiKey), signal: signal ?? null })
     if (!res.ok) await fail(res)

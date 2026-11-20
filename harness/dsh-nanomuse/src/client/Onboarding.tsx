@@ -2,7 +2,7 @@
  * The first run, the way the phone does it (C4): the whole window, one page at a time,
  * three dots at the top and a gear to Settings. Welcome (the face, one line on what it is,
  * three feature rows, the free/open-source notice, "Sign in — free"); the sign-in itself
- * (a phone number or an e-mail, the six boxes of the code, or the password); a password
+ * (an e-mail address, the six boxes of the code, or the password); a password
  * page for an account that was just created; "Which model answers?" (the Cloud model, or
  * a key of one's own); the own-key step (C11: the region's providers from the catalogue, a
  * key taken inline, the ChatGPT sign-in, *More ways*; Continue once one is in, Skip for now
@@ -22,7 +22,7 @@ import { createElement as h, Fragment, useCallback, useEffect, useRef, useState,
 import { createPortal } from 'react-dom'
 import { firstRunNeeded, stageOf, dotOf, type Stage } from '../firstrun.ts'
 import { call, type CloudStatus, type Translate, failureText } from './api.ts'
-import { useCloudConfig, type AccountSheet } from './AccountPage.tsx'
+import { type AccountSheet } from './AccountPage.tsx'
 import { Avatar } from './Avatar.tsx'
 import { BrandMark } from './BrandMark.tsx'
 import { gatedPermissions, openLink, type PermissionKind } from './bridge.ts'
@@ -118,10 +118,6 @@ export function makeOnboarding(t: Translate, _actions: OnboardingActions) {
     const [identifier, setIdentifier] = useState('')
     const [code, setCode] = useState('')
     const [password, setPassword] = useState('')
-    // A friend's invite code (optional, with the six digits): both get credit once this account makes its first request.
-    const [invite, setInvite] = useState('')
-    const [inviteOpen, setInviteOpen] = useState(false)
-    const config = useCloudConfig()
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | undefined>()
     const [resent, setResent] = useState(false)
@@ -248,7 +244,7 @@ export function makeOnboarding(t: Translate, _actions: OnboardingActions) {
       if (busy || value.length !== 6) return
       void run(async () => {
         try {
-          const next = await call<CloudStatus>('verify', { identifier: identifier.trim(), code: value, invite: invite.trim().toUpperCase() })
+          const next = await call<CloudStatus>('verify', { identifier: identifier.trim(), code: value })
           setCode('')
           await signedIn(next, true)
         } catch (err: unknown) {
@@ -307,7 +303,7 @@ export function makeOnboarding(t: Translate, _actions: OnboardingActions) {
         h(BrandMark, { size: 72, className: 'nm-fr-hero-mark' }),
         h('h1', { className: 'nm-ob-title' }, t('obSignInTitle')),
         h('input', { className: 'nm-field', value: identifier, placeholder: t('obIdentifier'), autoComplete: 'username', autoFocus: true, 'aria-label': t('obIdentifier'), onChange: (e: FormEvent<HTMLInputElement>) => setIdentifier(e.currentTarget.value) }),
-        // SMS codes reach mainland-China numbers only; everyone else gets an e-mail (the Settings sign-in says the same)
+        // the code goes by e-mail; a phone number's code is in the relay log (the Settings sign-in says the same)
         h('p', { className: 'nm-ob-fine' }, t('identifierHint')),
         h('p', { className: 'nm-ob-fine' }, t('obTermsLead'), link(PRIVACY_URL, t('obPrivacy')), t('obTermsEnd')),
         error ? h('div', { className: 'nm-ob-error', role: 'alert' }, error) : null,
@@ -321,10 +317,6 @@ export function makeOnboarding(t: Translate, _actions: OnboardingActions) {
           t('obCodeSent', { identifier: identifier.trim() }), ' ',
           h('button', { type: 'button', className: 'nm-ob-link nm-inline', disabled: busy, onClick: resend }, resent ? t('obResent') : t('obResend'))),
         h(CodeBoxes, { value: code, disabled: busy, label: t('code'), onChange: (next) => { setCode(next); if (next.length === 6) verify(next) } }),
-        inviteOpen
-          ? h('input', { className: 'nm-field', value: invite, placeholder: t('obInviteCode'), autoComplete: 'off', autoCapitalize: 'characters', 'aria-label': t('obInviteCode'), onChange: (e: FormEvent<HTMLInputElement>) => setInvite(e.currentTarget.value.replace(/[^0-9a-zA-Z-]/g, '').slice(0, 16)) })
-          : h('button', { type: 'button', className: 'nm-ob-link nm-inline', disabled: busy, onClick: () => setInviteOpen(true) }, t('obHaveInvite')),
-        inviteOpen ? h('p', { className: 'nm-ob-fine' }, t('obInviteHint', { bonus: config.invitee_bonus_cny ?? 5 })) : null,
         error ? h('div', { className: 'nm-ob-error', role: 'alert' }, error) : null,
         h(Pill, { disabled: busy || code.length !== 6, onClick: () => verify(code), className: 'nm-ob-wide' }, busy ? t('signingIn') : t('obNext')),
         h('div', { className: 'nm-ob-links' },

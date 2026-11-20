@@ -679,12 +679,12 @@
     <string name="nm_welcome_hands_fine_print">Всё остальное работает и без них. Они находятся в Настройки → Руки, когда понадобятся.</string>
     <string name="nm_welcome_meet_fine_print">Перед всем, что нельзя отменить (удалить, отправить, заплатить,) он останавливается и сначала спрашивает вас.</string>
     <string name="nm_cloud_signin_title">Начните с nanoMuse Cloud</string>
-    <string name="nm_cloud_signin_subtitle">Код на телефон или почту, или ваш пароль, когда вы его зададите.</string>
+    <string name="nm_cloud_signin_subtitle">Код на почту, или ваш пароль, когда вы его зададите.</string>
     <string name="nm_cloud_mode_code">По коду</string>
     <string name="nm_cloud_mode_password">По паролю</string>
     <string name="nm_cloud_password">Пароль</string>
     <string name="nm_cloud_forgot_password">Забыли пароль? Войдите по коду</string>
-    <string name="nm_cloud_identifier">Номер телефона материкового Китая или e-mail</string>
+    <string name="nm_cloud_identifier">Адрес электронной почты</string>
     <string name="nm_cloud_identifier_hint">you@example.com</string>
     <string name="nm_cloud_code">Код</string>
     <string name="nm_cloud_send_code">Отправить код</string>
@@ -708,8 +708,8 @@
     <string name="nm_cloud_server_change">Сменить</string>
     <string name="nm_cloud_server_change_confirm">Ключ этого телефона принадлежит текущему серверу. Сначала выйдите здесь, затем войдите на другой сервер с экрана входа.</string>
 
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">Коды по SMS приходят только на номера материкового Китая. Используйте вместо этого адрес электронной почты.</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">Этот релей не может отправить код на этот номер. Используйте вместо этого адрес электронной почты.</string>
     <string name="nm_cloud_fine_print">Релей хранит идентификатор аккаунта, замаскированный идентификатор, счётчики использования, а также имя и образ вашего агента; что ещё хранится и что вы можете отключить, описано в политике конфиденциальности.</string>
     <string name="nm_cloud_not_signed_in">Вход не выполнен</string>
     <string name="nm_cloud_not_signed_in_sub">Войдите по номеру телефона или e-mail, чтобы получить бесплатный лимит. Ваши собственные провайдеры остаются как есть.</string>
@@ -742,9 +742,9 @@
     <string name="nm_cloud_err_account_deleted">Этот аккаунт удалён. Войдите снова, чтобы начать новый.</string>
     <string name="nm_cloud_err_out_of_tokens">Лимит исчерпан.</string>
     <string name="nm_cloud_err_daily_cap">Дневная квота токенов исчерпана; она вернётся завтра.</string>
-    <string name="nm_cloud_err_allowance">Бесплатный лимит исчерпан. Пригласите друга (+¥%1$s каждому из вас) или добавьте свой ключ в Настройки → Провайдеры; быстрее всего через Alibaba Cloud Bailian.</string>
-    <string name="nm_cloud_err_allowance_abroad">Бесплатный лимит исчерпан. Пригласите друга (+¥%1$s каждому из вас) или добавьте свой ключ в Настройки → Провайдеры; быстрее всего через OpenRouter: один аккаунт, один ключ, оплата по факту.</string>
-    <string name="nm_cloud_warn_line">Бесплатный лимит почти исчерпан: осталось ¥%1$s из ¥%2$s. Пригласите друга (+¥%3$s каждому из вас) или добавьте свой ключ, и то и другое в разделе «Аккаунт».</string>
+    <string name="nm_cloud_err_allowance">Бесплатный лимит исчерпан. Добавьте свой ключ в Настройки → Провайдеры; быстрее всего через Alibaba Cloud Bailian.</string>
+    <string name="nm_cloud_err_allowance_abroad">Бесплатный лимит исчерпан. Добавьте свой ключ в Настройки → Провайдеры; быстрее всего через OpenRouter: один аккаунт, один ключ, оплата по факту.</string>
+    <string name="nm_cloud_warn_line">Бесплатный лимит почти исчерпан: осталось ¥%1$s из ¥%2$s. Добавьте свой ключ в разделе «Аккаунт».</string>
     <string name="nm_cloud_err_rate_limited">Слишком много запросов сразу. Минуту, пожалуйста.</string>
     <string name="nm_cloud_err_unreachable">Не удалось связаться с nanoMuse Cloud. Проверьте соединение.</string>
     <string name="nm_cloud_err_generic">Что-то пошло не так.</string>
@@ -797,23 +797,12 @@
     <string name="nm_face_cost_what_clips">Новый образ: %1$d картинок и %2$d коротких клипа</string>
     <string name="nm_face_cost_about">%1$s: примерно ¥%2$s из вашего лимита.</string>
     <string name="nm_face_cost_left">У вас осталось ¥%1$s лимита.</string>
-    <string name="nm_face_cost_short">Это больше, чем осталось. Пригласите друга (+¥%1$s каждому из вас) или добавьте свой ключ в Настройки → Провайдеры.</string>
+    <string name="nm_face_cost_short">Это больше, чем осталось. Добавьте свой ключ в Настройки → Провайдеры.</string>
     <string name="nm_face_cost_unknown">%1$s. Сегодняшний лимит сейчас проверить не удалось.</string>
     <string name="nm_face_cost_go">Нарисовать</string>
     <string name="nm_face_cost_anyway">Всё равно попробовать</string>
     <string name="nm_face_cost_not_now">Не сейчас</string>
     <string name="nm_face_cost_declined">Хорошо, образ остаётся прежним.</string>
-    <string name="nm_cloud_invite_title">Пригласить друга</string>
-    <string name="nm_cloud_invite_why">Когда друг регистрируется с вашим кодом и делает первый запрос, вы оба получаете ¥%1$s. Срок не истекает.</string>
-    <string name="nm_cloud_invite_code">Ваш код</string>
-    <string name="nm_cloud_invite_share">Поделиться ссылкой</string>
-    <string name="nm_cloud_invite_copy">Копировать</string>
-    <string name="nm_cloud_invite_copied">Скопировано</string>
-    <string name="nm_cloud_invite_share_text">Попробуйте nanoMuse вместе со мной: полностью открытый личный агент, бесплатный. Регистрируйтесь с моим кодом %1$s: %2$s</string>
-    <string name="nm_cloud_invite_count">Присоединилось друзей: %1$d</string>
-    <string name="nm_cloud_invite_earned">¥%1$s добавлено за приглашения</string>
-    <string name="nm_cloud_invite_have">Есть код приглашения?</string>
-    <string name="nm_cloud_invite_field">Код приглашения (необязательно)</string>
     <string name="nm_notice_github">Исходный код на GitHub</string>
     <string name="nm_notice_issue">Сообщить об ошибке или предложить функцию</string>
     <string name="nm_ways_title_out">Бесплатный лимит исчерпан.</string>
@@ -842,9 +831,6 @@
     <string name="nm_cap_clips_unavailable">Для клипов нужен провайдер с видеомоделями: Alibaba Cloud Bailian.</string>
     <string name="nm_cap_hands_unavailable">Рукам нужна модель, которая видит экран: Bailian, OpenRouter, OpenAI, Anthropic, Gemini или любой провайдер с vision-моделями.</string>
     <string name="nm_cap_chat_unavailable">Для чата нужен провайдер с чат-моделями: добавьте ключ или войдите.</string>
-    <string name="nm_ways_invite_title">Пригласите друга: +¥%1$s вам и +¥%2$s ему, как только новый человек, зарегистрировавшийся по вашей ссылке, сделает первый запрос.</string>
-    <string name="nm_ways_invite_share">Поделиться ссылкой</string>
-    <string name="nm_ways_invite_copy">Копировать ссылку</string>
     <string name="nm_cloud_ev_contribute_on">Управление данными: помощь в улучшении включена</string>
     <string name="nm_cloud_ev_contribute_off">Управление данными: помощь в улучшении выключена</string>
     <string name="nm_cloud_ev_contribute_deleted">Управление данными: сохранённые разговоры удалены</string>
@@ -944,7 +930,7 @@
     <string name="nm_cloud_allowance_used">Использовано ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">из ¥%1$s · $%2$s, навсегда</string>
     <string name="nm_cloud_allowance_left">Осталось ¥%1$s · $%2$s</string>
-    <string name="nm_cloud_allowance_why">¥%1$s на старте, +¥%2$s за каждого приглашённого друга, и +¥%2$s ему; дальше модель работает на вашем собственном ключе.</string>
+    <string name="nm_cloud_allowance_why">¥%1$s на старте; дальше модель работает на вашем собственном ключе.</string>
     <string name="nm_cloud_tokens_line">Токенов всего: %1$s · сегодня: %2$s</string>
     <string name="nm_cloud_notice_title">Бесплатно, открытый код, некоммерческий</string>
     <string name="nm_cloud_notice_closing">Нашли ошибку, хотите функцию, есть патч? Репозиторий на GitHub и есть то самое место.</string>

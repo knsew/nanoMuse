@@ -665,7 +665,7 @@ class Cloud:
                 raise CloudError(
                     400,
                     "phone_region",
-                    "Codes reach mainland China numbers only for now; elsewhere, sign in with an e-mail address",
+                    "This relay cannot send a code to that number. Use an e-mail address instead.",
                 )
             raise CloudError(
                 400,

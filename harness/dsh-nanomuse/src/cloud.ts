@@ -1,8 +1,8 @@
 /**
  * nanoMuse Cloud for the harness: `ctx.nanomuseCloud`.
  *
- * One account, every device. A person signs in with a mainland phone number or
- * an e-mail and a six-digit code; the relay answers with this device's key.
+ * One account, every device. A person signs in with an e-mail address or a
+ * phone number and a six-digit code; the relay answers with this device's key.
  * The key goes to the harness credential store (`NANOMUSE_CLOUD_TOKEN`), and the
  * account's models are written into the profile's `llm-pi-ai` row as the
  * `nanomuse` provider — the same two writes the Models page makes for any
@@ -48,7 +48,7 @@ import { CODING_ACTIONS, CodingService, codingBrief, GATED_CODING_ACTIONS } from
 import { helloLlm, HubClient, HubError, type Caller, type HubDevice, type IncomingCall } from './hub.ts'
 import { ProfileStore, type Profile } from './profile.ts'
 import { cloudOffFailure, relayFailure, transportFailure, type RelayRefusal } from './refusals.ts'
-import { Relay, RelayError, type Account, type Estimate, type Invite, type ProfileWrite, type RelayModel, type SignIn } from './relay.ts'
+import { Relay, RelayError, type Account, type Estimate, type ProfileWrite, type RelayModel, type SignIn } from './relay.ts'
 import { homeWorkspace } from './home.ts'
 import { TaskRunner, textOf } from './task.ts'
 import { PersistentTaskEndpoint } from './persistent-task-endpoint.ts'
@@ -306,8 +306,8 @@ export interface LiveState {
   ownKeys: { count: number; capabilities: Capability[]; chatgpt: { signedIn: boolean; label: string; proxy: boolean; login: LoginView } }
   /** The hands' trajectory (0.1.40): `rev` moves with every step; the sessions that have a run to look back at. The runs themselves are `GET /trajectory?session=`. */
   trajectory: { rev: number; sessions: string[] }
-  /** The 80 % heads-up (C12), while it is due: what is left of the pool and what an invitation adds, in yuan; null otherwise. */
-  headsUp: { left: number; grant: number; bonus: number } | null
+  /** The 80 % heads-up (C12), while it is due: what is left of the pool, in yuan; null otherwise. */
+  headsUp: { left: number; grant: number } | null
   /** The account's model calls still without a first token (0.31): when each began and its session, for the "waited N s" line above that chat's composer. */
   waiting: Array<{ since: number; session: string }>
   /** Turns the person stopped by hand and has not yet said why (0.31): the session, the turn's number, when; for the question above that chat's composer. */
@@ -1304,14 +1304,14 @@ export default class NanomuseCloud extends Service {
     }).then(() => this.broadcast()).catch((error: unknown) => this.ctx.logger.debug('nanomuse cloud: allowance not re-read: %s', message(error)))
   }
 
-  /** The 80 % heads-up, when it is due: what is left, the pool, and what an invitation adds. */
+  /** The 80 % heads-up, when it is due: what is left, the pool. */
   private headsUp(): LiveState['headsUp'] {
     const spend = this.state.account?.spend
     if (!spend || spend.unlimited || !spend.warn) return null
     const left = spend.left ?? 0
     const grant = spend.grant ?? 0
     if (left <= 0 || grant <= 0 || this.state.warnedGrant === grant) return null
-    return { left, grant, bonus: spend.inviteBonusCny ?? 5 }
+    return { left, grant }
   }
 
   /** The person saw the heads-up (or followed it): not again for this pool size. */
@@ -2665,9 +2665,9 @@ export default class NanomuseCloud extends Service {
     await this.serialize(() => this.relay.requestCode(identifier.trim()))
   }
 
-  /** Step two: the code for the key; wires the provider and remembers the account. A friend's invite code counts for a new account. */
-  verify(identifier: string, code: string, invite = ''): Promise<CloudStatus> {
-    return this.serialize(async () => this.adopt(await this.relay.verify(identifier.trim(), code, this.deviceName(), undefined, invite)))
+  /** Step two: the code for the key; wires the provider and remembers the account. */
+  verify(identifier: string, code: string): Promise<CloudStatus> {
+    return this.serialize(async () => this.adopt(await this.relay.verify(identifier.trim(), code, this.deviceName(), undefined)))
   }
 
   /** The account page's calls that only pass through: nothing of them is kept here. */
@@ -2786,13 +2786,6 @@ export default class NanomuseCloud extends Service {
     if (this.sync) await this.startAccountSync(this.sync)
     this.broadcast()
     return this.status()
-  }
-
-  /** The account's invite code and link; nothing without an account. */
-  async invite(): Promise<Invite | undefined> {
-    const token = await this.token()
-    if (!token || !this.state.account) return undefined
-    return this.relay.invite(token)
   }
 
   /**
@@ -4195,7 +4188,7 @@ export default class NanomuseCloud extends Service {
       }
       if (req.method === 'POST' && route === '/verify') {
         const body = await json(req)
-        return send(res, 200, await this.verify(String(body.identifier ?? ''), String(body.code ?? ''), String(body.invite ?? '')))
+        return send(res, 200, await this.verify(String(body.identifier ?? ''), String(body.code ?? '')))
       }
       // the account page, passed through: the sheet, the devices holding keys, the timeline, the password
       if (req.method === 'GET' && route === '/config') return send(res, 200, await this.relay.config())
@@ -4220,10 +4213,6 @@ export default class NanomuseCloud extends Service {
       if (req.method === 'POST' && route === '/login') {
         const body = await json(req)
         return send(res, 200, await this.login(String(body.identifier ?? ''), String(body.password ?? '')))
-      }
-      if (req.method === 'GET' && route === '/invite') {
-        const invite = await this.invite()
-        return invite ? send(res, 200, invite) : send(res, 404, { error: { code: 'signed_out', message: 'Sign in first' } })
       }
       if (req.method === 'POST' && route === '/profile') {
         const body = await json(req)

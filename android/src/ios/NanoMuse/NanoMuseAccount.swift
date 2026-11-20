@@ -3,7 +3,7 @@ import Foundation
 import UIKit
 
 /// The account as the phone's account page reads it — `GET /v1/me` in full (relay 0.14+: the pool
-/// in yuan, usage by kind and by model, the invite), the devices holding a key, the account's own
+/// in yuan, usage by kind and by model), the devices holding a key, the account's own
 /// timeline, the password, and the ways out. Every field is optional on the wire: an older relay
 /// sends fewer, and the page shows what it got. Mirror of the Android `CloudAccountScreen` data
 /// and the desktop `AccountPage`.
@@ -15,8 +15,6 @@ struct NanoMuseSheet: Sendable {
         var unlimited: Bool
         var warn: Bool
         var usdCny: Double?
-        var inviteBonusCny: Double?
-        var inviteeBonusCny: Double?
         var ownKeyDocs: String?
         /// Relay 0.21 (contract C11): the ways on for the person's region, as the relay lists them; nil from an older relay.
         var guidance: NanoMuseGuidance?
@@ -41,14 +39,6 @@ struct NanoMuseSheet: Sendable {
         var costCny: Double
     }
 
-    struct Invite: Sendable {
-        var code: String
-        var url: String
-        var invites: Int
-        var bonusCny: Double
-        var earnedCny: Double
-    }
-
     var hint: String
     var channel: String
     var member: Bool
@@ -58,7 +48,6 @@ struct NanoMuseSheet: Sendable {
     var today: [UsageRow]
     var total: [UsageRow]
     var byModel: [UsageRow]
-    var invite: Invite?
 
     static func parse(_ reply: [String: Any]) -> NanoMuseSheet {
         let account = reply["account"] as? [String: Any] ?? [:]
@@ -88,20 +77,8 @@ struct NanoMuseSheet: Sendable {
                 unlimited: (s["unlimited"] as? Bool) ?? ((s["unlimited"] as? NSNumber)?.boolValue ?? false),
                 warn: (s["warn"] as? Bool) ?? ((s["warn"] as? NSNumber)?.boolValue ?? false),
                 usdCny: num(s["usd_cny"]),
-                inviteBonusCny: num(s["invite_bonus_cny"]),
-                inviteeBonusCny: num(s["invitee_bonus_cny"]),
                 ownKeyDocs: (s["own_key_docs"] as? String).flatMap { $0.isEmpty ? nil : $0 },
                 guidance: NanoMuseGuidance.parse(s["guidance"] as? [String: Any])
-            )
-        }
-        var invite: Invite?
-        if let i = reply["invite"] as? [String: Any], let code = i["code"] as? String, !code.isEmpty {
-            invite = Invite(
-                code: code,
-                url: i["url"] as? String ?? "",
-                invites: Int(num(i["invites"]) ?? 0),
-                bonusCny: num(i["bonus_cny"]) ?? 5,
-                earnedCny: num(i["earned_cny"]) ?? 0
             )
         }
         let usage = reply["usage"] as? [String: Any] ?? [:]
@@ -116,8 +93,7 @@ struct NanoMuseSheet: Sendable {
             spend: spend,
             today: rows(todayBlock["by_kind"]),
             total: rows(totalBlock["by_kind"]),
-            byModel: rows(totalBlock["by_model"]),
-            invite: invite
+            byModel: rows(totalBlock["by_model"])
         )
     }
 }
@@ -144,8 +120,6 @@ struct NanoMuseEvent: Identifiable, Sendable {
 /// `GET /v1/config` (relay 0.15): what a client prints before anyone signs in.
 struct NanoMuseConfig: Sendable {
     var allowanceCny: Double?
-    var inviteBonusCny: Double?
-    var inviteeBonusCny: Double?
     var signupOpen: Bool?
 }
 
@@ -159,8 +133,6 @@ extension NanoMuseCloud {
         let reply = (try? await call("GET", "/v1/config", body: nil, token: nil)) ?? [:]
         let config = NanoMuseConfig(
             allowanceCny: num(reply["allowance_cny"]),
-            inviteBonusCny: num(reply["invite_bonus_cny"]),
-            inviteeBonusCny: num(reply["invitee_bonus_cny"]),
             signupOpen: reply["signup_open"] as? Bool
         )
         configCache = (Date(), config)

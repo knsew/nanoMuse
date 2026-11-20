@@ -670,12 +670,12 @@
     <string name="nm_welcome_hands_fine_print">Semua yang lain berfungsi tanpa ini. Ia ada di bawah Tetapan → Tangan bila-bila anda mahu.</string>
     <string name="nm_welcome_meet_fine_print">Sebelum apa-apa yang tidak boleh ditarik balik (memadam, menghantar, membayar) ia berhenti dan bertanya kepada anda dahulu.</string>
     <string name="nm_cloud_signin_title">Mulakan dengan nanoMuse Cloud</string>
-    <string name="nm_cloud_signin_subtitle">Kod ke telefon atau peti masuk anda, atau kata laluan anda, setelah anda menetapkannya.</string>
+    <string name="nm_cloud_signin_subtitle">Kod ke peti masuk anda, atau kata laluan anda, setelah anda menetapkannya.</string>
     <string name="nm_cloud_mode_code">Dengan kod</string>
     <string name="nm_cloud_mode_password">Dengan kata laluan</string>
     <string name="nm_cloud_password">Kata laluan</string>
     <string name="nm_cloud_forgot_password">Lupa kata laluan? Log masuk dengan kod</string>
-    <string name="nm_cloud_identifier">Nombor telefon tanah besar China atau e-mel</string>
+    <string name="nm_cloud_identifier">Alamat e-mel</string>
     <string name="nm_cloud_identifier_hint">anda@example.com</string>
     <string name="nm_cloud_code">Kod</string>
     <string name="nm_cloud_send_code">Hantar kod</string>
@@ -699,8 +699,8 @@
     <string name="nm_cloud_server_change">Tukar</string>
     <string name="nm_cloud_server_change_confirm">Kunci telefon ini milik pelayan semasa. Log keluar di sini dahulu, kemudian log masuk ke pelayan lain dari skrin log masuk.</string>
 
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">Kod SMS hanya sampai ke nombor tanah besar China. Guna alamat e-mel sebagai ganti.</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">Relay ini tidak dapat menghantar kod ke nombor itu. Guna alamat e-mel sebagai ganti.</string>
     <string name="nm_cloud_fine_print">Relay menyimpan id akaun, pengecam bertopeng, kiraan penggunaan serta nama dan rupa ejen anda; selebihnya, dan apa yang boleh anda matikan, ada dalam dasar privasi.</string>
     <string name="nm_cloud_not_signed_in">Belum log masuk</string>
     <string name="nm_cloud_not_signed_in_sub">Log masuk dengan nombor telefon atau e-mel untuk peruntukan percuma. Penyedia anda sendiri kekal seperti sedia ada.</string>
@@ -733,9 +733,9 @@
     <string name="nm_cloud_err_account_deleted">Akaun ini telah dipadam. Log masuk semula untuk memulakan yang baharu.</string>
     <string name="nm_cloud_err_out_of_tokens">Peruntukan sudah habis.</string>
     <string name="nm_cloud_err_daily_cap">Kuota token hari ini sudah habis; ia kembali esok.</string>
-    <string name="nm_cloud_err_allowance">Peruntukan percuma sudah habis. Jemput rakan (+¥%1$s untuk setiap seorang daripada anda) atau tambah kunci anda sendiri di bawah Tetapan → Penyedia; Alibaba Cloud Bailian yang paling cepat.</string>
-    <string name="nm_cloud_err_allowance_abroad">Peruntukan percuma sudah habis. Jemput rakan (+¥%1$s untuk setiap seorang daripada anda) atau tambah kunci anda sendiri di bawah Tetapan → Penyedia; OpenRouter yang paling cepat: satu akaun, satu kunci, bayar ikut guna.</string>
-    <string name="nm_cloud_warn_line">Peruntukan percuma hampir habis: ¥%1$s daripada ¥%2$s berbaki. Jemput rakan (+¥%3$s untuk setiap seorang daripada anda) atau tambah kunci anda sendiri, kedua-duanya di bawah Akaun.</string>
+    <string name="nm_cloud_err_allowance">Peruntukan percuma sudah habis. Tambah kunci anda sendiri di bawah Tetapan → Penyedia; Alibaba Cloud Bailian yang paling cepat.</string>
+    <string name="nm_cloud_err_allowance_abroad">Peruntukan percuma sudah habis. Tambah kunci anda sendiri di bawah Tetapan → Penyedia; OpenRouter yang paling cepat: satu akaun, satu kunci, bayar ikut guna.</string>
+    <string name="nm_cloud_warn_line">Peruntukan percuma hampir habis: ¥%1$s daripada ¥%2$s berbaki. Tambah kunci anda sendiri di bawah Akaun.</string>
     <string name="nm_cloud_err_rate_limited">Terlalu banyak permintaan serentak. Sebentar.</string>
     <string name="nm_cloud_err_unreachable">Tidak dapat menghubungi nanoMuse Cloud. Semak sambungan.</string>
     <string name="nm_cloud_err_generic">Ada yang tidak kena.</string>
@@ -788,23 +788,12 @@
     <string name="nm_face_cost_what_clips">Wajah baharu ialah %1$d gambar dan %2$d klip pendek</string>
     <string name="nm_face_cost_about">%1$s: kira-kira ¥%2$s daripada peruntukan anda.</string>
     <string name="nm_face_cost_left">Anda ada ¥%1$s peruntukan berbaki.</string>
-    <string name="nm_face_cost_short">Itu melebihi baki yang ada. Jemput rakan (+¥%1$s untuk setiap seorang daripada anda) atau tambah kunci anda sendiri di bawah Tetapan → Penyedia.</string>
+    <string name="nm_face_cost_short">Itu melebihi baki yang ada. Tambah kunci anda sendiri di bawah Tetapan → Penyedia.</string>
     <string name="nm_face_cost_unknown">%1$s. Peruntukan hari ini tidak dapat disemak sekarang.</string>
     <string name="nm_face_cost_go">Lukis</string>
     <string name="nm_face_cost_anyway">Cuba juga</string>
     <string name="nm_face_cost_not_now">Bukan sekarang</string>
     <string name="nm_face_cost_declined">Baiklah, wajah kekal seperti sedia ada.</string>
-    <string name="nm_cloud_invite_title">Jemput rakan</string>
-    <string name="nm_cloud_invite_why">Apabila rakan mendaftar dengan kod anda dan menghantar permintaan pertamanya, anda berdua mendapat ¥%1$s. Ia tidak pernah tamat tempoh.</string>
-    <string name="nm_cloud_invite_code">Kod anda</string>
-    <string name="nm_cloud_invite_share">Kongsi pautan</string>
-    <string name="nm_cloud_invite_copy">Salin</string>
-    <string name="nm_cloud_invite_copied">Disalin</string>
-    <string name="nm_cloud_invite_share_text">Cuba nanoMuse bersama saya: ejen peribadi sumber terbuka sepenuhnya, percuma digunakan. Daftar dengan kod saya %1$s: %2$s</string>
-    <string name="nm_cloud_invite_count">%1$d rakan menyertai</string>
-    <string name="nm_cloud_invite_earned">¥%1$s ditambah melalui jemputan</string>
-    <string name="nm_cloud_invite_have">Ada kod jemputan?</string>
-    <string name="nm_cloud_invite_field">Kod jemputan (pilihan)</string>
     <string name="nm_notice_github">Sumber di GitHub</string>
     <string name="nm_notice_issue">Laporkan pepijat atau minta ciri</string>
     <string name="nm_ways_title_out">Peruntukan percuma sudah habis.</string>
@@ -833,9 +822,6 @@
     <string name="nm_cap_clips_unavailable">Klip memerlukan penyedia dengan model video: Alibaba Cloud Bailian.</string>
     <string name="nm_cap_hands_unavailable">Tangan memerlukan model yang dapat melihat skrin: Bailian, OpenRouter, OpenAI, Anthropic, Gemini, atau mana-mana penyedia dengan model visi.</string>
     <string name="nm_cap_chat_unavailable">Sembang memerlukan penyedia dengan model sembang: tambah kunci, atau log masuk.</string>
-    <string name="nm_ways_invite_title">Jemput rakan: +¥%1$s untuk anda dan +¥%2$s untuk mereka, apabila orang baharu yang mendaftar dengan pautan anda menghantar permintaan pertamanya.</string>
-    <string name="nm_ways_invite_share">Kongsi pautan</string>
-    <string name="nm_ways_invite_copy">Salin pautan</string>
     <string name="nm_cloud_ev_contribute_on">Kawalan data: bantu perbaiki dihidupkan</string>
     <string name="nm_cloud_ev_contribute_off">Kawalan data: bantu perbaiki dimatikan</string>
     <string name="nm_cloud_ev_contribute_deleted">Kawalan data: perbualan yang disimpan dipadam</string>
@@ -935,7 +921,7 @@
     <string name="nm_cloud_allowance_used">Digunakan ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">daripada ¥%1$s · $%2$s, selama-lamanya</string>
     <string name="nm_cloud_allowance_left">¥%1$s · $%2$s berbaki</string>
-    <string name="nm_cloud_allowance_why">¥%1$s untuk bermula, +¥%2$s bagi setiap rakan yang anda jemput, dan +¥%2$s untuk mereka; selepas itu, kunci anda sendiri yang meneruskan model.</string>
+    <string name="nm_cloud_allowance_why">¥%1$s untuk bermula; selepas itu, kunci anda sendiri yang meneruskan model.</string>
     <string name="nm_cloud_tokens_line">%1$s token kesemuanya · %2$s hari ini</string>
     <string name="nm_cloud_notice_title">Percuma, sumber terbuka, bukan untuk keuntungan</string>
     <string name="nm_cloud_notice_closing">Jumpa pepijat, mahu ciri, ada tampalan? Repositori GitHub ialah tempatnya.</string>

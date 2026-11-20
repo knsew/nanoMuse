@@ -61,7 +61,6 @@ def test_web_console_translates_every_refusal_in_both_languages():
         "no_session",
         "device_online",
         "sync_off",
-        "invite_code",
     ]:
         assert f"{code}:" in zh, f"{code} has no Chinese sentence"
         assert f"{code}:" in en, f"{code} has no English sentence"

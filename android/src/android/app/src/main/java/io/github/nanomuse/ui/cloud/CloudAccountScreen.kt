@@ -34,10 +34,6 @@ import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import io.github.nanomuse.ui.muse.setPlainText
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -351,7 +347,7 @@ fun CloudAccountScreen(
                             if (a.limited && a.allowanceCny > 0) {
                                 Spacer(Modifier.height(8.dp))
                                 Text(
-                                    text = stringResource(R.string.nm_cloud_allowance_why, money(a.allowanceCny), money(a.inviteBonusCny)),
+                                    text = stringResource(R.string.nm_cloud_allowance_why, money(a.allowanceCny)),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -427,12 +423,6 @@ fun CloudAccountScreen(
                     )
                 }
 
-                // -- invitations: the code, the link, what came of it -------------------------
-                if (a != null && a.inviteCode.isNotBlank()) {
-                    MuseSectionLabel(stringResource(R.string.nm_cloud_invite_title))
-                    InviteCard(a)
-                }
-
                 // -- usage by kind and by model ---------------------------------------------
                 val usage = a?.usage
                 val priced = a?.pricesInMoney == true
@@ -506,9 +496,6 @@ fun CloudAccountScreen(
                         info = AllowanceSignal.Exhausted(
                             leftCny = a.leftCny.coerceAtLeast(0.0),
                             grantCny = a.grantCny,
-                            inviteUrl = a.inviteUrl,
-                            inviteBonusCny = a.inviteBonusCny,
-                            inviteeBonusCny = a.inviteeBonusCny,
                             ownKeyDocs = a.ownKeyDocs,
                             guidance = NanoMuseCloud.guidance(context), // the relay's list for the region first (contract C11)
                         ),
@@ -1046,71 +1033,6 @@ internal fun money(v: Double): String = when {
     v >= 1 -> String.format(java.util.Locale.US, "%.2f", v)
     v > 0 && v < 0.01 -> String.format(java.util.Locale.US, "%.4f", v)
     else -> String.format(java.util.Locale.US, "%.2f", v)
-}
-
-/**
- * Invite a friend: the account's code and link (each new sign-up with it adds to the pool),
- * how many came and what they added.
- */
-@Composable
-private fun InviteCard(a: NanoMuseCloud.Account) {
-    val context = LocalContext.current
-    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
-    var copied by remember { mutableStateOf(false) }
-    LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1500); copied = false } }
-    // the relay's invite link when it sent one; empty otherwise (no official site to fall back to)
-    val link = a.inviteUrl
-    MuseCard {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.nm_cloud_invite_why, money(a.inviteBonusCny)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.nm_cloud_invite_code), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(a.inviteCode, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
-                }
-                TextButton(onClick = { clipboard.setPlainText("nanoMuse", a.inviteCode); copied = true }) {
-                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(if (copied) R.string.nm_cloud_invite_copied else R.string.nm_cloud_invite_copy))
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    val text = context.getString(R.string.nm_cloud_invite_share_text, a.inviteCode, link)
-                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(android.content.Intent.EXTRA_TEXT, text)
-                    }
-                    context.startActivity(android.content.Intent.createChooser(send, context.getString(R.string.nm_cloud_invite_share)).apply {
-                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = MuseTones.action, contentColor = Color.White),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.nm_cloud_invite_share), fontWeight = FontWeight.Medium)
-            }
-            Spacer(Modifier.height(10.dp))
-            val facts = buildList {
-                add(stringResource(R.string.nm_cloud_invite_count, a.invites))
-                if (a.inviteEarnedCny > 0) add(stringResource(R.string.nm_cloud_invite_earned, money(a.inviteEarnedCny)))
-            }
-            Text(
-                text = facts.joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
 }
 
 /** The project's repository, where the whole story lives. */

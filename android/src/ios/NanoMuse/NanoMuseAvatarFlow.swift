@@ -374,7 +374,7 @@ struct NanoMuseAvatarCostCard: View {
                         Text(String(format: AppLocalized("You have ¥%@ of the allowance left."), NanoMuseFaceCostSheet.money(left))).font(.footnote).foregroundStyle(.secondary)
                     }
                     if !e.affordable {
-                        Text(AppLocalized("That is more than what is left. Invite a friend for more allowance, or wait for tomorrow's share."))
+                        Text(AppLocalized("That is more than what is left. Wait for tomorrow's share, or add a key of your own."))
                             .font(.footnote).foregroundStyle(.red)
                     }
                 }

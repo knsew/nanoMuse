@@ -674,12 +674,12 @@
     <string name="nm_welcome_hands_fine_print">Tout le reste fonctionne sans. Elles se trouvent sous Réglages → Mains quand vous les voulez.</string>
     <string name="nm_welcome_meet_fine_print">Avant tout ce qu’il ne peut pas défaire (supprimer, envoyer, payer) il s’arrête et vous demande d’abord.</string>
     <string name="nm_cloud_signin_title">Commencer avec nanoMuse Cloud</string>
-    <string name="nm_cloud_signin_subtitle">Un code sur votre téléphone ou dans votre boîte mail, ou votre mot de passe, une fois défini.</string>
+    <string name="nm_cloud_signin_subtitle">Un code dans votre boîte mail, ou votre mot de passe, une fois défini.</string>
     <string name="nm_cloud_mode_code">Avec un code</string>
     <string name="nm_cloud_mode_password">Avec un mot de passe</string>
     <string name="nm_cloud_password">Mot de passe</string>
     <string name="nm_cloud_forgot_password">Mot de passe oublié ? Connectez-vous avec un code</string>
-    <string name="nm_cloud_identifier">Numéro de Chine continentale ou e-mail</string>
+    <string name="nm_cloud_identifier">Adresse e-mail</string>
     <string name="nm_cloud_identifier_hint">vous@example.com</string>
     <string name="nm_cloud_code">Code</string>
     <string name="nm_cloud_send_code">Envoyer le code</string>
@@ -703,8 +703,8 @@
     <string name="nm_cloud_server_change">Changer</string>
     <string name="nm_cloud_server_change_confirm">La clé de ce téléphone appartient au serveur actuel. Déconnecte-toi ici d’abord, puis connecte-toi à l’autre serveur depuis l’écran de connexion.</string>
 
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">Les codes par SMS n’atteignent que les numéros de Chine continentale. Utilise plutôt une adresse e-mail.</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">Ce relais ne peut pas envoyer de code à ce numéro. Utilisez plutôt une adresse e-mail.</string>
     <string name="nm_cloud_fine_print">Le relais conserve un identifiant de compte, un identifiant masqué, des compteurs d’usage et le nom et l’apparence de votre agent ; le reste, et ce que vous pouvez désactiver, est dans la politique de confidentialité.</string>
     <string name="nm_cloud_not_signed_in">Non connecté</string>
     <string name="nm_cloud_not_signed_in_sub">Connectez-vous avec un numéro de téléphone ou un e-mail pour un crédit gratuit. Vos propres fournisseurs restent tels quels.</string>
@@ -737,9 +737,9 @@
     <string name="nm_cloud_err_account_deleted">Ce compte a été supprimé. Reconnectez-vous pour en commencer un nouveau.</string>
     <string name="nm_cloud_err_out_of_tokens">Le crédit est épuisé.</string>
     <string name="nm_cloud_err_daily_cap">Le quota de jetons du jour est épuisé ; il revient demain.</string>
-    <string name="nm_cloud_err_allowance">Le crédit gratuit est épuisé. Invitez un ami (+¥%1$s pour chacun de vous) ou ajoutez votre propre clé sous Réglages → Fournisseurs ; Alibaba Cloud Bailian est le plus rapide.</string>
-    <string name="nm_cloud_err_allowance_abroad">Le crédit gratuit est épuisé. Invitez un ami (+¥%1$s pour chacun de vous) ou ajoutez votre propre clé sous Réglages → Fournisseurs ; OpenRouter est le plus rapide : un compte, une clé, paiement à l’usage.</string>
-    <string name="nm_cloud_warn_line">Le crédit gratuit est presque épuisé : ¥%1$s sur ¥%2$s restants. Invitez un ami (+¥%3$s pour chacun de vous) ou ajoutez votre propre clé, les deux sous Compte.</string>
+    <string name="nm_cloud_err_allowance">Le crédit gratuit est épuisé. Ajoutez votre propre clé sous Réglages → Fournisseurs ; Alibaba Cloud Bailian est le plus rapide.</string>
+    <string name="nm_cloud_err_allowance_abroad">Le crédit gratuit est épuisé. Ajoutez votre propre clé sous Réglages → Fournisseurs ; OpenRouter est le plus rapide : un compte, une clé, paiement à l’usage.</string>
+    <string name="nm_cloud_warn_line">Le crédit gratuit est presque épuisé : ¥%1$s sur ¥%2$s restants. Ajoutez votre propre clé sous Compte.</string>
     <string name="nm_cloud_err_rate_limited">Trop de requêtes à la fois. Un instant.</string>
     <string name="nm_cloud_err_unreachable">Impossible de joindre nanoMuse Cloud. Vérifiez la connexion.</string>
     <string name="nm_cloud_err_generic">Quelque chose n’a pas marché.</string>
@@ -792,23 +792,12 @@
     <string name="nm_face_cost_what_clips">Un nouveau visage, c’est %1$d images et %2$d courts clips</string>
     <string name="nm_face_cost_about">%1$s : environ ¥%2$s de votre crédit.</string>
     <string name="nm_face_cost_left">Il vous reste ¥%1$s de crédit.</string>
-    <string name="nm_face_cost_short">C’est plus que ce qu’il reste. Invitez un ami (+¥%1$s pour chacun de vous) ou ajoutez votre propre clé sous Réglages → Fournisseurs.</string>
+    <string name="nm_face_cost_short">C’est plus que ce qu’il reste. Ajoutez votre propre clé sous Réglages → Fournisseurs.</string>
     <string name="nm_face_cost_unknown">%1$s. Le crédit du jour n’a pas pu être vérifié pour le moment.</string>
     <string name="nm_face_cost_go">Dessiner</string>
     <string name="nm_face_cost_anyway">Essayer quand même</string>
     <string name="nm_face_cost_not_now">Pas maintenant</string>
     <string name="nm_face_cost_declined">Très bien, le visage reste tel quel.</string>
-    <string name="nm_cloud_invite_title">Inviter un ami</string>
-    <string name="nm_cloud_invite_why">Quand un ami s’inscrit avec votre code et envoie sa première requête, vous recevez chacun ¥%1$s. Ça n’expire jamais.</string>
-    <string name="nm_cloud_invite_code">Votre code</string>
-    <string name="nm_cloud_invite_share">Partager le lien</string>
-    <string name="nm_cloud_invite_copy">Copier</string>
-    <string name="nm_cloud_invite_copied">Copié</string>
-    <string name="nm_cloud_invite_share_text">Essayez nanoMuse avec moi : un agent personnel entièrement open source, gratuit. Inscrivez-vous avec mon code %1$s : %2$s</string>
-    <string name="nm_cloud_invite_count">%1$d amis inscrits</string>
-    <string name="nm_cloud_invite_earned">¥%1$s ajoutés par les invitations</string>
-    <string name="nm_cloud_invite_have">Vous avez un code d’invitation ?</string>
-    <string name="nm_cloud_invite_field">Code d’invitation (facultatif)</string>
     <string name="nm_notice_github">Source sur GitHub</string>
     <string name="nm_notice_issue">Signaler un bug ou demander une fonction</string>
     <string name="nm_ways_title_out">Le crédit gratuit est épuisé.</string>
@@ -837,9 +826,6 @@
     <string name="nm_cap_clips_unavailable">Les clips demandent un fournisseur avec des modèles vidéo : Alibaba Cloud Bailian.</string>
     <string name="nm_cap_hands_unavailable">Les mains demandent un modèle qui voit l\'écran : Bailian, OpenRouter, OpenAI, Anthropic, Gemini, ou tout fournisseur avec des modèles de vision.</string>
     <string name="nm_cap_chat_unavailable">Le chat demande un fournisseur avec des modèles de chat : ajoutez une clé ou connectez-vous.</string>
-    <string name="nm_ways_invite_title">Invitez un ami : +¥%1$s pour vous et +¥%2$s pour lui, dès qu’une nouvelle personne inscrite avec votre lien envoie sa première requête.</string>
-    <string name="nm_ways_invite_share">Partager le lien</string>
-    <string name="nm_ways_invite_copy">Copier le lien</string>
     <string name="nm_cloud_ev_contribute_on">Contrôle des données : aide à l’amélioration activée</string>
     <string name="nm_cloud_ev_contribute_off">Contrôle des données : aide à l’amélioration désactivée</string>
     <string name="nm_cloud_ev_contribute_deleted">Contrôle des données : conversations conservées supprimées</string>
@@ -939,7 +925,7 @@
     <string name="nm_cloud_allowance_used">Utilisé ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">sur ¥%1$s · $%2$s, pour de bon</string>
     <string name="nm_cloud_allowance_left">¥%1$s · $%2$s restants</string>
-    <string name="nm_cloud_allowance_why">¥%1$s pour commencer, +¥%2$s pour chaque ami invité, et +¥%2$s pour lui ; ensuite, votre propre clé fait tourner le modèle.</string>
+    <string name="nm_cloud_allowance_why">¥%1$s pour commencer ; ensuite, votre propre clé fait tourner le modèle.</string>
     <string name="nm_cloud_tokens_line">%1$s jetons en tout · %2$s aujourd’hui</string>
     <string name="nm_cloud_notice_title">Gratuit, open source, sans but lucratif</string>
     <string name="nm_cloud_notice_closing">Un bug, une envie de fonction, un correctif ? Le dépôt GitHub est l’endroit.</string>

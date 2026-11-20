@@ -20,12 +20,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Computer
-import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,7 +32,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,8 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboard
-import io.github.nanomuse.ui.muse.setPlainText
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -82,8 +76,7 @@ private const val SHOWN_FIRST = 3
  * accounts; OpenRouter and OpenAI elsewhere), each saying what it covers (chat · screen ·
  * pictures · clips), *Add* opening the pre-filled provider form and *Get a key* the vendor's
  * key page; a subscription one already pays for (ChatGPT, Claude, Kimi, OpenRouter), *Sign in*
- * going through upstream's OAuth managers from the same form; and an invitation (both sides
- * gain). No vendor is recommended; the text says what each one covers. Shown on the account
+ * going through upstream's OAuth managers from the same form. No vendor is recommended; the text says what each one covers. Shown on the account
  * page whenever the pool is spent or past 80 %, and in the chat when a turn was refused for
  * it. [exhausted] false = the heads-up wording; `info.paused` = the operator's switch, not use.
  */
@@ -94,12 +87,7 @@ fun AllowanceWaysCard(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboard.current
     val account = remember { NanoMuseCloud.account(context) }
-    val inviteBonus = info.inviteBonusCny.takeIf { it > 0 } ?: account?.inviteBonusCny?.takeIf { it > 0 } ?: 5.0
-    val inviteeBonus = info.inviteeBonusCny.takeIf { it > 0 } ?: account?.inviteeBonusCny?.takeIf { it > 0 } ?: inviteBonus
-    var copied by remember { mutableStateOf(false) }
-    LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1500); copied = false } }
     // The star row shows when the policy makes this moment due (StarPrompt: once, past the
     // cooldown, under the cap) and goes once the person has been to GitHub from any ask.
     val starAsk = remember(exhausted) {
@@ -112,8 +100,6 @@ fun AllowanceWaysCard(
         }
     }
     var starred by remember { mutableStateOf(io.github.nanomuse.community.StarPrompt.starred(context)) }
-    // the relay's invite link when it sent one; empty otherwise (no official site to fall back to)
-    val link = info.inviteUrl.ifBlank { account?.inviteUrl.orEmpty() }
     // the ways as the relay lists them (`guidance`, contract C11) first — the one sent with the
     // refusal, else the one kept from /v1/me — and the bundled catalogue only when it sent none
     val mainland = remember { Region.mainland(context) }
@@ -242,27 +228,7 @@ fun AllowanceWaysCard(
                 }
             }
 
-            // ⑤ an invitation: both sides gain
-            Way(Icons.Outlined.PersonAdd, Color(0xFF7C5CFF), stringResource(R.string.nm_ways_invite_title, money(inviteBonus), money(inviteeBonus)), null) {
-                TextButton(onClick = {
-                    val text = context.getString(R.string.nm_cloud_invite_share_text, account?.inviteCode.orEmpty(), link)
-                    val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
-                    runCatching {
-                        context.startActivity(Intent.createChooser(send, context.getString(R.string.nm_cloud_invite_share)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    }
-                }) {
-                    Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(15.dp), tint = MuseTones.action)
-                    Spacer(Modifier.width(5.dp))
-                    Text(stringResource(R.string.nm_ways_invite_share), fontSize = 13.sp, color = MuseTones.action)
-                }
-                TextButton(onClick = { clipboard.setPlainText("nanoMuse", link); copied = true }) {
-                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp), tint = MuseTones.action)
-                    Spacer(Modifier.width(5.dp))
-                    Text(stringResource(if (copied) R.string.nm_cloud_invite_copied else R.string.nm_ways_invite_copy), fontSize = 13.sp, color = MuseTones.action)
-                }
-            }
-
-            // ⑥ a star — asked only when the pool is spent, and only until the person went
+            // ⑤ a star — asked only when the pool is spent, and only until the person went
             if (starAsk && !starred) {
                 Way(Icons.Outlined.StarOutline, Color(0xFFF5A623), remember { io.github.nanomuse.community.StarPrompt.text(context, io.github.nanomuse.community.StarPrompt.Ask(io.github.nanomuse.community.StarPrompt.Moment.EXHAUSTED)) }, null) {
                     TextButton(onClick = { io.github.nanomuse.community.StarPrompt.open(context); starred = true }) {

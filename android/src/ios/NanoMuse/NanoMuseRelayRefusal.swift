@@ -77,13 +77,10 @@ enum NanoMuseRelayRefusal {
     }
 
     /// What a `429 allowance_exhausted` carries beside the code (relay 0.17+): the figures the
-    /// card prints, the invite, the docs, the guidance for the region (relay 0.21).
+    /// card prints, the docs, the guidance for the region (relay 0.21).
     struct AllowanceFacts: Equatable, Sendable {
         var leftCny: Double?
         var grantCny: Double?
-        var inviteURL: String = ""
-        var inviteBonusCny: Double?
-        var inviteeBonusCny: Double?
         var ownKeyDocs: String = ""
         var guidance: NanoMuseGuidance?
     }
@@ -184,9 +181,6 @@ enum NanoMuseRelayRefusal {
         return AllowanceFacts(
             leftCny: num(err["left"]),
             grantCny: num(err["grant"]),
-            inviteURL: err["invite_url"] as? String ?? "",
-            inviteBonusCny: num(err["invite_bonus_cny"]),
-            inviteeBonusCny: num(err["invitee_bonus_cny"]),
             ownKeyDocs: err["own_key_docs"] as? String ?? "",
             guidance: NanoMuseGuidance.parse(err["guidance"] as? [String: Any])
         )

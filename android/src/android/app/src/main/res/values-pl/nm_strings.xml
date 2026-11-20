@@ -679,12 +679,12 @@
     <string name="nm_welcome_hands_fine_print">Wszystko inne działa bez nich. Znajdziesz je w Ustawienia → Ręce, kiedy zechcesz.</string>
     <string name="nm_welcome_meet_fine_print">Przed wszystkim, czego nie da się cofnąć (usuwaniem, wysyłaniem, płaceniem) zatrzymuje się i najpierw pyta ciebie.</string>
     <string name="nm_cloud_signin_title">Zacznij z nanoMuse Cloud</string>
-    <string name="nm_cloud_signin_subtitle">Kod na telefon lub skrzynkę, albo hasło, gdy już je ustawisz.</string>
+    <string name="nm_cloud_signin_subtitle">Kod na skrzynkę, albo hasło, gdy już je ustawisz.</string>
     <string name="nm_cloud_mode_code">Kodem</string>
     <string name="nm_cloud_mode_password">Hasłem</string>
     <string name="nm_cloud_password">Hasło</string>
     <string name="nm_cloud_forgot_password">Nie pamiętasz hasła? Zaloguj się kodem</string>
-    <string name="nm_cloud_identifier">Numer telefonu z Chin kontynentalnych lub e-mail</string>
+    <string name="nm_cloud_identifier">Adres e-mail</string>
     <string name="nm_cloud_identifier_hint">ty@example.com</string>
     <string name="nm_cloud_code">Kod</string>
     <string name="nm_cloud_send_code">Wyślij kod</string>
@@ -708,8 +708,8 @@
     <string name="nm_cloud_server_change">Zmień</string>
     <string name="nm_cloud_server_change_confirm">Klucz tego telefonu należy do obecnego serwera. Najpierw wyloguj się tutaj, potem zaloguj się do innego serwera z ekranu logowania.</string>
 
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">Kody SMS docierają tylko na numery z Chin kontynentalnych. Użyj zamiast tego adresu e-mail.</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">Ten relay nie może wysłać kodu na ten numer. Użyj zamiast tego adresu e-mail.</string>
     <string name="nm_cloud_fine_print">Relay przechowuje identyfikator konta, zamaskowany identyfikator, liczniki użycia oraz imię i wygląd twojego agenta; co jeszcze i co możesz wyłączyć, opisuje polityka prywatności.</string>
     <string name="nm_cloud_not_signed_in">Niezalogowano</string>
     <string name="nm_cloud_not_signed_in_sub">Zaloguj się numerem telefonu lub adresem e-mail, aby dostać darmowy limit. Twoi własni dostawcy zostają bez zmian.</string>
@@ -742,9 +742,9 @@
     <string name="nm_cloud_err_account_deleted">To konto zostało usunięte. Zaloguj się ponownie, aby założyć nowe.</string>
     <string name="nm_cloud_err_out_of_tokens">Limit się wyczerpał.</string>
     <string name="nm_cloud_err_daily_cap">Dzisiejsza pula tokenów się wyczerpała; wróci jutro.</string>
-    <string name="nm_cloud_err_allowance">Darmowy limit się wyczerpał. Zaproś znajomego (+¥%1$s dla każdego z was) albo dodaj własny klucz w Ustawienia → Dostawcy; Alibaba Cloud Bailian to najszybsza droga.</string>
-    <string name="nm_cloud_err_allowance_abroad">Darmowy limit się wyczerpał. Zaproś znajomego (+¥%1$s dla każdego z was) albo dodaj własny klucz w Ustawienia → Dostawcy; OpenRouter to najszybsza droga: jedno konto, jeden klucz, płatność za użycie.</string>
-    <string name="nm_cloud_warn_line">Darmowy limit prawie się wyczerpał: zostało ¥%1$s z ¥%2$s. Zaproś znajomego (+¥%3$s dla każdego z was) albo dodaj własny klucz, oba w sekcji Konto.</string>
+    <string name="nm_cloud_err_allowance">Darmowy limit się wyczerpał. Dodaj własny klucz w Ustawienia → Dostawcy; Alibaba Cloud Bailian to najszybsza droga.</string>
+    <string name="nm_cloud_err_allowance_abroad">Darmowy limit się wyczerpał. Dodaj własny klucz w Ustawienia → Dostawcy; OpenRouter to najszybsza droga: jedno konto, jeden klucz, płatność za użycie.</string>
+    <string name="nm_cloud_warn_line">Darmowy limit prawie się wyczerpał: zostało ¥%1$s z ¥%2$s. Dodaj własny klucz w sekcji Konto.</string>
     <string name="nm_cloud_err_rate_limited">Zbyt wiele żądań naraz. Chwileczkę.</string>
     <string name="nm_cloud_err_unreachable">Brak połączenia z nanoMuse Cloud. Sprawdź połączenie z siecią.</string>
     <string name="nm_cloud_err_generic">Coś poszło nie tak.</string>
@@ -797,23 +797,12 @@
     <string name="nm_face_cost_what_clips">Nowa twarz to %1$d obrazów i %2$d krótkich klipów</string>
     <string name="nm_face_cost_about">%1$s: około ¥%2$s z twojego limitu.</string>
     <string name="nm_face_cost_left">Z limitu zostało ci ¥%1$s.</string>
-    <string name="nm_face_cost_short">To więcej, niż zostało. Zaproś znajomego (+¥%1$s dla każdego z was) albo dodaj własny klucz w Ustawienia → Dostawcy.</string>
+    <string name="nm_face_cost_short">To więcej, niż zostało. Dodaj własny klucz w Ustawienia → Dostawcy.</string>
     <string name="nm_face_cost_unknown">%1$s. Nie udało się teraz sprawdzić dzisiejszego limitu.</string>
     <string name="nm_face_cost_go">Narysuj</string>
     <string name="nm_face_cost_anyway">Spróbuj mimo to</string>
     <string name="nm_face_cost_not_now">Nie teraz</string>
     <string name="nm_face_cost_declined">W porządku, twarz zostaje bez zmian.</string>
-    <string name="nm_cloud_invite_title">Zaproś znajomego</string>
-    <string name="nm_cloud_invite_why">Gdy znajomy zarejestruje się twoim kodem i wyśle pierwsze zapytanie, oboje dostajecie ¥%1$s. Nigdy nie wygasa.</string>
-    <string name="nm_cloud_invite_code">Twój kod</string>
-    <string name="nm_cloud_invite_share">Udostępnij link</string>
-    <string name="nm_cloud_invite_copy">Kopiuj</string>
-    <string name="nm_cloud_invite_copied">Skopiowano</string>
-    <string name="nm_cloud_invite_share_text">Wypróbuj ze mną nanoMuse: w pełni otwartoźródłowego osobistego agenta, darmowego w użyciu. Zarejestruj się moim kodem %1$s: %2$s</string>
-    <string name="nm_cloud_invite_count">Dołączyło %1$d znajomych</string>
-    <string name="nm_cloud_invite_earned">¥%1$s dodane z zaproszeń</string>
-    <string name="nm_cloud_invite_have">Masz kod zaproszenia?</string>
-    <string name="nm_cloud_invite_field">Kod zaproszenia (opcjonalnie)</string>
     <string name="nm_notice_github">Źródła na GitHub</string>
     <string name="nm_notice_issue">Zgłoś błąd lub poproś o funkcję</string>
     <string name="nm_ways_title_out">Darmowy limit się wyczerpał.</string>
@@ -842,9 +831,6 @@
     <string name="nm_cap_clips_unavailable">Klipy wymagają dostawcy z modelami wideo: Alibaba Cloud Bailian.</string>
     <string name="nm_cap_hands_unavailable">Ręce wymagają modelu, który widzi ekran: Bailian, OpenRouter, OpenAI, Anthropic, Gemini lub dowolny dostawca z modelami wizyjnymi.</string>
     <string name="nm_cap_chat_unavailable">Czat wymaga dostawcy z modelami czatu: dodaj klucz albo zaloguj się.</string>
-    <string name="nm_ways_invite_title">Zaproś znajomego: +¥%1$s dla ciebie i +¥%2$s dla niego, gdy nowa osoba zarejestrowana z twojego linku wyśle pierwsze zapytanie.</string>
-    <string name="nm_ways_invite_share">Udostępnij link</string>
-    <string name="nm_ways_invite_copy">Kopiuj link</string>
     <string name="nm_cloud_ev_contribute_on">Kontrola danych: pomoc w ulepszaniu włączona</string>
     <string name="nm_cloud_ev_contribute_off">Kontrola danych: pomoc w ulepszaniu wyłączona</string>
     <string name="nm_cloud_ev_contribute_deleted">Kontrola danych: zachowane rozmowy usunięte</string>
@@ -944,7 +930,7 @@
     <string name="nm_cloud_allowance_used">Użyto ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">z ¥%1$s · $%2$s, bezterminowo</string>
     <string name="nm_cloud_allowance_left">Pozostało ¥%1$s · $%2$s</string>
-    <string name="nm_cloud_allowance_why">¥%1$s na start, +¥%2$s za każdego zaproszonego znajomego, i +¥%2$s dla niego; potem model działa dalej na twoim własnym kluczu.</string>
+    <string name="nm_cloud_allowance_why">¥%1$s na start; potem model działa dalej na twoim własnym kluczu.</string>
     <string name="nm_cloud_tokens_line">%1$s tokenów łącznie · %2$s dziś</string>
     <string name="nm_cloud_notice_title">Darmowe, otwarte, niekomercyjne</string>
     <string name="nm_cloud_notice_closing">Błąd, pomysł na funkcję, gotowa poprawka? Repozytorium na GitHub to właściwe miejsce.</string>

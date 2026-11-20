@@ -70,8 +70,6 @@ object NanoMuseCloud {
     private const val KEY_LEFT = "cloud.left_cny"
     private const val KEY_WARN = "cloud.warn"
     private const val KEY_ALLOWANCE = "cloud.allowance_cny"
-    // 0.1.27: an invitation credits both sides (relay 0.9)
-    private const val KEY_INVITEE_BONUS = "cloud.invitee_bonus_cny"
     private const val KEY_OWN_KEY_DOCS = "cloud.own_key_docs"
     /** Relay 0.21, contract C11: the ways-on card as data (`spend.guidance`), kept as sent; the card reads it first. */
     private const val KEY_GUIDANCE = "cloud.guidance_json"
@@ -81,12 +79,6 @@ object NanoMuseCloud {
     private const val KEY_SESSIONS = "cloud.sessions"
     private const val KEY_VIA = "cloud.via"
     private const val KEY_USAGE = "cloud.usage_json"
-    // 0.1.22: invitations (relay 0.4); 0.5 counts no clips and keeps no separate credit
-    private const val KEY_INVITE_CODE = "cloud.invite_code"
-    private const val KEY_INVITE_URL = "cloud.invite_url"
-    private const val KEY_INVITES = "cloud.invites"
-    private const val KEY_INVITE_BONUS = "cloud.invite_bonus_cny"
-    private const val KEY_INVITE_EARNED = "cloud.invite_earned_cny"
     // 0.1.27: data controls (relay 0.9) — the switch, what is kept, how new accounts start
     private const val KEY_CONTRIBUTE = "cloud.contribute"
     private const val KEY_CONTRIBUTE_DEFAULT = "cloud.contribute_default"
@@ -198,7 +190,7 @@ object NanoMuseCloud {
         val spentTodayCny: Double = 0.0,
         val spentTotalCny: Double = 0.0,
         /**
-         * The pool for the account's lifetime (relay 0.5): the allowance plus what invites and
+         * The pool for the account's lifetime (relay 0.5): the allowance plus what
          * the operator added; 0 = no limit (a member, or an open relay).
          */
         val grantCny: Double = 0.0,
@@ -226,15 +218,6 @@ object NanoMuseCloud {
         val region: String = "",
         /** The breakdown by kind and by model, when the relay reports one. */
         val usage: Usage? = null,
-        /** This account's invite code and the link to share; empty on a relay from before 0.4. */
-        val inviteCode: String = "",
-        val inviteUrl: String = "",
-        /** Friends who signed up with the code, what each adds, and what they added in all. */
-        val invites: Int = 0,
-        val inviteBonusCny: Double = 0.0,
-        /** What the new account gets for signing up with a code (relay 0.9); 0 on an older relay. */
-        val inviteeBonusCny: Double = 0.0,
-        val inviteEarnedCny: Double = 0.0,
         /**
          * Data controls — "Help improve nanoMuse's AI models": whether the relay keeps this
          * account's chat turns for the community's model, and how many it holds so far.
@@ -349,16 +332,6 @@ object NanoMuseCloud {
         return repo(context)?.loadApiKey(inst.id)?.takeIf { it.isNotBlank() }
     }
 
-    /**
-     * The invite bonus as the relay states it, for the lines that mention it ("+¥5 for each
-     * of you") — the relay's figure can change from its operator's page at any time, so no
-     * string carries one of its own. ¥5 only until the first /v1/me.
-     */
-    fun inviteBonusText(context: Context): String {
-        val bonus = account(context)?.inviteBonusCny?.takeIf { it > 0 } ?: 5.0
-        return io.github.nanomuse.ui.cloud.money(bonus)
-    }
-
     fun account(context: Context): Account? {
         val p = prefs(context)
         val hint = p.getString(KEY_HINT, null) ?: return null
@@ -387,12 +360,6 @@ object NanoMuseCloud {
             via = p.getString(KEY_VIA, "") ?: "",
             region = p.getString(KEY_REGION, "") ?: "",
             usage = p.getString(KEY_USAGE, null)?.let { parseUsage(runCatching { JSONObject(it) }.getOrNull()) },
-            inviteCode = p.getString(KEY_INVITE_CODE, "") ?: "",
-            inviteUrl = p.getString(KEY_INVITE_URL, "") ?: "",
-            invites = p.getInt(KEY_INVITES, 0),
-            inviteBonusCny = p.getFloat(KEY_INVITE_BONUS, 0f).toDouble(),
-            inviteeBonusCny = p.getFloat(KEY_INVITEE_BONUS, 0f).toDouble(),
-            inviteEarnedCny = p.getFloat(KEY_INVITE_EARNED, 0f).toDouble(),
             contribute = p.getBoolean(KEY_CONTRIBUTE, false),
             samples = p.getInt(KEY_SAMPLES, 0),
             record = if (p.contains(KEY_RECORD_ON)) Record(
@@ -603,13 +570,11 @@ object NanoMuseCloud {
      * a default group with the recommended chat model (only if the user has none yet), and the
      * image model for the avatar (only if none is set). Returns the account as the relay sees it.
      */
-    suspend fun verify(context: Context, identifier: String, code: String, invite: String = ""): Account = withContext(Dispatchers.IO) {
+    suspend fun verify(context: Context, identifier: String, code: String): Account = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("identifier", identifier.trim())
             .put("code", code.trim())
             .put("device", deviceName())
-        // a friend's code counts for a new account only; the relay ignores it otherwise
-        if (invite.isNotBlank()) body.put("invite", invite.trim())
         adopt(context, call(context, "POST", "/v1/auth/verify", body, token = null))
     }
 
@@ -819,13 +784,11 @@ object NanoMuseCloud {
     }
 
     /**
-     * The one line for a turn refused for a spent allowance: the invitation, and the way on
-     * that fits where the person is (contract C5) — 阿里云百炼 on the mainland, OpenRouter's
-     * sign-in elsewhere.
+     * The one line for a turn refused for a spent allowance: the way on that fits where
+     * the person is (contract C5) — 阿里云百炼 on the mainland, OpenRouter's sign-in elsewhere.
      */
     fun allowanceSentence(context: Context): String = context.getString(
         if (Region.mainland(context)) R.string.nm_cloud_err_allowance else R.string.nm_cloud_err_allowance_abroad,
-        inviteBonusText(context),
     )
 
     /**
@@ -847,7 +810,7 @@ object NanoMuseCloud {
             "domain_limited" -> context.getString(R.string.nm_cloud_err_domain_limited)
             "channel_unsupported" -> context.getString(R.string.nm_cloud_err_channel_unsupported)
             "send_failed" -> context.getString(R.string.nm_cloud_err_send_failed)
-            "phone_region" -> context.getString(R.string.nm_cloud_sms_region) // the same sentence the sign-in screen shows before asking
+            "phone_region" -> context.getString(R.string.nm_cloud_sms_region)
             "account_disabled" -> context.getString(R.string.nm_cloud_err_disabled)
             "bad_key" -> context.getString(R.string.nm_cloud_err_bad_key)
             "account_deleted" -> context.getString(R.string.nm_cloud_err_account_deleted)
@@ -1133,7 +1096,6 @@ object NanoMuseCloud {
             )
             .putBoolean(KEY_WARN, spend.optBoolean("warn", false))
             .putFloat(KEY_ALLOWANCE, spend.optDouble("allowance_cny", 0.0).toFloat())
-            .putFloat(KEY_INVITEE_BONUS, spend.optDouble("invitee_bonus_cny", reply.optJSONObject("invite")?.optDouble("invitee_bonus_cny", 0.0) ?: 0.0).toFloat())
             .putString(KEY_OWN_KEY_DOCS, spend.optString("own_key_docs", ""))
             // relay 0.21: the card as data; an older relay sends none and the bundled catalogue is used
             .putString(KEY_GUIDANCE, spend.optJSONObject("guidance")?.toString())
@@ -1145,11 +1107,6 @@ object NanoMuseCloud {
             .putString(KEY_VIA, account.optString("signed_in_via"))
             .putString(KEY_REGION, account.optString("region", reply.optString("region", "")))
             .putString(KEY_USAGE, reply.optJSONObject("usage")?.toString())
-            .putString(KEY_INVITE_CODE, reply.optJSONObject("invite")?.optString("code").orEmpty())
-            .putString(KEY_INVITE_URL, reply.optJSONObject("invite")?.optString("url").orEmpty())
-            .putInt(KEY_INVITES, reply.optJSONObject("invite")?.optInt("invites") ?: 0)
-            .putFloat(KEY_INVITE_BONUS, (reply.optJSONObject("invite")?.optDouble("bonus_cny", 0.0) ?: 0.0).toFloat())
-            .putFloat(KEY_INVITE_EARNED, (reply.optJSONObject("invite")?.optDouble("earned_cny", 0.0) ?: 0.0).toFloat())
             .putBoolean(KEY_CONTRIBUTE, reply.optJSONObject("contribute")?.optBoolean("on", false) ?: false)
             .putInt(KEY_SAMPLES, reply.optJSONObject("contribute")?.optInt("samples", 0) ?: 0)
             .putString(KEY_PRIVACY_URL, reply.optJSONObject("contribute")?.optString("privacy_url", "").orEmpty())
@@ -1222,10 +1179,9 @@ object NanoMuseCloud {
             .remove(KEY_INSTANCE).remove(KEY_CHANNEL).remove(KEY_HINT)
             .remove(KEY_GRANTED).remove(KEY_USED).remove(KEY_USED_TODAY).remove(KEY_DAILY_CAP).remove(KEY_UNLIMITED).remove(KEY_CHECKED_AT)
             .remove(KEY_MEMBER).remove(KEY_SPENT_TODAY).remove(KEY_SPENT_TOTAL).remove(KEY_USD_CNY)
-            .remove(KEY_GRANT).remove(KEY_LEFT).remove(KEY_WARN).remove(KEY_ALLOWANCE).remove(KEY_INVITEE_BONUS)
+            .remove(KEY_GRANT).remove(KEY_LEFT).remove(KEY_WARN).remove(KEY_ALLOWANCE)
             .remove(KEY_OWN_KEY_DOCS).remove(KEY_GUIDANCE)
             .remove(KEY_ACCOUNT_ID).remove(KEY_CREATED_AT).remove(KEY_HAS_PASSWORD).remove(KEY_SESSIONS).remove(KEY_VIA).remove(KEY_REGION).remove(KEY_USAGE)
-            .remove(KEY_INVITE_CODE).remove(KEY_INVITE_URL).remove(KEY_INVITES).remove(KEY_INVITE_BONUS).remove(KEY_INVITE_EARNED)
             .remove(KEY_CONTRIBUTE).remove(KEY_SAMPLES).remove(KEY_CONTRIBUTE_DEFAULT).remove(KEY_PRIVACY_URL).remove(KEY_FRESH).remove(KEY_WARNED_GRANT)
             .remove(KEY_RECORD_ON).remove(KEY_RECORD_TURNS).remove(KEY_RECORD_OWN).remove(KEY_RECORD_FILES).remove(KEY_RECORD_BYTES).remove(KEY_RECORD_KEEP_DAYS)
             .remove(KEY_MENU_IDS).remove(KEY_CATALOG_IDS).remove(KEY_RECOMMENDED).remove(KEY_SIGHTED).remove(KEY_CHAT_IDS).remove(KEY_GUI_IDS).remove(KEY_MODELS_AT)

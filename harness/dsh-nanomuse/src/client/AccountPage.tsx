@@ -1,6 +1,6 @@
 /**
  * The account, as the phone and the web app show it: the pool in yuan with the two ways on
- * when it runs low (your own key, an invitation — and a star, once), the invite code, what was
+ * when it runs low (your own key, a plan — and a star, once), what was
  * used by kind and by model, the password, every device holding a key, the account's own
  * timeline, and the way out (this device, every device, the account itself). Everything here
  * is read from the relay through the host's pass-through routes (`/nanomuse/cloud/me`,
@@ -12,7 +12,7 @@ import { allowanceInfo, AllowanceWays, type Guidance } from './AllowanceWays.tsx
 import { call, errorStyle, muted, row, type CloudStatus, type Translate, failureText } from './api.ts'
 import { openLink } from './bridge.ts'
 import { settingsBus } from './bus.ts'
-import { IconCopy, IconHeart } from './icons.tsx'
+import { IconHeart } from './icons.tsx'
 import { REPO_URL } from './panels.ts'
 import { peekRooms, roomsCall, type NudgeAsk } from './rooms.ts'
 import { starText } from '../nudges.ts'
@@ -22,30 +22,12 @@ export interface AccountSheet {
   account?: { id?: string; channel?: string; hint?: string; member?: boolean; has_password?: boolean; sessions?: number; signed_in_via?: string; created_at?: number; region?: string }
   /** Where the account is, as the relay sees it (0.1.34): `cn` or `intl`. */
   region?: string
-  spend?: { total?: number; grant?: number; left?: number | null; unlimited?: boolean; warn?: boolean; usd_cny?: number; invite_bonus_cny?: number; invitee_bonus_cny?: number; own_key_docs?: string; guidance?: Guidance }
+  spend?: { total?: number; grant?: number; left?: number | null; unlimited?: boolean; warn?: boolean; usd_cny?: number; own_key_docs?: string; guidance?: Guidance }
   usage?: { today?: { by_kind?: UsageRow[] }; total?: { by_kind?: UsageRow[]; by_model?: UsageRow[] } }
-  invite?: { code?: string; url?: string; invites?: number; bonus_cny?: number; invitee_bonus_cny?: number; earned_cny?: number }
 }
 export interface UsageRow { kind?: string; model?: string; requests?: number; prompt_tokens?: number; completion_tokens?: number; cost_cny?: number }
 interface Session { prefix: string; device: string; via: string; created_at: number; last_used_at: number | null; current: boolean }
 interface AccountEvent { ts: number; kind: string; detail: string }
-
-/** `GET /v1/config` on the relay (0.15): the amounts a client prints before anyone signs in. */
-export interface CloudConfig { version?: string; signup_open?: boolean; allowance_cny?: number; invite_bonus_cny?: number; invitee_bonus_cny?: number; star_url?: string }
-let configCache: CloudConfig | undefined
-let configPending: Promise<CloudConfig> | undefined
-/** The relay's public config, fetched once per window; `{}` until it arrives or when the relay is older. */
-export function useCloudConfig(): CloudConfig {
-  const [config, setConfig] = useState<CloudConfig>(configCache ?? {})
-  useEffect(() => {
-    if (configCache) return
-    configPending ??= call<CloudConfig>('config').then((c) => { configCache = c ?? {}; return configCache }).catch(() => ({} as CloudConfig))
-    let alive = true
-    void configPending.then((c) => { if (alive) setConfig(c) })
-    return () => { alive = false }
-  }, [])
-  return config
-}
 
 const yuan = (n: number | undefined | null): string => (n === undefined || n === null ? '—' : `¥${n.toFixed(n % 1 === 0 ? 0 : 2)}`)
 const when = (ts: number | null | undefined, locale: string): string => (ts ? new Date(ts * 1000).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '—')
@@ -171,7 +153,6 @@ export function AccountPage({ t, status, locale, onEnded }: AccountPageProps): R
     sheet ? h(StarNudgeOnce, { t, moment: 'signed_in' }) : null,
     h('h3', { style: heading }, t('acAllowance')),
     sheet ? h(Allowance, { t, sheet, member }) : h('div', { style: muted }, t('loading')),
-    sheet?.invite?.code ? h(Fragment, null, h('h3', { style: heading }, t('acInvite')), h(InviteBlock, { t, invite: sheet.invite })) : null,
     h('h3', { style: heading }, t('acUsage')),
     sheet ? h(Usage, { t, sheet }) : null,
     h('h3', { style: heading }, t('acPassword')),
@@ -217,32 +198,6 @@ export function mainland(t: Translate, sheet: AccountSheet): boolean {
 /** When the pool is low or spent: the ways on, from what the relay sends (C11), under the pool bar. */
 function WaysOn({ t, exhausted, sheet }: { t: Translate; exhausted: boolean; sheet: AccountSheet }): ReactNode {
   return h(AllowanceWays, { t, info: allowanceInfo(sheet), sheet, exhausted, inSettings: true })
-}
-
-// ---- the invite ----------------------------------------------------------------------------
-
-function InviteBlock({ t, invite }: { t: Translate; invite: NonNullable<AccountSheet['invite']> }): ReactNode {
-  const [copied, setCopied] = useState<'code' | 'link' | undefined>()
-  const copy = (what: 'code' | 'link', text: string) => {
-    void navigator.clipboard?.writeText(text).then(() => {
-      setCopied(what)
-      window.setTimeout(() => setCopied(undefined), 1800)
-    }).catch(() => undefined)
-  }
-  const earned = invite.earned_cny ?? 0
-  return h('div', { className: 'nm-card' },
-    h('div', { className: 'nm-row' },
-      h('div', { className: 'nm-row-main' },
-        h('span', { className: 'nm-row-title' }, invite.code ?? ''),
-        h('span', { className: 'nm-row-sub nm-wrap' }, t('inviteText', { bonus: invite.bonus_cny ?? 5 }))),
-      h('button', { type: 'button', className: 'nm-pill nm-pill-ghost nm-pill-sm', onClick: () => copy('code', invite.code ?? '') }, h(IconCopy, { size: 14 }), copied === 'code' ? t('inviteCopied') : t('inviteCopy'))),
-    invite.url
-      ? h('div', { className: 'nm-row' },
-          h('div', { className: 'nm-row-main' },
-            h('span', { className: 'nm-row-title', style: { fontWeight: 400, fontSize: 13 } }, invite.url)),
-          h('button', { type: 'button', className: 'nm-pill nm-pill-ghost nm-pill-sm', onClick: () => copy('link', invite.url ?? '') }, h(IconCopy, { size: 14 }), copied === 'link' ? t('inviteCopied') : t('inviteCopy')))
-      : null,
-    h('div', { className: 'nm-row' }, h('span', { className: 'nm-row-sub' }, t('inviteStats', { n: invite.invites ?? 0, earned: earned.toFixed(earned % 1 === 0 ? 0 : 2) }))))
 }
 
 // ---- usage by kind and by model -----------------------------------------------------------

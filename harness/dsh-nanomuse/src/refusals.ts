@@ -66,8 +66,6 @@ export interface RelayRefusal {
   left?: number
   grant?: number
   /** `allowance_exhausted`: where the ways on lead (relay 0.17+). */
-  inviteUrl?: string
-  inviteBonusCny?: number
   ownKeyDocs?: string
   /** `allowance_exhausted`: the own-key card as data (relay 0.21, contract C11), as sent. */
   guidance?: Record<string, unknown>
@@ -199,10 +197,6 @@ export function parseRelayFailure(message: string, code?: string): RelayRefusal 
     const grant = num(err.grant)
     if (left !== undefined) refusal.left = left
     if (grant !== undefined) refusal.grant = grant
-    const inviteUrl = str(err.invite_url)
-    if (inviteUrl) refusal.inviteUrl = inviteUrl
-    const bonus = num(err.invite_bonus_cny)
-    if (bonus !== undefined) refusal.inviteBonusCny = bonus
     const docs = str(err.own_key_docs)
     if (docs) refusal.ownKeyDocs = docs
     if (err.guidance && typeof err.guidance === 'object' && !Array.isArray(err.guidance)) refusal.guidance = err.guidance as Record<string, unknown>
@@ -216,7 +210,7 @@ export function parseRelayFailure(message: string, code?: string): RelayRefusal 
 export function refusalSentence(refusal: RelayRefusal): string {
   switch (refusal.kind) {
     case 'exhausted':
-      return 'The free allowance is used up. Add a key of your own, sign in with a plan you already pay for, or invite a friend, all under Settings → nanoMuse Cloud. Your sign-in and your devices keep working.'
+      return 'The free allowance is used up. Add a key of your own, or sign in with a plan you already pay for, both under Settings → nanoMuse Cloud. Your sign-in and your devices keep working.'
     case 'allowance_paused':
       return 'The free allowance is paused on this relay for now, not used up. Add a key of your own or sign in with a plan you already pay for, both under Settings → nanoMuse Cloud. Your sign-in, your devices and what is left stay as they are.'
     case 'too_large':

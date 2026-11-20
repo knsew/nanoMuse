@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Settings › Providers › nanoMuse Cloud. Signed out: a phone number or an e-mail address, a
-/// code, done. Signed in: what is left of the starter allowance, a refresh, the way out.
+/// Settings › Providers › nanoMuse Cloud. Signed out: an e-mail address (a phone number works
+/// too; its code is in the relay log), a code, done. Signed in: what is left of the starter
+/// allowance, a refresh, the way out.
 /// Mirror of the Android `CloudSignInScreen` / `CloudAccountScreen`.
 struct NanoMuseCloudView: View {
     @ObservedObject private var store = ProviderConfigStore.shared
@@ -12,9 +13,6 @@ struct NanoMuseCloudView: View {
     /// The other way in: the account's password instead of a code.
     @State private var usePassword = false
     @State private var password = ""
-    /// A friend's invite code, optional, with the six digits.
-    @State private var invite = ""
-    @State private var inviteOpen = false
     /// What the relay gives on sign-up (relay 0.15), for the line above the form.
     @State private var config = NanoMuseConfig()
     @State private var busy = false
@@ -41,7 +39,7 @@ struct NanoMuseCloudView: View {
         Form {
             if signedIn {
                 // nanoMuse: the blocks and their order follow the Android account screen —
-                // identity, password, sessions, star, allowance, invite, usage, activity,
+                // identity, password, sessions, star, allowance, usage, activity,
                 // devices, links, the ways out, the notice.
                 identitySection
                 NanoMuseAccountSections(account: $account)
@@ -242,19 +240,12 @@ struct NanoMuseCloudView: View {
             }
             .padding(.vertical, 8)
             .listRowBackground(Color.clear)
-            // SMS codes reach mainland-China numbers only: the placeholder says so, and a number
-            // from elsewhere gets the e-mail sentence while it is being typed, before any tap.
-            TextField(AppLocalized("Mainland China phone number or e-mail"), text: $identifier)
+            TextField(AppLocalized("E-mail address"), text: $identifier)
                 .keyboardType(.emailAddress)
                 .textContentType(.username)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .disabled(busy || codeSent)
-            if !codeSent, NanoMuseCloud.needsEmailInstead(identifier: identifier) {
-                Text(NanoMuseCloud.phoneRegionSentence)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
             if usePassword {
                 SecureField(AppLocalized("Password"), text: $password)
                     .textContentType(.password)
@@ -264,23 +255,10 @@ struct NanoMuseCloudView: View {
                     .keyboardType(.numberPad)
                     .textContentType(.oneTimeCode)
                     .disabled(busy)
-                if inviteOpen {
-                    TextField(AppLocalized("Invite code (optional)"), text: $invite)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .disabled(busy)
-                } else {
-                    Button(AppLocalized("Have an invite code?")) { inviteOpen = true }
-                        .font(.subheadline)
-                        .disabled(busy)
-                }
             }
         } footer: {
             if let message {
                 Text(message).foregroundStyle(failed ? Color.red : Color.secondary)
-            } else if inviteOpen && codeSent && !usePassword {
-                let bonus = "¥" + (config.inviteeBonusCny ?? 5).formatted(.number.precision(.fractionLength(0)))
-                Text(String(format: AppLocalized("A friend’s code on a first sign-in adds %@ for both of you after your first request."), bonus))
             }
         }
 
@@ -377,13 +355,6 @@ struct NanoMuseCloudView: View {
     }
 
     private func sendCode() async {
-        // A number outside mainland China gets no text message; say so before asking the relay
-        // (whose `phone_region` answer is the same sentence).
-        if NanoMuseCloud.needsEmailInstead(identifier: identifier) {
-            failed = true
-            message = NanoMuseCloud.phoneRegionSentence
-            return
-        }
         busy = true
         failed = false
         defer { busy = false }
@@ -402,11 +373,9 @@ struct NanoMuseCloudView: View {
         failed = false
         defer { busy = false }
         do {
-            account = try await NanoMuseCloud.verify(identifier: identifier, code: code, invite: invite)
+            account = try await NanoMuseCloud.verify(identifier: identifier, code: code)
             message = nil
             code = ""
-            invite = ""
-            inviteOpen = false
             codeSent = false
         } catch {
             failed = true

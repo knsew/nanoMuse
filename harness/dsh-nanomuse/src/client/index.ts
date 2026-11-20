@@ -42,10 +42,9 @@ import { makeGoalsPanel } from './GoalsPanel.tsx'
 import { makeIdeasPanel } from './IdeasPanel.tsx'
 import { makeLibraryPanel } from './LibraryPanel.tsx'
 import { IconPanelLeft, IconPlus } from './icons.tsx'
-import { makeInviteButton } from './Invite.tsx'
 import { useLive } from './live.ts'
 import { en, zh } from './locales.ts'
-import type { ChatActions } from './MuseChats.tsx'
+import { mainChatId, type ChatActions } from './MuseChats.tsx'
 import { MuseHeader, type UseSessionStatus } from './MuseHeader.tsx'
 import { CONNECTORS_SECTION, makeConnectorsSection } from './Connectors.tsx'
 import { SKILLS_SECTION, makeSkillsSection } from './Skills.tsx'
@@ -137,6 +136,27 @@ function useMood(useSessionStatus: UseSessionStatus | undefined): Mood {
     }
     return mood
   })
+}
+
+/**
+ * The session seat: no UI of its own, it only reports which chat is on screen
+ * to the window store the panels read (`win.current`, and the `nmSide` mark a
+ * side chat carries for the header styles). It lives in the header-utilities
+ * slot because that seat is per session; the Invite button that used to sit
+ * here did the same reporting.
+ */
+function SessionSeat({ sessionId }: { sessionId?: string | undefined }): ReactNode {
+  const side = sessionId !== undefined && mainChatId() !== undefined && mainChatId() !== sessionId
+  useEffect(() => {
+    win.current(sessionId ?? null)
+    if (side) document.documentElement.dataset['nmSide'] = ''
+    else delete document.documentElement.dataset['nmSide']
+    return () => {
+      delete document.documentElement.dataset['nmSide']
+      win.current(null)
+    }
+  }, [sessionId, side])
+  return null
 }
 
 export function apply(ctx: ClientContext): void {
@@ -387,10 +407,9 @@ export function apply(ctx: ClientContext): void {
     slots.register({ name: 'conversation.header.leading', locale: 'nanomuse' }, ({ useSessionStatus }: { useSessionStatus?: UseSessionStatus }) =>
       h(MuseHeader, { t, stop, openProfile: () => { profileBus.toggle() }, useSessionStatus })))
 
-  // Invite, at the top right of a chat; the profile drawer over the frame.
-  const InviteButton = makeInviteButton(t)
+  // The session seat, reporting which chat is on screen; the profile drawer over the frame.
   slots.inject('conversation.session.header.utilities', () =>
-    slots.register({ name: 'conversation.session.header.utilities', id: 'nanomuse-invite', order: -20, locale: 'nanomuse' }, InviteButton))
+    slots.register({ name: 'conversation.session.header.utilities', id: 'nanomuse-session-seat', order: -20, locale: 'nanomuse' }, SessionSeat))
   const ProfileDrawer = makeProfileDrawer(t, stop)
   slots.inject('shell.overlay', () =>
     slots.register({ name: 'shell.overlay', id: 'nanomuse.profile', locale: 'nanomuse', inject: () => ({ openSchedules: () => { selectPanel('schedules') } }) }, ProfileDrawer))

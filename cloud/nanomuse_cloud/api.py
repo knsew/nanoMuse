@@ -2,7 +2,7 @@
 
     GET  /healthz                                               → {ok, version, models, paused}
     GET  /v1/config                                             → the public figures the apps print (allowance, bonus, links, code_ttl_s, password_min_len); a minute's cache
-    POST /v1/auth/code        {identifier}                      → 204 (400 phone_region: a number the SMS sender cannot reach; a disabled account gets the same 204 and no code is sent; 429 domain_limited: a new address of a domain at its day's sign-up limit)
+    POST /v1/auth/code        {identifier}                      → 204 (400 phone_region: a number this relay cannot send a code to; a disabled account gets the same 204 and no code is sent; 429 domain_limited: a new address of a domain at its day's sign-up limit)
     POST /v1/auth/verify      {identifier, code, device, invite? (ignored), device_id?, device_kind?} → {api_key, base_url, account, tokens, models}
     POST /v1/auth/login       {identifier, password, device, device_id?, device_kind?} → the same, for accounts that set a password
     POST /v1/auth/password    {password, current?}              → 204 (set / change; "" + current removes)
@@ -673,7 +673,7 @@ def create_app(
         try:
             ident = parse(str(body.get("identifier", "")))
         except BadIdentifier as e:
-            raise CloudError(400, "bad_identifier", "Enter a mainland phone number or an e-mail address") from e
+            raise CloudError(400, "bad_identifier", "Enter a phone number or an e-mail address") from e
         await asyncio.to_thread(cloud.request_code, ident, client_ip(request))
         return Response(status_code=204)
 
@@ -683,7 +683,7 @@ def create_app(
         try:
             ident = parse(str(body.get("identifier", "")))
         except BadIdentifier as e:
-            raise CloudError(400, "bad_identifier", "Enter a mainland phone number or an e-mail address") from e
+            raise CloudError(400, "bad_identifier", "Enter a phone number or an e-mail address") from e
         code = str(body.get("code", "")).strip()
         if not code.isdigit() or len(code) != 6:
             raise CloudError(400, "code_wrong", "The code is six digits")
@@ -708,7 +708,7 @@ def create_app(
         try:
             ident = parse(str(body.get("identifier", "")))
         except BadIdentifier as e:
-            raise CloudError(400, "bad_identifier", "Enter a mainland phone number or an e-mail address") from e
+            raise CloudError(400, "bad_identifier", "Enter a phone number or an e-mail address") from e
         password = str(body.get("password", ""))
         if not password:
             raise CloudError(400, "password_required", "Enter the password")

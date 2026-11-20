@@ -1,7 +1,7 @@
 /**
  * The ways on when the free allowance is spent or nearly (the phones' `AllowanceWaysCard`,
- * the web app's `AllowanceWays`): your own model key, a plan you already pay for, inviting a
- * friend — and, once, a star. Drawn from what the relay sends beside the refusal and under
+ * the web app's `AllowanceWays`): your own model key, a plan you already pay for
+ * — and, once, a star. Drawn from what the relay sends beside the refusal and under
  * `/v1/me.spend` (`guidance`, contract C11: the providers for the region, the plans, the
  * caveats), never from a list written here; where the relay is older, the bundled catalogue
  * stands in. Two places draw it: the chat, under a refused turn (`RefusalCard.tsx`), where the
@@ -14,7 +14,7 @@ import { mainland, markStarred, openStar, type AccountSheet } from './AccountPag
 import { call, muted, row, type Translate } from './api.ts'
 import { openLink } from './bridge.ts'
 import { settingsBus } from './bus.ts'
-import { IconChevronRight, IconClose, IconCopy, IconGift, IconHeart, IconKey, IconSparkle, IconUser } from './icons.tsx'
+import { IconChevronRight, IconClose, IconHeart, IconKey, IconSparkle, IconUser } from './icons.tsx'
 import { useLive } from './live.ts'
 import { ACCOUNT_SECTION, ChatGptRow, coverage, groupsOf, useProviders, WaysOnRows } from './OwnKey.tsx'
 import { roomsCall, type NudgeAsk } from './rooms.ts'
@@ -41,12 +41,10 @@ export interface GuidanceProvider {
   note_zh?: string
 }
 
-/** What the card needs of a refusal or the account sheet: the numbers and where the ways on lead. */
+/** What the card needs of the account sheet: the numbers and where the ways on lead. */
 export interface AllowanceInfo {
   left?: number | null | undefined
   grant?: number | undefined
-  inviteUrl?: string | undefined
-  inviteBonusCny?: number | undefined
   ownKeyDocs?: string | undefined
   guidance?: Guidance | undefined
 }
@@ -54,16 +52,14 @@ export interface AllowanceInfo {
 /** Where the guide for one's own key is when the relay did not say. */
 export const OWN_KEY_DOCS = 'https://github.com/knsew/nanoMuse'
 
-/** The card's numbers and links out of `/v1/me` (the sheet) with a refusal's figures first, when there is one. */
-export function allowanceInfo(sheet: AccountSheet | undefined, refusal?: AllowanceInfo): AllowanceInfo {
+/** The card's numbers and links out of `/v1/me` (the sheet). */
+export function allowanceInfo(sheet: AccountSheet | undefined): AllowanceInfo {
   const s = sheet?.spend
   return {
-    left: refusal?.left ?? s?.left,
-    grant: refusal?.grant ?? s?.grant,
-    inviteUrl: refusal?.inviteUrl || sheet?.invite?.url,
-    inviteBonusCny: refusal?.inviteBonusCny ?? s?.invite_bonus_cny ?? sheet?.invite?.bonus_cny,
-    ownKeyDocs: refusal?.ownKeyDocs || s?.own_key_docs,
-    guidance: refusal?.guidance ?? s?.guidance,
+    left: s?.left,
+    grant: s?.grant,
+    ownKeyDocs: s?.own_key_docs,
+    guidance: s?.guidance,
   }
 }
 
@@ -72,7 +68,7 @@ const nameOf = (t: Translate, p: GuidanceProvider): string => (t('langTag') === 
 export interface AllowanceWaysProps {
   t: Translate
   info: AllowanceInfo
-  /** The account sheet when one is at hand (where the person is, the invite code). */
+  /** The account sheet when one is at hand (where the person is). */
   sheet?: AccountSheet
   /** true: the pool is spent (the card leads with that); false: the 80 % heads-up. */
   exhausted: boolean
@@ -97,20 +93,17 @@ export function AllowanceHeadsUp({ t }: { t: Translate }): ReactNode {
   return h('div', { className: 'nm-headsup', role: 'status', 'data-testid': 'nm-headsup' },
     h('span', { className: 'nm-headsup-icon' }, h(IconSparkle, { size: 14 })),
     h('span', { className: 'nm-headsup-text' },
-      t('huText', { left: up.left.toFixed(2), grant: up.grant.toFixed(0), bonus: up.bonus.toFixed(0) }), ' ',
+      t('huText', { left: up.left.toFixed(2), grant: up.grant.toFixed(0) }), ' ',
       h('button', { type: 'button', className: 'nm-ob-link nm-inline', onClick: () => { seen(); settingsBus.openSection?.(ACCOUNT_SECTION) } }, t('huSee'))),
     h('button', { type: 'button', className: 'nm-icon-btn nm-headsup-close', 'aria-label': t('huDismiss'), title: t('huDismiss'), onClick: seen }, h(IconClose, { size: 14 })))
 }
 
-/** The three ways on, and the star once. */
+/** The two ways on, and the star once. */
 export function AllowanceWays({ t, info, sheet, exhausted, lead, inSettings = false, onChanged }: AllowanceWaysProps): ReactNode {
   const zh = t('langTag') === 'zh'
-  const bonus = info.inviteBonusCny ?? 5
   const docs = info.ownKeyDocs || info.guidance?.docs || OWN_KEY_DOCS
-  const link = info.inviteUrl || ''
   const guidance = info.guidance
   const [more, setMore] = useState(false)
-  const [copied, setCopied] = useState(false)
   const { view } = useProviders(t)
   // the host decides whether the star row is due (C1 `exhausted`); asked once per card
   const [star, setStar] = useState(false)
@@ -137,20 +130,11 @@ export function AllowanceWays({ t, info, sheet, exhausted, lead, inSettings = fa
   const planNames = (guidance?.plans ?? []).map((p) => p.name ?? '').filter(Boolean)
   const caveat = zh ? guidance?.caveats?.chatgpt_zh || guidance?.caveats?.chatgpt : guidance?.caveats?.chatgpt
   const openRows = () => { settingsBus.openSection?.(ACCOUNT_SECTION) }
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1800)
-    } catch {
-      // the clipboard is not ours in this window: the link stays printed below
-    }
-  }
   const changed = () => onChanged?.()
 
   return h('div', { className: 'nm-ways nm-allowance', 'data-testid': 'nm-allowance-ways' },
     h('div', { className: 'nm-ways-lead' }, lead ?? (exhausted ? t('awExhausted') : t('awNearlyOut', { left: (info.left ?? 0).toFixed(2), grant: (info.grant ?? 0).toFixed(0) }))),
-    h('div', { className: 'nm-way-sub nm-wrap', style: muted }, t('awThreeWays')),
+    h('div', { className: 'nm-way-sub nm-wrap', style: muted }, t('awWaysOn')),
     // 1. your own key
     h('div', { className: 'nm-way' },
       h('span', { className: 'nm-way-icon' }, h(IconKey, { size: 15 })),
@@ -186,16 +170,6 @@ export function AllowanceWays({ t, info, sheet, exhausted, lead, inSettings = fa
         inSettings
           ? h('div', { style: row }, h('button', { type: 'button', className: 'nm-pill nm-pill-ghost nm-pill-sm', onClick: openRows }, t('awRowsAbove')))
           : view ? h(ChatGptRow, { t, view, onChanged: changed }) : null)),
-    // 3. invite a friend
-    h('div', { className: 'nm-way' },
-      h('span', { className: 'nm-way-icon' }, h(IconGift, { size: 15 })),
-      h('div', { className: 'nm-way-main' },
-        h('div', { className: 'nm-way-title' }, t('awInvite', { bonus: bonus.toFixed(0) })),
-        link
-          ? h('div', { style: row },
-              h('button', { type: 'button', className: 'nm-pill nm-pill-ghost nm-pill-sm', onClick: () => void copy() }, h(IconCopy, { size: 14 }), copied ? t('inviteCopied') : t('awCopyLink')),
-              h('span', { className: 'nm-way-sub', style: { ...muted, wordBreak: 'break-all' } }, link))
-          : h('div', { className: 'nm-way-sub nm-wrap' }, t('acWayInviteSub')))),
     // the star, once, when the policy says so
     exhausted && star
       ? h('div', { className: 'nm-way' },

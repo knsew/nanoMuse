@@ -88,23 +88,23 @@ function render(lang, node) {
   return bundle.renderCard(translator(lang), deps, node)
 }
 
-const EXHAUSTED = { message: 'The free allowance (¥10) is used up.', type: 'nanomuse_cloud', code: 'allowance_exhausted', left: 0, grant: 10, guidance: { region: 'cn', providers: [], plans: [{ name: 'ChatGPT' }] }, invite_url: 'https://relay.example/i/X', invite_bonus_cny: 5 }
+const EXHAUSTED = { message: 'The free allowance (¥10) is used up.', type: 'nanomuse_cloud', code: 'allowance_exhausted', left: 0, grant: 10, guidance: { region: 'cn', providers: [], plans: [{ name: 'ChatGPT' }] } }
 
-test('429 allowance_exhausted: the allowance card — lead, the three ways, Try again; no wire', () => {
+test('429 allowance_exhausted: the allowance card — lead, the two ways, Try again; no wire', () => {
   const en = render('en', nodeFor(429, EXHAUSTED, 'RATE_LIMIT'))
   assert.match(en, /data-kind="exhausted"/)
   assert.match(en, /The free allowance is used up\./)
-  assert.match(en, /Three ways on/)
+  assert.match(en, /Two ways on/)
   assert.match(en, /Use your own model key/)
   assert.match(en, /Sign in with a plan you already pay for/)
-  assert.match(en, /Invite a friend/)
+  assert.doesNotMatch(en, /Invite a friend/)
   assert.match(en, /Open Settings → nanoMuse Cloud/)
   assert.match(en, /Step-by-step guide/)
   assert.match(en, />Try again</)
   assert.doesNotMatch(en, /429|allowance_exhausted|nanomuse_cloud|[{}]/)
   const zh = render('zh', nodeFor(429, EXHAUSTED, 'RATE_LIMIT'))
   assert.match(zh, /免费额度已用完。/)
-  assert.match(zh, /三个办法继续用/)
+  assert.match(zh, /两个办法继续用/)
   assert.match(zh, />再试一次</)
   assert.doesNotMatch(zh, /429|[{}]/)
 })
@@ -162,7 +162,7 @@ test('relay 0.22: the allowance paused by the operator — the same card, saying
   assert.match(paused, /data-kind="allowance_paused"/)
   assert.match(paused, /The free allowance is paused on this relay for now, not used up\./)
   assert.doesNotMatch(paused, /The free allowance is used up\./)
-  assert.match(paused, /Three ways on/)
+  assert.match(paused, /Two ways on/)
   assert.match(paused, /Use your own model key/)
   assert.match(paused, />Try again</)
   assert.doesNotMatch(paused, /429|allowance_exhausted|reason|[{}]/)
@@ -204,5 +204,5 @@ test('every key the card reads exists in both dictionaries', () => {
   const zh = Object.keys(bundle.zh)
   assert.deepEqual(zh.filter((k) => !en.includes(k)), [])
   assert.deepEqual(en.filter((k) => !zh.includes(k)), [])
-  for (const key of ['awExhausted', 'awThreeWays', 'rfTooLarge', 'rfSignedOut', 'rfRetry', 'rfNewChat', 'huText', 'huSee']) assert.ok(en.includes(key), key)
+  for (const key of ['awExhausted', 'awWaysOn', 'rfTooLarge', 'rfSignedOut', 'rfRetry', 'rfNewChat', 'huText', 'huSee']) assert.ok(en.includes(key), key)
 })

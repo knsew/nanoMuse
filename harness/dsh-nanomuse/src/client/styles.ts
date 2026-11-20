@@ -302,12 +302,6 @@ html[data-nm-muse] [data-slot="conversation.header"]:has(.nm-header) ~ [data-con
 .nm-stop { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; padding: 1px 8px 1px 5px; border-radius: 999px; border: 1px solid var(--dsw-alias-interactive-bg-active); background: var(--nm-base); color: var(--dsw-alias-label-primary); font-size: 12px; line-height: 18px; cursor: pointer; }
 .nm-stop:hover { background: var(--nm-hover); }
 .nm-stop:disabled { opacity: 0.5; cursor: default; }
-.nm-invite { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 10px; border: 0; border-radius: 999px; background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; cursor: pointer; }
-.nm-invite:hover { background: var(--dsw-alias-bg-layer-2); }
-.nm-invite-card { display: flex; flex-direction: column; gap: 14px; }
-.nm-invite-code { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--dsw-alias-bg-layer-2); font-size: 22px; font-weight: 600; letter-spacing: 0.12em; }
-.nm-invite-code .nm-pill { margin-left: auto; letter-spacing: 0; }
-.nm-invite-link { font-size: 13px; color: var(--dsw-alias-label-secondary); word-break: break-all; }
 
 /* ---- the Muse conversation: the harness's DOM, Muse's shapes ----------- */
 /* The composer card becomes one pill: + | the text | send. */
@@ -400,7 +394,7 @@ html[data-nm-muse] [data-chat-flow-kind="user"]:hover [class*="_actions"][data-c
 html[data-nm-muse] [data-chat-flow-kind="user"] [class*="_actions"][data-clock]:focus-within,
 html[data-nm-muse] [data-chat-flow-kind="turn-tail"]:hover [class*="_actions"][data-clock],
 html[data-nm-muse] [data-chat-flow-kind="turn-tail"] [class*="_actions"][data-clock]:focus-within { opacity: 1; }
-/* The session header keeps only what Muse shows up there: Invite and the corner;
+/* The session header keeps only what Muse shows up there: the corner;
    a side chat shows its title at the left (a new one reads "New side chat"). */
 html[data-nm-muse] [data-slot="conversation.session.header"] [class*="_titleCluster"] { display: none; }
 html[data-nm-muse][data-nm-side] [data-slot="conversation.session.header"] [class*="_titleCluster"] { display: flex; }
@@ -415,7 +409,7 @@ html[data-nm-muse] [data-slot="conversation.session.header"] [data-conversation-
 html[data-nm-muse] [data-slot="conversation.session.header"] [data-conversation-tabs]:has([role="tab"][aria-selected="true"]:not(:first-child)) { display: inline-flex; align-self: flex-start; margin: 10px 16px 0 auto; padding: 3px; gap: 2px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); }
 html[data-nm-muse] [data-slot="conversation.session.header"] [data-conversation-tabs]:has([role="tab"][aria-selected="true"]:not(:first-child)) [role="tab"] { border: 0; border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 500; color: var(--dsw-alias-label-secondary); background: transparent; cursor: pointer; }
 html[data-nm-muse] [data-slot="conversation.session.header"] [data-conversation-tabs]:has([role="tab"][aria-selected="true"]:not(:first-child)) [role="tab"][aria-selected="true"] { background: var(--nm-base); color: var(--dsw-alias-label-primary); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-html[data-nm-muse] [data-slot="conversation.session.header.utilities"] > *:not(:has(.nm-invite)) { display: none; }
+html[data-nm-muse] [data-slot="conversation.session.header.utilities"] > * { display: none; }
 html[data-nm-muse] [data-turn-process-inline] { display: none !important; }
 html[data-nm-muse] [data-slot="conversation.session.header.corner"] [data-sidebar-right-expand] { display: none; }
 .nm-header-back { position: absolute; left: 14px; top: 14px; z-index: 3; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }

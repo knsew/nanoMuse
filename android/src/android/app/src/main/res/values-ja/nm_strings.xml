@@ -670,12 +670,12 @@
     <string name="nm_welcome_hands_fine_print">これらがなくてもほかの機能はすべて使えます。必要になったら設定 → ハンズにあります。</string>
     <string name="nm_welcome_meet_fine_print">取り消せない操作（削除、送信、支払い）の前には、立ち止まってまずあなたに確認します。</string>
     <string name="nm_cloud_signin_title">nanoMuse Cloud で始める</string>
-    <string name="nm_cloud_signin_subtitle">スマートフォンかメールにコードを送ります。パスワードを設定済みならそれでも。</string>
+    <string name="nm_cloud_signin_subtitle">メールにコードを送ります。パスワードを設定済みならそれでも。</string>
     <string name="nm_cloud_mode_code">コードで</string>
     <string name="nm_cloud_mode_password">パスワードで</string>
     <string name="nm_cloud_password">パスワード</string>
     <string name="nm_cloud_forgot_password">パスワードを忘れた場合はコードでサインイン</string>
-    <string name="nm_cloud_identifier">中国本土の電話番号またはメールアドレス</string>
+    <string name="nm_cloud_identifier">メールアドレス</string>
     <string name="nm_cloud_identifier_hint">you@example.com</string>
     <string name="nm_cloud_code">コード</string>
     <string name="nm_cloud_send_code">コードを送信</string>
@@ -699,8 +699,8 @@
     <string name="nm_cloud_server_change">変更</string>
     <string name="nm_cloud_server_change_confirm">この端末のキーは今のサーバーのものです。まずここでサインアウトし、サインイン画面から別のサーバーにサインインしてください。</string>
 
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">SMS の確認コードは中国本土の電話番号にしか届きません。代わりにメールアドレスを使ってください。</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">このリレーはその番号にコードを送れません。代わりにメールアドレスを使ってください。</string>
     <string name="nm_cloud_fine_print">リレーが保持するのはアカウント ID、マスクした識別子、利用回数、そしてエージェントの名前と見た目です。ほかに何を保持し、何をオフにできるかはプライバシーポリシーにあります。</string>
     <string name="nm_cloud_not_signed_in">サインインしていません</string>
     <string name="nm_cloud_not_signed_in_sub">電話番号かメールアドレスでサインインすると無料枠が使えます。自分のプロバイダはそのまま残ります。</string>
@@ -733,9 +733,9 @@
     <string name="nm_cloud_err_account_deleted">このアカウントは削除されました。もう一度サインインすると新しいアカウントが作られます。</string>
     <string name="nm_cloud_err_out_of_tokens">無料枠を使い切りました。</string>
     <string name="nm_cloud_err_daily_cap">今日のトークン枠を使い切りました。明日戻ります。</string>
-    <string name="nm_cloud_err_allowance">無料枠を使い切りました。友だちを招待する（お互いに +¥%1$s）か、設定 → プロバイダで自分のキーを追加してください。Alibaba Cloud 百煉が手早い方法です。</string>
-    <string name="nm_cloud_err_allowance_abroad">無料枠を使い切りました。友だちを招待する（お互いに +¥%1$s）か、設定 → プロバイダで自分のキーを追加してください。OpenRouter が手早い方法です: 1 つのアカウント、1 つのキー、従量課金。</string>
-    <string name="nm_cloud_warn_line">無料枠が残りわずかです: ¥%2$s 中 ¥%1$s が残っています。友だちを招待する（お互いに +¥%3$s）か、自分のキーを追加してください、どちらもアカウントにあります。</string>
+    <string name="nm_cloud_err_allowance">無料枠を使い切りました。設定 → プロバイダで自分のキーを追加してください。Alibaba Cloud 百煉が手早い方法です。</string>
+    <string name="nm_cloud_err_allowance_abroad">無料枠を使い切りました。設定 → プロバイダで自分のキーを追加してください。OpenRouter が手早い方法です: 1 つのアカウント、1 つのキー、従量課金。</string>
+    <string name="nm_cloud_warn_line">無料枠が残りわずかです: ¥%2$s 中 ¥%1$s が残っています。アカウントで自分のキーを追加してください。</string>
     <string name="nm_cloud_err_rate_limited">一度に多くのリクエストが集中しています。少しお待ちください。</string>
     <string name="nm_cloud_err_unreachable">nanoMuse Cloud に接続できません。接続を確認してください。</string>
     <string name="nm_cloud_err_generic">問題が起きました。</string>
@@ -788,23 +788,12 @@
     <string name="nm_face_cost_what_clips">新しい顔は画像 %1$d 枚と短いクリップ %2$d 本です</string>
     <string name="nm_face_cost_about">%1$s：無料枠から約 ¥%2$s を使います。</string>
     <string name="nm_face_cost_left">無料枠の残りは ¥%1$s です。</string>
-    <string name="nm_face_cost_short">残りを超えています。友だちを招待する（お互いに +¥%1$s）か、設定 → プロバイダで自分のキーを追加してください。</string>
+    <string name="nm_face_cost_short">残りを超えています。設定 → プロバイダで自分のキーを追加してください。</string>
     <string name="nm_face_cost_unknown">%1$s。今日の無料枠を今は確認できませんでした。</string>
     <string name="nm_face_cost_go">描く</string>
     <string name="nm_face_cost_anyway">それでも試す</string>
     <string name="nm_face_cost_not_now">今はしない</string>
     <string name="nm_face_cost_declined">わかりました、顔はこのままにします。</string>
-    <string name="nm_cloud_invite_title">友だちを招待</string>
-    <string name="nm_cloud_invite_why">友だちがあなたのコードで登録して最初のリクエストを送ると、2 人とも ¥%1$s を受け取ります。期限はありません。</string>
-    <string name="nm_cloud_invite_code">あなたのコード</string>
-    <string name="nm_cloud_invite_share">リンクを共有</string>
-    <string name="nm_cloud_invite_copy">コピー</string>
-    <string name="nm_cloud_invite_copied">コピーしました</string>
-    <string name="nm_cloud_invite_share_text">一緒に nanoMuse を試しませんか：完全オープンソースのパーソナルエージェントで、無料で使えます。私のコード %1$s で登録してください: %2$s</string>
-    <string name="nm_cloud_invite_count">%1$d 人の友だちが参加</string>
-    <string name="nm_cloud_invite_earned">招待で ¥%1$s 追加</string>
-    <string name="nm_cloud_invite_have">招待コードをお持ちですか？</string>
-    <string name="nm_cloud_invite_field">招待コード（任意）</string>
     <string name="nm_notice_github">GitHub のソース</string>
     <string name="nm_notice_issue">バグを報告する、または機能を要望する</string>
     <string name="nm_ways_title_out">無料枠を使い切りました。</string>
@@ -833,9 +822,6 @@
     <string name="nm_cap_clips_unavailable">クリップには動画モデルのあるプロバイダが必要です：Alibaba Cloud 百煉。</string>
     <string name="nm_cap_hands_unavailable">ハンズには画面を見られるモデルが必要です：百煉、OpenRouter、OpenAI、Anthropic、Gemini、またはビジョンモデルのあるプロバイダ。</string>
     <string name="nm_cap_chat_unavailable">チャットにはチャットモデルのあるプロバイダが必要です：キーを追加するか、サインインしてください。</string>
-    <string name="nm_ways_invite_title">友だちを招待: あなたのリンクで登録した人が最初のリクエストを送るごとに、あなたに +¥%1$s、相手に +¥%2$s。</string>
-    <string name="nm_ways_invite_share">リンクを共有</string>
-    <string name="nm_ways_invite_copy">リンクをコピー</string>
     <string name="nm_cloud_ev_contribute_on">データ管理: 改善への協力をオンにしました</string>
     <string name="nm_cloud_ev_contribute_off">データ管理: 改善への協力をオフにしました</string>
     <string name="nm_cloud_ev_contribute_deleted">データ管理: 保持していた会話を削除しました</string>
@@ -935,7 +921,7 @@
     <string name="nm_cloud_allowance_used">使用 ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">/ ¥%1$s · $%2$s、期限なし</string>
     <string name="nm_cloud_allowance_left">残り ¥%1$s · $%2$s</string>
-    <string name="nm_cloud_allowance_why">最初に ¥%1$s、招待した友だち 1 人ごとに +¥%2$s、相手にも +¥%2$s。その後は自分のキーでモデルを使い続けます。</string>
+    <string name="nm_cloud_allowance_why">最初に ¥%1$s。その後は自分のキーでモデルを使い続けます。</string>
     <string name="nm_cloud_tokens_line">累計 %1$s トークン · 今日 %2$s</string>
     <string name="nm_cloud_notice_title">無料、オープンソース、非営利</string>
     <string name="nm_cloud_notice_closing">バグを見つけた、機能がほしい、パッチがある？GitHub のリポジトリへどうぞ。</string>

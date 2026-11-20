@@ -468,7 +468,7 @@ internal sealed class FlatChatItem {
         override val contentType = "nm_avatar_confirm"
     }
 
-    /** nanoMuse: the free allowance is spent — the two ways on (own key, invite). */
+    /** nanoMuse: the free allowance is spent — the ways on (own key, subscription, computer, star). */
     data class NanoMuseAllowance(val messageId: String) : FlatChatItem() {
         override val key = "nm_allowance:$messageId"
         override val contentType = "nm_allowance"

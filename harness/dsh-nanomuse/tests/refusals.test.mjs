@@ -21,7 +21,7 @@ const GUIDANCE = {
 }
 
 const EXHAUSTED = {
-  message: 'The free allowance (¥10) is used up. Three ways on…',
+  message: 'The free allowance (¥10) is used up. Two ways on…',
   type: 'nanomuse_cloud',
   code: 'allowance_exhausted',
   left: 0,
@@ -29,9 +29,6 @@ const EXHAUSTED = {
   region: 'cn',
   ways: [],
   guidance: GUIDANCE,
-  invite_url: 'https://relay.example/i/ABCDEF',
-  invite_bonus_cny: 5,
-  invitee_bonus_cny: 5,
   own_key_docs: 'https://docs.example/own-key',
   openrouter_url: 'https://openrouter.example/keys',
 }
@@ -44,8 +41,6 @@ test('429 allowance_exhausted: the kind, the figures and the guidance as the rel
   assert.equal(r.code, 'allowance_exhausted')
   assert.equal(r.left, 0)
   assert.equal(r.grant, 10)
-  assert.equal(r.inviteUrl, 'https://relay.example/i/ABCDEF')
-  assert.equal(r.inviteBonusCny, 5)
   assert.equal(r.ownKeyDocs, 'https://docs.example/own-key')
   assert.deepEqual(r.guidance, GUIDANCE)
   assert.equal(r.message, EXHAUSTED.message)

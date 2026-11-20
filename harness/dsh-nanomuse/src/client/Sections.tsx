@@ -336,8 +336,7 @@ export function makeStorageSection(t: Translate, loadFolders: () => Promise<Fold
 }
 
 /**
- * Message channels: the ways to reach the agent. Here that is this window, the invite
- * link (the chat from a phone's browser, signed in to the same account) and the other
+ * Message channels: the ways to reach the agent. Here that is this window and the other
  * devices on the account — no third-party messengers, and the page says so.
  */
 export function makeChannelsSection(t: Translate, openSection: (id: string) => void, devicesSection: string) {
@@ -355,12 +354,6 @@ export function makeChannelsSection(t: Translate, openSection: (id: string) => v
             h('span', { className: 'nm-row-title' }, b ? t('mcDesktop') : t('mcBrowser')),
             h('span', { className: 'nm-row-sub nm-wrap' }, t('mcDesktopSub'))),
           h('span', { className: 'nm-state nm-state-on' }, t('cnOn'))),
-        h('div', { className: 'nm-row' },
-          h('span', { className: 'nm-row-icon' }, h(IconLink, { size: 18 })),
-          h('div', { className: 'nm-row-main' },
-            h('span', { className: 'nm-row-title' }, t('mcInvite')),
-            h('span', { className: 'nm-row-sub nm-wrap' }, live.cloud.signedIn ? t('mcInviteSub') : t('mcInviteOut'))),
-          h('span', { className: live.cloud.signedIn ? 'nm-state nm-state-on' : 'nm-state' }, live.cloud.signedIn ? t('cnOn') : t('cnOff'))),
         h(LinkRow, { icon: h(IconLink, { size: 18 }), title: t('mcDevices'), sub: others.length ? t('mcDevicesSub', { n: others.length }) : t('mcDevicesNone'), onClick: () => openSection(devicesSection) })),
       h('h2', null, t('mcOthers')),
       h('div', { className: 'nm-card' },

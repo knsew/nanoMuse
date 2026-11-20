@@ -650,12 +650,12 @@
     <string name="nm_welcome_hands_fine_print">不開也不影響其他功能。之後隨時可以在「設定 → Hands」裡開啟。</string>
     <string name="nm_welcome_meet_fine_print">凡是無法撤回的事（刪除、傳送、付款）它都會先停下來問你。</string>
     <string name="nm_cloud_signin_title">用 nanoMuse Cloud 開始</string>
-    <string name="nm_cloud_signin_subtitle">手機號或信箱收一個驗證碼；設過密碼的話也可以直接用密碼。</string>
+    <string name="nm_cloud_signin_subtitle">信箱收一個驗證碼；設過密碼的話也可以直接用密碼。</string>
     <string name="nm_cloud_mode_code">驗證碼登入</string>
     <string name="nm_cloud_mode_password">密碼登入</string>
     <string name="nm_cloud_password">密碼</string>
     <string name="nm_cloud_forgot_password">忘了密碼？用驗證碼登入</string>
-    <string name="nm_cloud_identifier">中國大陸手機號或信箱</string>
+    <string name="nm_cloud_identifier">信箱</string>
     <string name="nm_cloud_identifier_hint">you@example.com</string>
     <string name="nm_cloud_code">驗證碼</string>
     <string name="nm_cloud_send_code">發送驗證碼</string>
@@ -677,8 +677,8 @@
     <string name="nm_cloud_server_row">伺服器</string>
     <string name="nm_cloud_server_change">更換</string>
     <string name="nm_cloud_server_change_confirm">這支手機的金鑰屬於目前的伺服器。請先在這裡登出，再到登入頁登入另一個伺服器。</string>
-    <!-- 簡訊驗證碼：登入頁在送出前就說明；中繼服務回傳 phone_region 時也用這一句 -->
-    <string name="nm_cloud_sms_region">簡訊驗證碼只能送到中國大陸手機號。請改用電子信箱。</string>
+    <!-- 中繼回傳 phone_region 時的回答：這台中繼無法給這個號碼傳送驗證碼 -->
+    <string name="nm_cloud_sms_region">這台中繼無法給這個號碼傳送驗證碼，請改用電子信箱。</string>
     <string name="nm_cloud_fine_print">伺服器保存帳號 id、打碼後的手機號或信箱、用量，以及你的智慧體的名字和形象；其餘保存什麼、哪些由你決定，見隱私政策。</string>
     <string name="nm_cloud_not_signed_in">尚未登入</string>
     <string name="nm_cloud_not_signed_in_sub">用手機號或信箱登入，送一份免費額度。你自己新增的服務商不受影響。</string>
@@ -711,9 +711,9 @@
     <string name="nm_cloud_err_account_deleted">這個帳號已刪除。重新登入會建立一個新帳號。</string>
     <string name="nm_cloud_err_out_of_tokens">額度用完了。</string>
     <string name="nm_cloud_err_daily_cap">今天的 token 配額用完了，明天恢復。</string>
-    <string name="nm_cloud_err_allowance">免費額度已用完。邀請一位新用戶（你和對方各 +¥%1$s），或在 設定 → 服務商 裡新增自己的 key，推薦阿里雲百煉。</string>
-    <string name="nm_cloud_err_allowance_abroad">免費額度已用完。邀請一位新用戶（你和對方各 +¥%1$s），或在 設定 → 服務商 裡新增自己的 key，海外推薦 OpenRouter：一個帳號一把 key，按量付費。</string>
-    <string name="nm_cloud_warn_line">免費額度快用完了：還剩 ¥%1$s（共 ¥%2$s）。邀請一位新用戶（你和對方各 +¥%3$s），或換成自己的 key，都在「帳號」裡。</string>
+    <string name="nm_cloud_err_allowance">免費額度已用完。在 設定 → 服務商 裡新增自己的 key，推薦阿里雲百煉。</string>
+    <string name="nm_cloud_err_allowance_abroad">免費額度已用完。在 設定 → 服務商 裡新增自己的 key，海外推薦 OpenRouter：一個帳號一把 key，按量付費。</string>
+    <string name="nm_cloud_warn_line">免費額度快用完了：還剩 ¥%1$s（共 ¥%2$s）。在「帳號」裡換成自己的 key。</string>
     <string name="nm_cloud_err_rate_limited">請求太快了，稍等一下。</string>
     <string name="nm_cloud_err_unreachable">連不上 nanoMuse Cloud，請檢查網路。</string>
     <string name="nm_cloud_err_generic">出了點問題。</string>
@@ -765,23 +765,12 @@
     <string name="nm_face_cost_what_clips">換一個形象要畫 %1$d 張圖和 %2$d 段短影片</string>
     <string name="nm_face_cost_about">%1$s，大約用掉 ¥%2$s 額度。</string>
     <string name="nm_face_cost_left">額度還剩 ¥%1$s。</string>
-    <string name="nm_face_cost_short">剩餘額度不夠這一次了。邀請一位新用戶（你和對方各 +¥%1$s），或在 設定 → 服務商 裡新增自己的 key。</string>
+    <string name="nm_face_cost_short">剩餘額度不夠這一次了。在 設定 → 服務商 裡新增自己的 key。</string>
     <string name="nm_face_cost_unknown">%1$s。暫時查不到今天的額度。</string>
     <string name="nm_face_cost_go">開始畫</string>
     <string name="nm_face_cost_anyway">仍然試試</string>
     <string name="nm_face_cost_not_now">先不了</string>
     <string name="nm_face_cost_declined">好，形象先保持現在這樣。</string>
-    <string name="nm_cloud_invite_title">邀請朋友</string>
-    <string name="nm_cloud_invite_why">朋友用你的邀請碼註冊並發出第一次請求後，你們各得 ¥%1$s，不過期。</string>
-    <string name="nm_cloud_invite_code">邀請碼</string>
-    <string name="nm_cloud_invite_share">分享連結</string>
-    <string name="nm_cloud_invite_copy">複製</string>
-    <string name="nm_cloud_invite_copied">已複製</string>
-    <string name="nm_cloud_invite_share_text">來和我一起用 nanoMuse：完全開源的個人智慧體，免費使用。用我的邀請碼 %1$s 註冊：%2$s</string>
-    <string name="nm_cloud_invite_count">已邀請 %1$d 位</string>
-    <string name="nm_cloud_invite_earned">邀請帶來 ¥%1$s</string>
-    <string name="nm_cloud_invite_have">有邀請碼？</string>
-    <string name="nm_cloud_invite_field">邀請碼（選填）</string>
     <string name="nm_notice_github">GitHub 原始碼</string>
     <string name="nm_notice_issue">回報問題 / 提需求</string>
     <string name="nm_ways_title_out">免費額度已用完。</string>
@@ -810,9 +799,6 @@
     <string name="nm_cap_clips_unavailable">影片需要有影片模型的服務商：阿里雲百煉。</string>
     <string name="nm_cap_hands_unavailable">手需要能看螢幕的模型：百煉、OpenRouter、OpenAI、Anthropic、Gemini，或任何有視覺模型的服務商。</string>
     <string name="nm_cap_chat_unavailable">對話需要有對話模型的服務商：新增一把 key，或登入。</string>
-    <string name="nm_ways_invite_title">邀請朋友：每有一位新用戶透過你的連結註冊並發出第一次請求，你 +¥%1$s，對方也 +¥%2$s。</string>
-    <string name="nm_ways_invite_share">分享連結</string>
-    <string name="nm_ways_invite_copy">複製連結</string>
     <string name="nm_cloud_ev_contribute_on">資料控制：已開啟「協助改進」</string>
     <string name="nm_cloud_ev_contribute_off">資料控制：已關閉「協助改進」</string>
     <string name="nm_cloud_ev_contribute_deleted">資料控制：已刪除保存的對話</string>
@@ -910,7 +896,7 @@
     <string name="nm_cloud_allowance_used">已用 ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">共 ¥%1$s · $%2$s，不按天重置</string>
     <string name="nm_cloud_allowance_left">剩餘 ¥%1$s · $%2$s</string>
-    <string name="nm_cloud_allowance_why">起始 ¥%1$s，每邀請一位新用戶你 +¥%2$s、對方也 +¥%2$s；用完後換自己的 key 繼續。</string>
+    <string name="nm_cloud_allowance_why">起始 ¥%1$s；用完後換自己的 key 繼續。</string>
     <string name="nm_cloud_tokens_line">累計 %1$s tokens · 今天 %2$s</string>
     <string name="nm_cloud_notice_title">免費 · 開源 · 非營利</string>
     <string name="nm_cloud_notice_closing">發現問題、想要新功能、願意改程式碼，都歡迎到 GitHub 上提。</string>

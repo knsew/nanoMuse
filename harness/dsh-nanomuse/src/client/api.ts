@@ -11,7 +11,7 @@ export interface Account {
   member: boolean
   tokens: { unlimited: boolean; granted: number; used: number; remaining: number }
   /** The pool in yuan (relay 0.14+): what was spent, the grant, what is left, and the 80% heads-up. */
-  spend?: { grant?: number; total: number; left: number | null; unlimited: boolean; warn: boolean; usdCny?: number; inviteBonusCny?: number; inviteeBonusCny?: number; ownKeyDocs?: string }
+  spend?: { grant?: number; total: number; left: number | null; unlimited: boolean; warn: boolean; usdCny?: number; ownKeyDocs?: string }
   /** Data controls (relay 0.9); absent on an older relay. */
   contribute?: { on: boolean; samples: number; defaultOn?: boolean; privacyUrl: string; record?: { on: boolean; turns: number; own: number; files: number; mediaBytes: number; keepDays: number } }
 }
@@ -43,7 +43,7 @@ export interface CloudStatus {
 
 const API = 'nanomuse/cloud'
 
-/** GET when there is no body (`status`, `invite` — the read-only routes), POST with one; 204 resolves to undefined. */
+/** GET when there is no body (`status` — the read-only routes), POST with one; 204 resolves to undefined. */
 export async function call<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API}/${path}`, {
     method: body === undefined ? 'GET' : 'POST',

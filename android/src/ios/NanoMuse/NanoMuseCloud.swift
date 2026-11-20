@@ -225,24 +225,10 @@ enum NanoMuseCloud {
         }
     }
 
-    // MARK: - Phone numbers
-
-    /// Whether a phone number cannot get a text-message code before the relay is asked: a
-    /// number with a country code other than China's (+86). Bare digits are left to the relay
-    /// (its `phone_region` says the same sentence); an e-mail address never qualifies.
-    nonisolated static func needsEmailInstead(identifier raw: String) -> Bool {
-        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty || text.contains("@") { return false }
-        let compact = text.filter { !" -()".contains($0) }
-        guard compact.allSatisfy({ $0.isNumber || $0 == "+" }) else { return false }
-        if compact.hasPrefix("+") { return !compact.hasPrefix("+86") }
-        if compact.hasPrefix("00") { return !compact.hasPrefix("0086") }
-        return false
-    }
-
-    /// The sentence for a number that cannot get a code (also `describe("phone_region")`).
+    /// The sentence for the relay's `phone_region` answer: this relay cannot send a code to
+    /// that number.
     nonisolated static var phoneRegionSentence: String {
-        AppLocalized("Text-message codes reach mainland-China numbers only. Use an e-mail address instead.")
+        AppLocalized("This relay cannot send a code to that number. Use an e-mail address instead.")
     }
 
     // MARK: - Streams through the relay
@@ -323,14 +309,12 @@ enum NanoMuseCloud {
     /// Exchange the code for a key and make the relay a usable provider: instance, key, models
     /// and a default group with the recommended chat model (only if the user has none yet).
     /// Returns the account as the relay sees it.
-    static func verify(identifier: String, code: String, invite: String = "") async throws -> Account {
-        var body: [String: Any] = [
+    static func verify(identifier: String, code: String) async throws -> Account {
+        let body: [String: Any] = [
             "identifier": trimmed(identifier),
             "code": trimmed(code),
             "device": deviceName,
         ]
-        // A friend's code on a first sign-in (relay 0.12+): both get credit once this account makes its first request; older relays ignore it.
-        if !trimmed(invite).isEmpty { body["invite"] = trimmed(invite).uppercased() }
         let reply = try await call("POST", "/v1/auth/verify", body: body, token: nil)
         return try await adopt(reply)
     }
@@ -516,7 +500,7 @@ enum NanoMuseCloud {
             // relay 0.22: the operator's switch, not use — the same card, another lead
             return AppLocalized("The free allowance is paused on this relay for now. It is not used up. Add a key of your own or sign in with a plan you already pay for, under Settings → nanoMuse Cloud. Your sign-in, your devices and what is left stay as they are.")
         case "allowance_exhausted":
-            return AppLocalized("The free allowance is used up. Use a key of your own, or invite a friend; both are under nanoMuse Cloud in Settings.")
+            return AppLocalized("The free allowance is used up. Add a key of your own under nanoMuse Cloud in Settings.")
         case "too_large":
             return AppLocalized("That message is too large for the model. Shorten it, leave out some attachments, or start a new chat.")
         case "content_rejected":
@@ -560,8 +544,6 @@ enum NanoMuseCloud {
             return AppLocalized("Use a few different characters, not the address itself.")
         case "password_long":
             return AppLocalized("That password is too long.")
-        case "invite_bad":
-            return AppLocalized("That invite code is not one we know. Check it, or leave it empty.")
         case "signup_closed":
             return AppLocalized("Sign-ups are paused on this relay for now. An account that already exists can still sign in.")
         case "domain_limited":

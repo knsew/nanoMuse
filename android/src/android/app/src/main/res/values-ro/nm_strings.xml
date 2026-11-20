@@ -676,12 +676,12 @@
     <string name="nm_welcome_hands_fine_print">Tot restul merge și fără ele. Le găsești sub Setări → Mâini oricând le vrei.</string>
     <string name="nm_welcome_meet_fine_print">Înainte de orice nu poate fi anulat (ștergere, trimitere, plată) se oprește și te întreabă mai întâi.</string>
     <string name="nm_cloud_signin_title">Începe cu nanoMuse Cloud</string>
-    <string name="nm_cloud_signin_subtitle">Un cod pe telefon sau în inbox, sau parola ta, odată ce ai setat una.</string>
+    <string name="nm_cloud_signin_subtitle">Un cod în inbox, sau parola ta, odată ce ai setat una.</string>
     <string name="nm_cloud_mode_code">Cu un cod</string>
     <string name="nm_cloud_mode_password">Cu o parolă</string>
     <string name="nm_cloud_password">Parolă</string>
     <string name="nm_cloud_forgot_password">Ai uitat parola? Conectează-te cu un cod</string>
-    <string name="nm_cloud_identifier">Număr de telefon din China continentală sau e-mail</string>
+    <string name="nm_cloud_identifier">Adresă de e-mail</string>
     <string name="nm_cloud_identifier_hint">tu@example.com</string>
     <string name="nm_cloud_code">Cod</string>
     <string name="nm_cloud_send_code">Trimite codul</string>
@@ -705,8 +705,8 @@
     <string name="nm_cloud_server_change">Schimbă</string>
     <string name="nm_cloud_server_change_confirm">Cheia acestui telefon aparține serverului actual. Deconectează-te mai întâi aici, apoi conectează-te la celălalt server din ecranul de conectare.</string>
 
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">Codurile prin SMS ajung doar la numere din China continentală. Folosește în schimb o adresă de e-mail.</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">Acest relay nu poate trimite un cod la acest număr. Folosește în schimb o adresă de e-mail.</string>
     <string name="nm_cloud_fine_print">Relay-ul păstrează un id de cont, un identificator mascat, contoare de utilizare și numele și aspectul agentului tău; ce altceva, și ce poți opri tu, e în politica de confidențialitate.</string>
     <string name="nm_cloud_not_signed_in">Neconectat</string>
     <string name="nm_cloud_not_signed_in_sub">Conectează-te cu un număr de telefon sau un e-mail pentru un credit gratuit. Furnizorii tăi rămân așa cum sunt.</string>
@@ -739,9 +739,9 @@
     <string name="nm_cloud_err_account_deleted">Acest cont a fost șters. Conectează-te din nou ca să începi unul nou.</string>
     <string name="nm_cloud_err_out_of_tokens">Creditul s-a epuizat.</string>
     <string name="nm_cloud_err_daily_cap">Cota de tokenuri de azi s-a epuizat; revine mâine.</string>
-    <string name="nm_cloud_err_allowance">Creditul gratuit s-a epuizat. Invită un prieten (+¥%1$s pentru fiecare dintre voi) sau adaugă propria cheie sub Setări → Furnizori; Alibaba Cloud Bailian e varianta rapidă.</string>
-    <string name="nm_cloud_err_allowance_abroad">Creditul gratuit s-a epuizat. Invită un prieten (+¥%1$s pentru fiecare dintre voi) sau adaugă propria cheie sub Setări → Furnizori; OpenRouter e varianta rapidă: un cont, o cheie, plată după consum.</string>
-    <string name="nm_cloud_warn_line">Creditul gratuit e aproape epuizat: ¥%1$s din ¥%2$s rămași. Invită un prieten (+¥%3$s pentru fiecare dintre voi) sau adaugă propria cheie, ambele sub Cont.</string>
+    <string name="nm_cloud_err_allowance">Creditul gratuit s-a epuizat. Adaugă propria cheie sub Setări → Furnizori; Alibaba Cloud Bailian e varianta rapidă.</string>
+    <string name="nm_cloud_err_allowance_abroad">Creditul gratuit s-a epuizat. Adaugă propria cheie sub Setări → Furnizori; OpenRouter e varianta rapidă: un cont, o cheie, plată după consum.</string>
+    <string name="nm_cloud_warn_line">Creditul gratuit e aproape epuizat: ¥%1$s din ¥%2$s rămași. Adaugă propria cheie sub Cont.</string>
     <string name="nm_cloud_err_rate_limited">Prea multe cereri deodată. O clipă, te rog.</string>
     <string name="nm_cloud_err_unreachable">Nu s-a putut contacta nanoMuse Cloud. Verifică conexiunea.</string>
     <string name="nm_cloud_err_generic">Ceva n-a mers.</string>
@@ -794,23 +794,12 @@
     <string name="nm_face_cost_what_clips">O față nouă înseamnă %1$d imagini și %2$d clipuri scurte</string>
     <string name="nm_face_cost_about">%1$s: aproximativ ¥%2$s din creditul tău.</string>
     <string name="nm_face_cost_left">Mai ai ¥%1$s din credit.</string>
-    <string name="nm_face_cost_short">E mai mult decât a rămas. Invită un prieten (+¥%1$s pentru fiecare dintre voi) sau adaugă propria cheie sub Setări → Furnizori.</string>
+    <string name="nm_face_cost_short">E mai mult decât a rămas. Adaugă propria cheie sub Setări → Furnizori.</string>
     <string name="nm_face_cost_unknown">%1$s. Creditul de azi nu a putut fi verificat acum.</string>
     <string name="nm_face_cost_go">Desenează</string>
     <string name="nm_face_cost_anyway">Încearcă oricum</string>
     <string name="nm_face_cost_not_now">Nu acum</string>
     <string name="nm_face_cost_declined">În regulă, fața rămâne așa cum e.</string>
-    <string name="nm_cloud_invite_title">Invită un prieten</string>
-    <string name="nm_cloud_invite_why">Când un prieten se înscrie cu codul tău și trimite prima cerere, primiți amândoi ¥%1$s. Nu expiră niciodată.</string>
-    <string name="nm_cloud_invite_code">Codul tău</string>
-    <string name="nm_cloud_invite_share">Partajează linkul</string>
-    <string name="nm_cloud_invite_copy">Copiază</string>
-    <string name="nm_cloud_invite_copied">Copiat</string>
-    <string name="nm_cloud_invite_share_text">Încearcă nanoMuse împreună cu mine: un agent personal complet open source, gratuit. Înscrie-te cu codul meu %1$s: %2$s</string>
-    <string name="nm_cloud_invite_count">%1$d prieteni s-au alăturat</string>
-    <string name="nm_cloud_invite_earned">¥%1$s adăugați prin invitații</string>
-    <string name="nm_cloud_invite_have">Ai un cod de invitație?</string>
-    <string name="nm_cloud_invite_field">Cod de invitație (opțional)</string>
     <string name="nm_notice_github">Sursa pe GitHub</string>
     <string name="nm_notice_issue">Raportează o eroare sau cere o funcție</string>
     <string name="nm_ways_title_out">Creditul gratuit s-a epuizat.</string>
@@ -839,9 +828,6 @@
     <string name="nm_cap_clips_unavailable">Clipurile au nevoie de un furnizor cu modele video: Alibaba Cloud Bailian.</string>
     <string name="nm_cap_hands_unavailable">Mâinile au nevoie de un model care vede ecranul: Bailian, OpenRouter, OpenAI, Anthropic, Gemini sau orice furnizor cu modele de viziune.</string>
     <string name="nm_cap_chat_unavailable">Chatul are nevoie de un furnizor cu modele de chat: adaugă o cheie sau conectează-te.</string>
-    <string name="nm_ways_invite_title">Invită un prieten: +¥%1$s pentru tine și +¥%2$s pentru el, când o persoană nouă înscrisă cu linkul tău trimite prima cerere.</string>
-    <string name="nm_ways_invite_share">Partajează linkul</string>
-    <string name="nm_ways_invite_copy">Copiază linkul</string>
     <string name="nm_cloud_ev_contribute_on">Controlul datelor: ajutorul la îmbunătățire pornit</string>
     <string name="nm_cloud_ev_contribute_off">Controlul datelor: ajutorul la îmbunătățire oprit</string>
     <string name="nm_cloud_ev_contribute_deleted">Controlul datelor: conversațiile păstrate au fost șterse</string>
@@ -941,7 +927,7 @@
     <string name="nm_cloud_allowance_used">Folosit ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">din ¥%1$s · $%2$s, fără expirare</string>
     <string name="nm_cloud_allowance_left">¥%1$s · $%2$s rămași</string>
-    <string name="nm_cloud_allowance_why">¥%1$s la început, +¥%2$s pentru fiecare prieten invitat, și +¥%2$s pentru el; după aceea, propria ta cheie ține modelul în funcțiune.</string>
+    <string name="nm_cloud_allowance_why">¥%1$s la început; după aceea, propria ta cheie ține modelul în funcțiune.</string>
     <string name="nm_cloud_tokens_line">%1$s tokenuri în total · %2$s azi</string>
     <string name="nm_cloud_notice_title">Gratuit, open source, nonprofit</string>
     <string name="nm_cloud_notice_closing">Ai găsit o eroare, vrei o funcție, ai un patch? Depozitul GitHub e locul potrivit.</string>

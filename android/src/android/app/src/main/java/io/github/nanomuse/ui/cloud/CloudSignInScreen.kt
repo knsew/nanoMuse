@@ -62,7 +62,6 @@ import androidx.compose.ui.unit.sp
 import com.openminis.app.R
 import io.github.nanomuse.cloud.NanoMuseCloud
 import io.github.nanomuse.cloud.RelayAddress
-import io.github.nanomuse.cloud.SignInIdentifier
 import io.github.nanomuse.ui.home.MuseTones
 import io.github.nanomuse.ui.muse.MuseTopAppBar
 import kotlinx.coroutines.CancellationException
@@ -75,9 +74,9 @@ const val ROUTE_CLOUD_ACCOUNT = "nanomuse/cloud/account"
 private const val CLOUD_DOC_URL = "https://github.com/knsew/nanoMuse/blob/main/docs/cloud.md"
 
 /**
- * Sign in to nanoMuse Cloud: a mainland phone number (the code comes by SMS) or an e-mail
- * address, then the code it receives — or the account's password. The code box is marked as a
- * one-time code so the system's autofill or the keyboard can offer the SMS it just saw.
+ * Sign in to nanoMuse Cloud: an e-mail address (a phone number works too; its code is in the
+ * relay log), then the code it receives, or the account's password. The code box is marked as
+ * a one-time code so the system's autofill can offer it.
  * On success the relay is a provider with a default model, and the caller decides where to
  * go (the first run continues to "Meet nanoMuse"; from Settings it returns to the account page).
  */
@@ -92,9 +91,6 @@ fun CloudSignInScreen(
     var identifier by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var codeSent by remember { mutableStateOf(false) }
-    // A friend's invite code: counts for a new account only, so it sits behind a small link.
-    var invite by remember { mutableStateOf("") }
-    var inviteOpen by remember { mutableStateOf(false) }
     var sending by remember { mutableStateOf(false) }
     var verifying by remember { mutableStateOf(false) }
     var byPassword by remember { mutableStateOf(false) }
@@ -108,8 +104,6 @@ fun CloudSignInScreen(
     var server by remember { mutableStateOf(NanoMuseCloud.baseUrl(context)) }
     val onSurface = MaterialTheme.colorScheme.onSurface
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    // a number the relay cannot text: said here, before the code is asked for (item 8)
-    val phoneAbroad = SignInIdentifier.phoneOutsideMainland(identifier)
 
     LaunchedEffect(countdown) {
         if (countdown > 0) {
@@ -119,7 +113,7 @@ fun CloudSignInScreen(
     }
 
     fun sendCode() {
-        if (sending || identifier.isBlank() || phoneAbroad) return
+        if (sending || identifier.isBlank()) return
         if (server == null) {
             error = context.getString(R.string.nm_cloud_server_bad_url)
             return
@@ -150,7 +144,7 @@ fun CloudSignInScreen(
         verifying = true
         scope.launch {
             try {
-                NanoMuseCloud.verify(context, identifier, code, invite)
+                NanoMuseCloud.verify(context, identifier, code)
                 onSignedIn()
             } catch (e: CancellationException) {
                 throw e
@@ -185,7 +179,7 @@ fun CloudSignInScreen(
     val canSubmit = server != null && when {
         byPassword -> identifier.isNotBlank() && password.isNotEmpty() && !verifying
         codeSent -> code.length >= 4 && !verifying
-        else -> identifier.isNotBlank() && !sending && !phoneAbroad
+        else -> identifier.isNotBlank() && !sending
     }
     fun submit() = when {
         byPassword -> login()
@@ -291,16 +285,6 @@ fun CloudSignInScreen(
                     .fillMaxWidth()
                     .semantics { contentType = ContentType.Username + ContentType.PhoneNumber + ContentType.EmailAddress },
             )
-            if (phoneAbroad && !byPassword) {
-                // the relay would answer `phone_region`; better said now, in the same words
-                Text(
-                    text = stringResource(R.string.nm_cloud_sms_region),
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp, start = 4.dp, end = 4.dp),
-                )
-            }
             Spacer(Modifier.height(12.dp))
             if (byPassword) {
                 OutlinedTextField(
@@ -355,7 +339,7 @@ fun CloudSignInScreen(
                 Spacer(Modifier.padding(horizontal = 6.dp))
                 TextButton(
                     onClick = { sendCode() },
-                    enabled = server != null && identifier.isNotBlank() && countdown == 0 && !sending && !verifying && !phoneAbroad,
+                    enabled = server != null && identifier.isNotBlank() && countdown == 0 && !sending && !verifying,
                 ) {
                     if (sending) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MuseTones.action)
@@ -366,35 +350,10 @@ fun CloudSignInScreen(
                                 codeSent -> stringResource(R.string.nm_cloud_resend)
                                 else -> stringResource(R.string.nm_cloud_send_code)
                             },
-                            color = if (identifier.isNotBlank() && countdown == 0 && !phoneAbroad) MuseTones.action else muted,
+                            color = if (identifier.isNotBlank() && countdown == 0) MuseTones.action else muted,
                             fontSize = 14.sp,
                         )
                     }
-                }
-            }
-
-            if (!byPassword) {
-                Spacer(Modifier.height(6.dp))
-                if (!inviteOpen) {
-                    TextButton(onClick = { inviteOpen = true }, modifier = Modifier.align(Alignment.End)) {
-                        Text(stringResource(R.string.nm_cloud_invite_have), color = MuseTones.action, fontSize = 13.sp)
-                    }
-                } else {
-                    OutlinedTextField(
-                        value = invite,
-                        onValueChange = { v -> invite = v.uppercase().filter { it.isLetterOrDigit() }.take(8) },
-                        label = { Text(stringResource(R.string.nm_cloud_invite_field)) },
-                        singleLine = true,
-                        enabled = !verifying,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MuseTones.action,
-                            cursorColor = MuseTones.action,
-                            focusedLabelColor = MuseTones.action,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
                 }
             }
 

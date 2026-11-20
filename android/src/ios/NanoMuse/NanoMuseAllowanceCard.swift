@@ -6,7 +6,7 @@
 //  used (contract C11, docs/parity.md item 33): one's own key — the vendors as the relay lists
 //  them for the region (`spend.guidance`; the bundled catalogue only when it sent none), the
 //  region's first, each saying what it covers; a plan one already pays for (ChatGPT, Claude,
-//  Kimi, OpenRouter); an invitation. No vendor is recommended; the text says what each covers.
+//  Kimi, OpenRouter). No vendor is recommended; the text says what each covers.
 //  `NanoMuseAllowanceCard` is pinned under the chat header by the shell when a turn was
 //  refused (with *Try again*); `NanoMuseWaysList` is the same list on the account page;
 //  `NanoMuseAllowanceHeadsUp` is the one line above the composer at 80 %.
@@ -22,14 +22,9 @@ struct NanoMuseVendorPick: Identifiable, Equatable {
     var id: String { vendor.id + ":" + (auth ?? "key") }
 }
 
-/// The list itself: key vendors, plans, an invitation, the guide.
+/// The list itself: key vendors, plans, the guide.
 struct NanoMuseWaysList: View {
     var ways: NanoMuseWays
-    var inviteURL: String = ""
-    var inviteBonusCny: Double?
-    var inviteeBonusCny: Double?
-    /// On the account page the code and the link are the next section; elsewhere the link is shared from here.
-    var inviteBelow: Bool = false
     /// Where the step-by-step guide is (the refusal's `own_key_docs`, the sheet's, the guidance's, the default).
     var docs: String
     /// The pinned card shows three vendors and a *More* toggle; the account page all of them.
@@ -63,16 +58,6 @@ struct NanoMuseWaysList: View {
                 way(symbol: "person.crop.circle.badge.checkmark", tint: Color(red: 0.18, green: 0.62, blue: 0.42), title: AppLocalized("A subscription you already pay for"),
                     text: AppLocalized("A ChatGPT, Claude or Kimi plan can sign in here instead of a key. It covers chat and the screen, not pictures or clips."))
                 ForEach(ways.signIns) { s in signInRow(s) }
-            }
-            // an invitation
-            if let bonus = inviteBonusCny, bonus > 0 {
-                way(symbol: "gift", tint: Color(red: 0.88, green: 0.47, blue: 0.17),
-                    title: String(format: AppLocalized("Invite a friend: +¥%@ for you and +¥%@ for them, once a new person who signed up with your link makes their first request."), NanoMuseAllowance.money(bonus), NanoMuseAllowance.money(inviteeBonusCny ?? bonus)),
-                    text: inviteBelow ? AppLocalized("Your code and link are just below.") : (inviteURL.isEmpty ? AppLocalized("Your code and link are under Settings → nanoMuse Cloud.") : AppLocalized("Your link is ready to share.")))
-                if !inviteBelow, !inviteURL.isEmpty, let url = URL(string: inviteURL) {
-                    ShareLink(item: url) { Label(AppLocalized("Share the link"), systemImage: "square.and.arrow.up").font(.footnote) }
-                        .buttonStyle(.plain).foregroundStyle(NanoMuseTones.action)
-                }
             }
         }
     }
@@ -169,9 +154,6 @@ struct NanoMuseAllowanceCard: View {
             }
             NanoMuseWaysList(
                 ways: ways,
-                inviteURL: refused.facts.inviteURL,
-                inviteBonusCny: refused.facts.inviteBonusCny,
-                inviteeBonusCny: refused.facts.inviteeBonusCny,
                 docs: refused.facts.ownKeyDocs.isEmpty ? (ways.docs.isEmpty ? NanoMuseLinks.ownKeyDocs : ways.docs) : refused.facts.ownKeyDocs,
                 compact: true
             ) { pick = $0 }

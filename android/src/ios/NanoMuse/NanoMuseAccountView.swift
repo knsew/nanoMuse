@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The sections of the account page under the identity line, in the order of the Android
 /// account screen: the password, the devices holding a key, a star row (once, as the policy
-/// says), the pool in yuan with the ways on when it runs low (your own key, an invitation — and
-/// a star, once), the invite code, what was used by kind and by model, the account's timeline.
+/// says), the pool in yuan with the ways on when it runs low (your own key, a plan, and
+/// a star, once), what was used by kind and by model, the account's timeline.
 /// Lives inside `NanoMuseCloudView`'s `Form`, which adds the links and the ways out below.
 /// Everything comes from the relay each time the page opens; nothing of it is kept on the phone.
 struct NanoMuseAccountSections: View {
@@ -33,7 +33,6 @@ struct NanoMuseAccountSections: View {
                 }
             }
             allowanceSection
-            if let invite = sheet?.invite { inviteSection(invite) }
             usageSection
             if !events.isEmpty { timelineSection }
         }
@@ -91,7 +90,7 @@ struct NanoMuseAccountSections: View {
 
     /// When the pool is low or spent: the ways on as the relay lists them for the region
     /// (`spend.guidance`, contract C11; the bundled catalogue when it sent none) — your own
-    /// key, a plan you already pay for, an invitation — and, once, a star.
+    /// key, a plan you already pay for — and, once, a star.
     @ViewBuilder
     private func waysOn(_ spend: NanoMuseSheet.Spend) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -103,9 +102,6 @@ struct NanoMuseAccountSections: View {
             let ways = NanoMuseWays.resolve(guidance: spend.guidance ?? NanoMuseAllowance.storedGuidance(), catalogue: NanoMuseCatalogue.bundled, mainland: NanoMuseRegion.isMainland, chinese: NanoMuseCatalogue.chinese)
             NanoMuseWaysList(
                 ways: ways,
-                inviteBonusCny: spend.inviteBonusCny ?? sheet?.invite?.bonusCny ?? 5,
-                inviteeBonusCny: spend.inviteeBonusCny,
-                inviteBelow: sheet?.invite != nil,
                 docs: spend.ownKeyDocs ?? (ways.docs.isEmpty ? NanoMuseLinks.ownKeyDocs : ways.docs),
                 compact: false
             ) { pick = $0 }
@@ -126,33 +122,6 @@ struct NanoMuseAccountSections: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    // MARK: - Invite
-
-    private func inviteSection(_ invite: NanoMuseSheet.Invite) -> some View {
-        Section {
-            HStack {
-                Text(invite.code).font(.body.monospaced())
-                Spacer()
-                Button {
-                    UIPasteboard.general.string = invite.code
-                } label: { Label(AppLocalized("Copy"), systemImage: "doc.on.doc") }
-                .labelStyle(.iconOnly)
-            }
-            if !invite.url.isEmpty {
-                ShareLink(item: URL(string: invite.url) ?? NanoMuseStar.repoURL) {
-                    Label(AppLocalized("Share the link"), systemImage: "square.and.arrow.up")
-                }
-            }
-        } header: {
-            Text(AppLocalized("Invite a friend"))
-        } footer: {
-            let bonus = yuan(invite.bonusCny)
-            let earned = yuan(invite.earnedCny)
-            let invited = invite.invites.formatted()
-            Text(String(format: AppLocalized("When a friend signs up with your code and makes their first request, you both get %@. %@ invited · %@ earned."), bonus, invited, earned))
-        }
     }
 
     // MARK: - Usage

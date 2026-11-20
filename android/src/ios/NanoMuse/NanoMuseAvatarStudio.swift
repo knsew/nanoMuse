@@ -750,7 +750,7 @@ struct NanoMuseFaceCostSheet: View {
                             .foregroundStyle(.secondary)
                     }
                     if !e.affordable {
-                        Text(AppLocalized("That is more than what is left. Invite a friend for more allowance, or wait for tomorrow's share."))
+                        Text(AppLocalized("That is more than what is left. Wait for tomorrow's share, or add a key of your own."))
                             .foregroundStyle(.red)
                             .font(.footnote)
                     }

@@ -670,12 +670,12 @@
     <string name="nm_welcome_hands_fine_print">อย่างอื่นทั้งหมดทำงานได้โดยไม่ต้องใช้สิทธิ์เหล่านี้ อยู่ใต้ การตั้งค่า → มือ เมื่อคุณต้องการ</string>
     <string name="nm_welcome_meet_fine_print">ก่อนทำสิ่งที่ย้อนกลับไม่ได้ (ลบ ส่ง ชำระเงิน) มันจะหยุดและถามคุณก่อน</string>
     <string name="nm_cloud_signin_title">เริ่มต้นกับ nanoMuse Cloud</string>
-    <string name="nm_cloud_signin_subtitle">รหัสส่งไปที่โทรศัพท์หรืออีเมลของคุณ หรือใช้รหัสผ่าน เมื่อคุณตั้งไว้แล้ว</string>
+    <string name="nm_cloud_signin_subtitle">รหัสส่งไปที่อีเมลของคุณ หรือใช้รหัสผ่าน เมื่อคุณตั้งไว้แล้ว</string>
     <string name="nm_cloud_mode_code">ด้วยรหัส</string>
     <string name="nm_cloud_mode_password">ด้วยรหัสผ่าน</string>
     <string name="nm_cloud_password">รหัสผ่าน</string>
     <string name="nm_cloud_forgot_password">ลืมรหัสผ่าน ลงชื่อเข้าใช้ด้วยรหัสแทน</string>
-    <string name="nm_cloud_identifier">หมายเลขโทรศัพท์จีนแผ่นดินใหญ่หรืออีเมล</string>
+    <string name="nm_cloud_identifier">ที่อยู่อีเมล</string>
     <string name="nm_cloud_identifier_hint">you@example.com</string>
     <string name="nm_cloud_code">รหัส</string>
     <string name="nm_cloud_send_code">ส่งรหัส</string>
@@ -699,8 +699,8 @@
     <string name="nm_cloud_server_change">เปลี่ยน</string>
     <string name="nm_cloud_server_change_confirm">คีย์ของโทรศัพท์เครื่องนี้เป็นของเซิร์ฟเวอร์ปัจจุบัน ให้ออกจากระบบที่นี่ก่อน แล้วลงชื่อเข้าใช้เซิร์ฟเวอร์อื่นจากหน้าลงชื่อเข้าใช้</string>
 
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">รหัสทาง SMS ส่งถึงเฉพาะหมายเลขในจีนแผ่นดินใหญ่เท่านั้น โปรดใช้ที่อยู่อีเมลแทน</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">รีเลย์นี้ส่งรหัสไปยังหมายเลขนี้ไม่ได้ โปรดใช้ที่อยู่อีเมลแทน</string>
     <string name="nm_cloud_fine_print">รีเลย์เก็บรหัสบัญชี ตัวระบุที่ปิดบังบางส่วน จำนวนการใช้งาน และชื่อกับรูปลักษณ์ของเอเจนต์ของคุณ สิ่งอื่นที่เก็บและสิ่งที่คุณปิดได้ ระบุในนโยบายความเป็นส่วนตัว</string>
     <string name="nm_cloud_not_signed_in">ยังไม่ได้ลงชื่อเข้าใช้</string>
     <string name="nm_cloud_not_signed_in_sub">ลงชื่อเข้าใช้ด้วยหมายเลขโทรศัพท์หรืออีเมลเพื่อรับโควตาฟรี ผู้ให้บริการของคุณเองยังอยู่เหมือนเดิม</string>
@@ -733,9 +733,9 @@
     <string name="nm_cloud_err_account_deleted">บัญชีนี้ถูกลบแล้ว ลงชื่อเข้าใช้อีกครั้งเพื่อเริ่มบัญชีใหม่</string>
     <string name="nm_cloud_err_out_of_tokens">โควตาฟรีหมดแล้ว</string>
     <string name="nm_cloud_err_daily_cap">โควตาโทเค็นของวันนี้หมดแล้ว จะกลับมาใหม่ในวันพรุ่งนี้</string>
-    <string name="nm_cloud_err_allowance">โควตาฟรีหมดแล้ว ชวนเพื่อน (รับคนละ +¥%1$s) หรือเพิ่มคีย์ของคุณเองใต้ การตั้งค่า → ผู้ให้บริการ Alibaba Cloud Bailian เป็นทางที่เร็วที่สุด</string>
-    <string name="nm_cloud_err_allowance_abroad">โควตาฟรีหมดแล้ว ชวนเพื่อน (รับคนละ +¥%1$s) หรือเพิ่มคีย์ของคุณเองใต้ การตั้งค่า → ผู้ให้บริการ OpenRouter เป็นทางที่เร็วที่สุด: บัญชีเดียว คีย์เดียว จ่ายตามการใช้งาน</string>
-    <string name="nm_cloud_warn_line">โควตาฟรีใกล้หมดแล้ว: เหลือ ¥%1$s จาก ¥%2$s ชวนเพื่อน (รับคนละ +¥%3$s) หรือเพิ่มคีย์ของคุณเอง ทั้งสองอย่างอยู่ใต้ บัญชี</string>
+    <string name="nm_cloud_err_allowance">โควตาฟรีหมดแล้ว เพิ่มคีย์ของคุณเองใต้ การตั้งค่า → ผู้ให้บริการ Alibaba Cloud Bailian เป็นทางที่เร็วที่สุด</string>
+    <string name="nm_cloud_err_allowance_abroad">โควตาฟรีหมดแล้ว เพิ่มคีย์ของคุณเองใต้ การตั้งค่า → ผู้ให้บริการ OpenRouter เป็นทางที่เร็วที่สุด: บัญชีเดียว คีย์เดียว จ่ายตามการใช้งาน</string>
+    <string name="nm_cloud_warn_line">โควตาฟรีใกล้หมดแล้ว: เหลือ ¥%1$s จาก ¥%2$s เพิ่มคีย์ของคุณเองใต้ บัญชี</string>
     <string name="nm_cloud_err_rate_limited">มีคำขอพร้อมกันมากเกินไป รอสักครู่</string>
     <string name="nm_cloud_err_unreachable">ติดต่อ nanoMuse Cloud ไม่ได้ ตรวจสอบการเชื่อมต่อ</string>
     <string name="nm_cloud_err_generic">มีบางอย่างผิดพลาด</string>
@@ -788,23 +788,12 @@
     <string name="nm_face_cost_what_clips">ใบหน้าใหม่ใช้ %1$d รูปและคลิปสั้น %2$d คลิป</string>
     <string name="nm_face_cost_about">%1$s ประมาณ ¥%2$s จากโควตาของคุณ</string>
     <string name="nm_face_cost_left">คุณมีโควตาเหลือ ¥%1$s</string>
-    <string name="nm_face_cost_short">มากกว่าที่เหลืออยู่ ชวนเพื่อน (รับคนละ +¥%1$s) หรือเพิ่มคีย์ของคุณเองใต้ การตั้งค่า → ผู้ให้บริการ</string>
+    <string name="nm_face_cost_short">มากกว่าที่เหลืออยู่ เพิ่มคีย์ของคุณเองใต้ การตั้งค่า → ผู้ให้บริการ</string>
     <string name="nm_face_cost_unknown">%1$s ตอนนี้ตรวจสอบโควตาของวันนี้ไม่ได้</string>
     <string name="nm_face_cost_go">วาดเลย</string>
     <string name="nm_face_cost_anyway">ลองดูอยู่ดี</string>
     <string name="nm_face_cost_not_now">ไว้ก่อน</string>
     <string name="nm_face_cost_declined">ได้ ใบหน้าคงไว้เหมือนเดิม</string>
-    <string name="nm_cloud_invite_title">ชวนเพื่อน</string>
-    <string name="nm_cloud_invite_why">เมื่อเพื่อนสมัครด้วยรหัสของคุณและส่งคำขอครั้งแรก คุณทั้งคู่จะได้รับ ¥%1$s ไม่มีวันหมดอายุ</string>
-    <string name="nm_cloud_invite_code">รหัสของคุณ</string>
-    <string name="nm_cloud_invite_share">แชร์ลิงก์</string>
-    <string name="nm_cloud_invite_copy">คัดลอก</string>
-    <string name="nm_cloud_invite_copied">คัดลอกแล้ว</string>
-    <string name="nm_cloud_invite_share_text">มาลอง nanoMuse ด้วยกัน เอเจนต์ส่วนตัวแบบโอเพนซอร์สทั้งหมด ใช้ฟรี สมัครด้วยรหัสของฉัน %1$s: %2$s</string>
-    <string name="nm_cloud_invite_count">เพื่อนเข้าร่วมแล้ว %1$d คน</string>
-    <string name="nm_cloud_invite_earned">ได้รับ ¥%1$s จากการชวนเพื่อน</string>
-    <string name="nm_cloud_invite_have">มีรหัสเชิญไหม</string>
-    <string name="nm_cloud_invite_field">รหัสเชิญ (ไม่บังคับ)</string>
     <string name="nm_notice_github">ซอร์สโค้ดบน GitHub</string>
     <string name="nm_notice_issue">รายงานบั๊กหรือขอฟีเจอร์</string>
     <string name="nm_ways_title_out">โควตาฟรีหมดแล้ว</string>
@@ -833,9 +822,6 @@
     <string name="nm_cap_clips_unavailable">คลิปต้องใช้ผู้ให้บริการที่มีโมเดลวิดีโอ Alibaba Cloud Bailian</string>
     <string name="nm_cap_hands_unavailable">มือต้องใช้โมเดลที่มองเห็นหน้าจอ Bailian, OpenRouter, OpenAI, Anthropic, Gemini หรือผู้ให้บริการใดก็ได้ที่มีโมเดลวิชัน</string>
     <string name="nm_cap_chat_unavailable">แชทต้องใช้ผู้ให้บริการที่มีโมเดลแชท เพิ่มคีย์ หรือลงชื่อเข้าใช้</string>
-    <string name="nm_ways_invite_title">ชวนเพื่อน: คุณได้ +¥%1$s และเขาได้ +¥%2$s เมื่อคนที่สมัครใหม่ด้วยลิงก์ของคุณส่งคำขอครั้งแรก</string>
-    <string name="nm_ways_invite_share">แชร์ลิงก์</string>
-    <string name="nm_ways_invite_copy">คัดลอกลิงก์</string>
     <string name="nm_cloud_ev_contribute_on">การควบคุมข้อมูล: เปิดช่วยปรับปรุง</string>
     <string name="nm_cloud_ev_contribute_off">การควบคุมข้อมูล: ปิดช่วยปรับปรุง</string>
     <string name="nm_cloud_ev_contribute_deleted">การควบคุมข้อมูล: ลบบทสนทนาที่เก็บไว้แล้ว</string>
@@ -935,7 +921,7 @@
     <string name="nm_cloud_allowance_used">ใช้ไป ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">จาก ¥%1$s · $%2$s ตลอดไป</string>
     <string name="nm_cloud_allowance_left">เหลือ ¥%1$s · $%2$s</string>
-    <string name="nm_cloud_allowance_why">เริ่มต้น ¥%1$s และ +¥%2$s ต่อเพื่อนหนึ่งคนที่คุณชวน เขาได้ +¥%2$s ด้วย หลังจากนั้นคีย์ของคุณเองจะทำให้โมเดลทำงานต่อ</string>
+    <string name="nm_cloud_allowance_why">เริ่มต้น ¥%1$s หลังจากนั้นคีย์ของคุณเองจะทำให้โมเดลทำงานต่อ</string>
     <string name="nm_cloud_tokens_line">%1$s โทเค็นทั้งหมด · %2$s วันนี้</string>
     <string name="nm_cloud_notice_title">ฟรี โอเพนซอร์ส ไม่แสวงหากำไร</string>
     <string name="nm_cloud_notice_closing">พบบั๊ก อยากได้ฟีเจอร์ หรือมีแพตช์ ที่เก็บโค้ดบน GitHub คือที่ที่ควรไป</string>

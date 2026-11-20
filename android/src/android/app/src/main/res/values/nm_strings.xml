@@ -660,12 +660,12 @@
     <string name="nm_welcome_meet_fine_print">Before anything it cannot take back (deleting, sending, paying) it stops and asks you first.</string>
     <string name="nm_cloud_title" translatable="false">nanoMuse Cloud</string>
     <string name="nm_cloud_signin_title">Start with nanoMuse Cloud</string>
-    <string name="nm_cloud_signin_subtitle">A code to your phone or inbox, or your password, once you have set one.</string>
+    <string name="nm_cloud_signin_subtitle">A code to your e-mail inbox, or your password, once you have set one.</string>
     <string name="nm_cloud_mode_code">With a code</string>
     <string name="nm_cloud_mode_password">With a password</string>
     <string name="nm_cloud_password">Password</string>
     <string name="nm_cloud_forgot_password">Forgot the password? Sign in with a code</string>
-    <string name="nm_cloud_identifier">Mainland China phone number or e-mail</string>
+    <string name="nm_cloud_identifier">E-mail address</string>
     <string name="nm_cloud_identifier_hint">you@example.com</string>
     <string name="nm_cloud_code">Code</string>
     <string name="nm_cloud_send_code">Send code</string>
@@ -688,8 +688,8 @@
     <string name="nm_cloud_server_row">Server</string>
     <string name="nm_cloud_server_change">Change</string>
     <string name="nm_cloud_server_change_confirm">This phone\'s key belongs to the current server. Sign out here first, then sign in to the other server from the sign-in screen.</string>
-    <!-- Text-message codes: said on the sign-in screen before asking, and for the relay's phone_region answer -->
-    <string name="nm_cloud_sms_region">Text-message codes reach mainland-China numbers only. Use an e-mail address instead.</string>
+    <!-- The relay's phone_region answer: this relay cannot send a code to that number -->
+    <string name="nm_cloud_sms_region">This relay cannot send a code to that number. Use an e-mail address instead.</string>
     <string name="nm_cloud_fine_print">The relay keeps an account id, a masked identifier, usage counts and your agent\'s name and look; what else, and what is yours to switch off, is in the privacy policy.</string>
     <string name="nm_cloud_not_signed_in">Not signed in</string>
     <string name="nm_cloud_not_signed_in_sub">Sign in with a phone number or an e-mail for a free allowance. Your own providers stay as they are.</string>
@@ -722,9 +722,9 @@
     <string name="nm_cloud_err_account_deleted">This account was deleted. Sign in again to start a new one.</string>
     <string name="nm_cloud_err_out_of_tokens">The allowance is used up.</string>
     <string name="nm_cloud_err_daily_cap">Today\'s token quota is used up; it comes back tomorrow.</string>
-    <string name="nm_cloud_err_allowance">The free allowance is used up. Invite a friend (+¥%1$s for each of you) or add your own key under Settings → Providers; Alibaba Cloud Bailian is the quick one.</string>
-    <string name="nm_cloud_err_allowance_abroad">The free allowance is used up. Invite a friend (+¥%1$s for each of you) or add your own key under Settings → Providers; OpenRouter is the quick one: one account, one key, pay as you go.</string>
-    <string name="nm_cloud_warn_line">The free allowance is nearly used up: ¥%1$s of ¥%2$s left. Invite a friend (+¥%3$s for each of you) or add your own key, both under Account.</string>
+    <string name="nm_cloud_err_allowance">The free allowance is used up. Add your own key under Settings → Providers; Alibaba Cloud Bailian is the quick one.</string>
+    <string name="nm_cloud_err_allowance_abroad">The free allowance is used up. Add your own key under Settings → Providers; OpenRouter is the quick one: one account, one key, pay as you go.</string>
+    <string name="nm_cloud_warn_line">The free allowance is nearly used up: ¥%1$s of ¥%2$s left. Add your own key under Account.</string>
     <string name="nm_cloud_err_rate_limited">Too many requests at once. A moment, please.</string>
     <string name="nm_cloud_err_unreachable">Could not reach nanoMuse Cloud. Check the connection.</string>
     <string name="nm_cloud_err_generic">Something went wrong.</string>
@@ -776,23 +776,12 @@
     <string name="nm_face_cost_what_clips">A new face is %1$d pictures and %2$d short clips</string>
     <string name="nm_face_cost_about">%1$s: about ¥%2$s from your allowance.</string>
     <string name="nm_face_cost_left">You have ¥%1$s of the allowance left.</string>
-    <string name="nm_face_cost_short">That is more than what is left. Invite a friend (+¥%1$s for each of you) or add your own key under Settings → Providers.</string>
+    <string name="nm_face_cost_short">That is more than what is left. Add your own key under Settings → Providers.</string>
     <string name="nm_face_cost_unknown">%1$s. Today\'s allowance could not be checked right now.</string>
     <string name="nm_face_cost_go">Draw it</string>
     <string name="nm_face_cost_anyway">Try anyway</string>
     <string name="nm_face_cost_not_now">Not now</string>
     <string name="nm_face_cost_declined">All right, the face stays as it is.</string>
-    <string name="nm_cloud_invite_title">Invite a friend</string>
-    <string name="nm_cloud_invite_why">When a friend signs up with your code and makes their first request, you both get ¥%1$s. It never expires.</string>
-    <string name="nm_cloud_invite_code">Your code</string>
-    <string name="nm_cloud_invite_share">Share the link</string>
-    <string name="nm_cloud_invite_copy">Copy</string>
-    <string name="nm_cloud_invite_copied">Copied</string>
-    <string name="nm_cloud_invite_share_text">Try nanoMuse with me: a fully open-source personal agent, free to use. Sign up with my code %1$s: %2$s</string>
-    <string name="nm_cloud_invite_count">%1$d friends joined</string>
-    <string name="nm_cloud_invite_earned">¥%1$s added by invitations</string>
-    <string name="nm_cloud_invite_have">Have an invite code?</string>
-    <string name="nm_cloud_invite_field">Invite code (optional)</string>
     <string name="nm_notice_github">Source on GitHub</string>
     <string name="nm_notice_issue">Report a bug or ask for a feature</string>
     <string name="nm_ways_title_out">The free allowance is used up.</string>
@@ -821,9 +810,6 @@
     <string name="nm_cap_clips_unavailable">Clips need a provider with video models: Alibaba Cloud Bailian.</string>
     <string name="nm_cap_hands_unavailable">Hands need a model that sees the screen: Bailian, OpenRouter, OpenAI, Anthropic, Gemini, or any provider with vision models.</string>
     <string name="nm_cap_chat_unavailable">Chat needs a provider with chat models: add a key, or sign in.</string>
-    <string name="nm_ways_invite_title">Invite a friend: +¥%1$s for you and +¥%2$s for them, once a new person who signed up with your link makes their first request.</string>
-    <string name="nm_ways_invite_share">Share the link</string>
-    <string name="nm_ways_invite_copy">Copy the link</string>
     <string name="nm_cloud_ev_contribute_on">Data controls: help improve turned on</string>
     <string name="nm_cloud_ev_contribute_off">Data controls: help improve turned off</string>
     <string name="nm_cloud_ev_contribute_deleted">Data controls: kept conversations deleted</string>
@@ -921,7 +907,7 @@
     <string name="nm_cloud_allowance_used">Used ¥%1$s · $%2$s</string>
     <string name="nm_cloud_allowance_of">of ¥%1$s · $%2$s, for good</string>
     <string name="nm_cloud_allowance_left">¥%1$s · $%2$s left</string>
-    <string name="nm_cloud_allowance_why">¥%1$s to start, +¥%2$s for each friend you invite, and +¥%2$s for them; after that, your own key keeps the model going.</string>
+    <string name="nm_cloud_allowance_why">¥%1$s to start; after that, your own key keeps the model going.</string>
     <string name="nm_cloud_tokens_line">%1$s tokens in all · %2$s today</string>
     <string name="nm_cloud_notice_title">Free, open source, non-profit</string>
     <string name="nm_cloud_notice_closing">Found a bug, want a feature, have a patch? The GitHub repository is the place.</string>

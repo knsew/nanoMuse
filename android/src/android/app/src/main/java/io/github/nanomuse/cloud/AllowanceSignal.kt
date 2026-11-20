@@ -6,9 +6,8 @@ import org.json.JSONObject
 /**
  * The relay's refusals, caught on their way through the model client. nanoMuse Cloud refuses
  * a model call with a stable `error.code` (docs/cloud.md): `allowance_exhausted` with what is
- * left, the pool, the invite link, what an invitation adds to each side, the guide for one's
- * own key and — relay 0.21 — the ways-on card as data (`guidance`); `daily_cap`; and the rest
- * ([RelayRefusal]: 413 `too_large`, `too_many_in_flight`, `provider_busy`, the operator's
+ * left, the pool, the guide for one's own key and — relay 0.21 — the ways-on card as data
+ * (`guidance`); `daily_cap`; and the rest ([RelayRefusal]: 413 `too_large`, `too_many_in_flight`, `provider_busy`, the operator's
  * switches …). The generic client maps every 429 to "rate limited" and every 401/403 to "bad
  * key", so the body would be lost; this keeps the last one for a few seconds so the chat can
  * show the ways on, or one plain sentence, instead of a bare error.
@@ -18,10 +17,6 @@ object AllowanceSignal {
     data class Exhausted(
         val leftCny: Double,
         val grantCny: Double,
-        val inviteUrl: String,
-        /** What a sign-up with the link adds to the inviter and to the new account; 0 = unknown. */
-        val inviteBonusCny: Double,
-        val inviteeBonusCny: Double,
         val ownKeyDocs: String,
         /** True for the relay's `daily_cap`: today's share is spent, the pool is not; it comes back with the day. */
         val dailyCap: Boolean = false,
@@ -50,9 +45,6 @@ object AllowanceSignal {
                 paused = refusal.kind == RelayRefusal.Kind.ALLOWANCE_PAUSED,
                 leftCny = err.optDouble("left", 0.0),
                 grantCny = err.optDouble("grant", 0.0),
-                inviteUrl = err.optString("invite_url", ""),
-                inviteBonusCny = err.optDouble("invite_bonus_cny", 0.0),
-                inviteeBonusCny = err.optDouble("invitee_bonus_cny", 0.0),
                 ownKeyDocs = err.optString("own_key_docs", ""),
                 guidance = Guidance.parse(err.optJSONObject("guidance")),
             )
@@ -83,9 +75,6 @@ object AllowanceSignal {
         return Exhausted(
             leftCny = a.leftCny.coerceAtLeast(0.0),
             grantCny = a.grantCny,
-            inviteUrl = a.inviteUrl,
-            inviteBonusCny = a.inviteBonusCny,
-            inviteeBonusCny = a.inviteeBonusCny,
             ownKeyDocs = a.ownKeyDocs,
             guidance = NanoMuseCloud.guidance(context),
         )

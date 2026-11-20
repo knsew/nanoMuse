@@ -9947,65 +9947,6 @@
         }
       }
     },
-    "A friend’s code on a first sign-in adds %@ for both of you after your first request." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Code einer anderen Person bei der ersten Anmeldung bringt euch beiden %@ nach deiner ersten Anfrage."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A friend’s code on a first sign-in adds %@ for both of you after your first request."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El código de un amigo en el primer inicio de sesión añade %@ para los dos después de tu primera solicitud."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le code d’un ami à la première connexion ajoute %@ pour vous deux après votre première requête."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "初回サインイン時に友だちのコードを使うと、あなたの最初のリクエストの後にお互いに %@ が加わります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "첫 로그인 때 친구의 코드를 넣으면 내 첫 요청 후에 두 사람 모두에게 %@이 더해집니다."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Код друга при первом входе добавляет %@ вам обоим после вашего первого запроса."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首次登录时填朋友的邀请码，你发出第一次请求后两人各加 %@。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首次登入時填朋友的邀請碼，你發出第一次請求後兩人各加 %@。"
-          }
-        }
-      }
-    },
     "A group named “%@” already exists. Choose a different name, or move this group's chats into it." : {
       "localizations" : {
         "es" : {
@@ -61027,65 +60968,6 @@
         }
       }
     },
-    "Have an invite code?" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hast du einen Einladungscode?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Have an invite code?"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Tienes un código de invitación?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez un code d’invitation ?"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "招待コードをお持ちですか？"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "초대 코드가 있나요?"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Есть код приглашения?"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有邀请码？"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有邀請碼？"
-          }
-        }
-      }
-    },
     "Head shake at rest, crystal ball while waiting, star when pleased, laptop while working" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -67513,242 +67395,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無效的服務商設定檔。"
-          }
-        }
-      }
-    },
-    "Invite a friend" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jemanden einladen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite a friend"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invitar a un amigo"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inviter un ami"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "友だちを招待"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "친구 초대"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пригласить друга"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀请朋友"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀請朋友"
-          }
-        }
-      }
-    },
-    "Invite a friend: %@ each" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jemanden einladen: je %@"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite a friend: %@ each"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invita a un amigo: %@ para cada uno"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invitez un ami : %@ chacun"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "友だちを招待: それぞれ %@"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "친구 초대: 각자 %@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пригласите друга: по %@ каждому"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀请朋友：各得 %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀請朋友：各得 %@"
-          }
-        }
-      }
-    },
-    "Invite a friend: +¥%@ for you and +¥%@ for them, once a new person who signed up with your link makes their first request." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lade jemanden ein: +¥%@ für dich und +¥%@ für die Person, sobald jemand Neues über deinen Link registriert ist und die erste Anfrage stellt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite a friend: +¥%@ for you and +¥%@ for them, once a new person who signed up with your link makes their first request."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invita a alguien: +¥%@ para ti y +¥%@ para esa persona, cuando alguien nuevo se registra con tu enlace y hace su primera solicitud."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invitez quelqu’un : +¥%@ pour vous et +¥%@ pour la personne, dès qu’une nouvelle personne inscrite avec votre lien envoie sa première requête."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "友だちを招待：あなたのリンクから登録した人が最初のリクエストを送るごとに、あなたに +¥%@、相手に +¥%@。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "친구 초대: 내 링크로 가입한 사람이 첫 요청을 보낼 때마다 나에게 +¥%@, 상대에게 +¥%@."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пригласите друга: +¥%@ вам и +¥%@ ему, как только новый человек, зарегистрировавшийся по вашей ссылке, сделает первый запрос."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀请朋友：每有一位新用户通过你的链接注册并发出第一次请求，你 +¥%@，对方 +¥%@。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀請朋友：每有一位新用戶透過你的連結註冊並發出第一次請求，你 +¥%@，對方 +¥%@。"
-          }
-        }
-      }
-    },
-    "Invite code (optional)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einladungscode (optional)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite code (optional)"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Código de invitación (opcional)"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Code d’invitation (facultatif)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "招待コード（任意）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "초대 코드(선택)"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Код приглашения (необязательно)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀请码（选填）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "邀請碼（選填）"
           }
         }
       }
@@ -74362,61 +74008,61 @@
         }
       }
     },
-    "Mainland China phone number or e-mail" : {
+    "E-mail address" : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Telefonnummer aus Festlandchina oder E-Mail"
+            "value" : "E-Mail-Adresse"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mainland China phone number or e-mail"
+            "value" : "E-mail address"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Número de teléfono de China continental o correo"
+            "value" : "Dirección de correo electrónico"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Numéro de Chine continentale ou e-mail"
+            "value" : "Adresse e-mail"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中国本土の電話番号またはメールアドレス"
+            "value" : "メールアドレス"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "중국 본토 휴대전화 번호 또는 이메일"
+            "value" : "이메일 주소"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Номер телефона материкового Китая или эл. почта"
+            "value" : "Адрес электронной почты"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中国大陆手机号或邮箱"
+            "value" : "邮箱"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "中國大陸手機號或信箱"
+            "value" : "信箱"
           }
         }
       }
@@ -120447,65 +120093,6 @@
         }
       }
     },
-    "Share the link" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Link teilen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share the link"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compartir el enlace"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Partager le lien"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リンクを共有"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "링크 공유"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поделиться ссылкой"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分享链接"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分享連結"
-          }
-        }
-      }
-    },
     "Share…" : {
       "localizations" : {
         "es" : {
@@ -133867,61 +133454,61 @@
         }
       }
     },
-    "Text-message codes reach mainland-China numbers only. Use an e-mail address instead." : {
+    "This relay cannot send a code to that number. Use an e-mail address instead." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Text-message codes reach mainland-China numbers only. Use an e-mail address instead."
+            "value" : "This relay cannot send a code to that number. Use an e-mail address instead."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短信验证码只能发到中国大陆号码。请改用电子邮箱。"
+            "value" : "这台中继无法给这个号码发送验证码，请改用邮箱。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "簡訊驗證碼只能發到中國大陸號碼。請改用電子郵件。"
+            "value" : "這台中繼無法給這個號碼傳送驗證碼，請改用電子信箱。"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Los códigos por SMS solo llegan a números de China continental. Usa una dirección de correo electrónico."
+            "value" : "Este relé no puede enviar un código a ese número. Usa una dirección de correo electrónico."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SMS の確認コードは中国本土の番号にのみ届きます。代わりにメールアドレスを使ってください。"
+            "value" : "このリレーはその番号にコードを送れません。代わりにメールアドレスを使ってください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "문자 메시지 인증 코드는 중국 본토 번호로만 전송됩니다. 대신 이메일 주소를 사용하세요."
+            "value" : "이 릴레이는 해당 번호로 코드를 보낼 수 없습니다. 대신 이메일 주소를 사용하세요."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SMS-Codes erreichen nur Nummern in Festlandchina. Verwende stattdessen eine E-Mail-Adresse."
+            "value" : "Dieses Relay kann an diese Nummer keinen Code senden. Verwende stattdessen eine E-Mail-Adresse."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les codes par SMS n’atteignent que les numéros de Chine continentale. Utilisez plutôt une adresse e-mail."
+            "value" : "Ce relais ne peut pas envoyer de code à ce numéro. Utilisez plutôt une adresse e-mail."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Коды в СМС приходят только на номера материкового Китая. Используйте адрес электронной почты."
+            "value" : "Этот релей не может отправить код на этот номер. Используйте вместо этого адрес электронной почты."
           }
         }
       }
@@ -134442,120 +134029,61 @@
         }
       }
     },
-    "That invite code is not one we know. Check it, or leave it empty." : {
+    "That is more than what is left. Wait for tomorrow's share, or add a key of your own." : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diesen Einladungscode kennen wir nicht. Prüfe ihn oder lass ihn leer."
+            "value" : "Das ist mehr, als übrig ist. Warte auf den Anteil von morgen, oder füge einen eigenen Schlüssel hinzu."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "That invite code is not one we know. Check it, or leave it empty."
+            "value" : "That is more than what is left. Wait for tomorrow's share, or add a key of your own."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No conocemos ese código de invitación. Revísalo, o déjalo vacío."
+            "value" : "Es más de lo que queda. Espera la parte de mañana, o añade una clave propia."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce code d’invitation nous est inconnu. Vérifiez-le, ou laissez le champ vide."
+            "value" : "C’est plus que ce qu’il reste. Attendez la part de demain, ou ajoutez une clé à vous."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "その招待コードは見当たりません。確認するか、空のままにしてください。"
+            "value" : "残りを超えています。明日の分を待つか、自分のキーを追加してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "알 수 없는 초대 코드입니다. 확인하거나 비워 두세요."
+            "value" : "남은 것보다 많습니다. 내일 몫을 기다리거나 내 키를 추가하세요."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Такой код приглашения нам неизвестен. Проверьте его или оставьте поле пустым."
+            "value" : "Это больше, чем осталось. Дождитесь завтрашней доли или добавьте свой ключ."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这个邀请码不对。检查一下，或者留空。"
+            "value" : "剩余额度不够这一次了。等明天的份额，或添加自己的 Key。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "這個邀請碼不對。檢查一下，或者留空。"
-          }
-        }
-      }
-    },
-    "That is more than what is left. Invite a friend for more allowance, or wait for tomorrow's share." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das ist mehr, als übrig ist. Lade jemanden ein für mehr Guthaben, oder warte auf den Anteil von morgen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "That is more than what is left. Invite a friend for more allowance, or wait for tomorrow's share."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Es más de lo que queda. Invita a un amigo para tener más saldo, o espera la parte de mañana."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "C’est plus que ce qu’il reste. Invitez un ami pour plus de crédit, ou attendez la part de demain."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "残りを超えています。友だちを招待して無料枠を増やすか、明日の分を待ってください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "남은 것보다 많습니다. 친구를 초대해 사용량을 늘리거나 내일 몫을 기다리세요."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Это больше, чем осталось. Пригласите друга, чтобы увеличить лимит, или дождитесь завтрашней доли."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "剩余额度不够这一次了。邀请一位朋友获得更多额度，或等明天的份额。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "剩餘額度不夠這一次了。邀請一位朋友獲得更多額度，或等明天的份額。"
+            "value" : "剩餘額度不夠這一次了。等明天的份額，或加入自己的 Key。"
           }
         }
       }
@@ -136677,61 +136205,61 @@
         }
       }
     },
-    "The free allowance is used up. Use a key of your own, or invite a friend; both are under nanoMuse Cloud in Settings." : {
+    "The free allowance is used up. Add a key of your own under nanoMuse Cloud in Settings." : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Das kostenlose Guthaben ist aufgebraucht. Verwende einen eigenen Schlüssel oder lade jemanden ein; beides unter nanoMuse Cloud in den Einstellungen."
+            "value" : "Das kostenlose Guthaben ist aufgebraucht. Füge unter nanoMuse Cloud in den Einstellungen einen eigenen Schlüssel hinzu."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The free allowance is used up. Use a key of your own, or invite a friend; both are under nanoMuse Cloud in Settings."
+            "value" : "The free allowance is used up. Add a key of your own under nanoMuse Cloud in Settings."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El saldo gratuito se ha agotado. Usa una clave propia o invita a un amigo; ambas cosas en nanoMuse Cloud, dentro de Ajustes."
+            "value" : "El saldo gratuito se ha agotado. Añade una clave propia en nanoMuse Cloud, dentro de Ajustes."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le crédit gratuit est épuisé. Utilisez une clé à vous, ou invitez un ami ; les deux sous nanoMuse Cloud dans les Réglages."
+            "value" : "Le crédit gratuit est épuisé. Ajoutez une clé à vous sous nanoMuse Cloud dans les Réglages."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無料枠を使い切りました。自分のキーを使うか、友だちを招待してください。どちらも設定の nanoMuse Cloud にあります。"
+            "value" : "無料枠を使い切りました。設定の nanoMuse Cloud で自分のキーを追加してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "무료 사용량을 다 썼습니다. 내 키를 쓰거나 친구를 초대하세요. 둘 다 설정의 nanoMuse Cloud에 있습니다."
+            "value" : "무료 사용량을 다 썼습니다. 설정의 nanoMuse Cloud에서 내 키를 추가하세요."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Бесплатный лимит исчерпан. Используйте свой ключ или пригласите друга; и то и другое в разделе nanoMuse Cloud в Настройках."
+            "value" : "Бесплатный лимит исчерпан. Добавьте свой ключ в разделе nanoMuse Cloud в Настройках."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "免费额度用完了。用自己的 Key，或者邀请朋友，都在「设置 → nanoMuse Cloud」里。"
+            "value" : "免费额度用完了。在「设置 → nanoMuse Cloud」里添加自己的 Key。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "免費額度用完了。用自己的 Key，或者邀請朋友，都在「設定 → nanoMuse Cloud」裡。"
+            "value" : "免費額度用完了。在「設定 → nanoMuse Cloud」裡加入自己的 Key。"
           }
         }
       }
@@ -156946,65 +156474,6 @@
         }
       }
     },
-    "When a friend signs up with your code and makes their first request, you both get %@. %@ invited · %@ earned." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wenn sich jemand mit deinem Code registriert und die erste Anfrage stellt, bekommt ihr beide %@. %@ eingeladen · %@ erhalten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When a friend signs up with your code and makes their first request, you both get %@. %@ invited · %@ earned."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cuando un amigo se registra con tu código y hace su primera solicitud, ambos reciben %@. %@ invitados · %@ ganados."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quand un ami s’inscrit avec votre code et envoie sa première requête, vous recevez chacun %@. %@ invités · %@ gagnés."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "友だちがあなたのコードで登録して最初のリクエストを送ると、2 人とも %@ を受け取ります。%@ 人を招待 · %@ を獲得。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "친구가 내 코드로 가입하고 첫 요청을 보내면 두 사람 모두 %@을 받습니다. %@명 초대 · %@ 적립."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Когда друг регистрируется с вашим кодом и делает первый запрос, вы оба получаете %@. Приглашено: %@ · получено: %@."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "朋友用你的邀请码注册并发出第一次请求后，你们各得 %1$@。已邀请 %2$@ 人 · 共获得 %3$@。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "朋友用你的邀請碼註冊並發出第一次請求後，你們各得 %1$@。已邀請 %2$@ 人 · 共獲得 %3$@。"
-          }
-        }
-      }
-    },
     "When disabled, the agent cannot read or modify any settings via minis-config. The change history at Logs → Config Changes remains accessible. The agent will receive a permission_denied error and can guide you via deep links instead." : {
       "localizations" : {
         "de" : {
@@ -160499,124 +159968,6 @@
         }
       }
     },
-    "Your code and link are just below." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Code und dein Link stehen gleich unten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your code and link are just below."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tu código y tu enlace están justo abajo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre code et votre lien sont juste en dessous."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "あなたのコードとリンクはすぐ下にあります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "내 코드와 링크는 바로 아래에 있습니다."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ваш код и ссылка чуть ниже."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的邀请码和链接就在下面。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的邀請碼和連結就在下面。"
-          }
-        }
-      }
-    },
-    "Your code and link are under Settings → nanoMuse Cloud." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Code und dein Link stehen unter Einstellungen → nanoMuse Cloud."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your code and link are under Settings → nanoMuse Cloud."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tu código y tu enlace están en Ajustes → nanoMuse Cloud."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre code et votre lien sont dans Réglages → nanoMuse Cloud."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コードとリンクは 設定 → nanoMuse Cloud にあります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "내 코드와 링크는 설정 → nanoMuse Cloud에 있습니다."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ваш код и ссылка находятся в Настройки → nanoMuse Cloud."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的邀请码和链接在「设置 → nanoMuse Cloud」。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的邀請碼和連結在「設定 → nanoMuse Cloud」。"
-          }
-        }
-      }
-    },
     "Your computer uses its own setting." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -161111,65 +160462,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的 key 只保存在這臺手機上，只會發給你選擇的服務商。"
-          }
-        }
-      }
-    },
-    "Your link is ready to share." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Link ist bereit zum Teilen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your link is ready to share."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tu enlace está listo para compartir."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre lien est prêt à être partagé."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リンクを共有できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "링크를 공유할 수 있습니다."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ваша ссылка готова, можно делиться."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的链接可以分享了。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的連結可以分享了。"
           }
         }
       }
