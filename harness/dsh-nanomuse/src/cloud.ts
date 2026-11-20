@@ -121,7 +121,7 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
-  baseURL: z.string().min(1).description('The nanoMuse Cloud relay. Required; set NANOMUSE_CLOUD_URL, the plugin has no default relay.'),
+  baseURL: z.string().default('').description('The nanoMuse Cloud relay. Empty until one is set (NANOMUSE_CLOUD_URL); the plugin has no default relay, and sign-in refuses while it is empty.'),
   deviceName: z.string().default('').description('This device in the account\'s device list; empty means the host name.'),
   statePath: z.string().default('').description('Account snapshot file; empty means $DSH_HOME/nanomuse/cloud.json.'),
 })
@@ -703,7 +703,10 @@ export default class NanomuseCloud extends Service {
 
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'nanomuseCloud')
-    if (!config.baseURL) throw new Error('nanoMuse Cloud needs a relay URL: set NANOMUSE_CLOUD_URL, the plugin has no default relay')
+    // No relay yet is a state the service runs in, not a failure to start: the
+    // sign-in page behind this service is where the person learns one is
+    // needed, and the routes must answer before any relay exists. Sign-in
+    // itself refuses while the address is empty (requireRelay).
     this.relay = new Relay(config.baseURL)
     this.chatgpt = new ChatGptDesk({
       command: async () => {
@@ -2660,13 +2663,20 @@ export default class NanomuseCloud extends Service {
     return this.sync ? this.sync.setMain(sessionId) : sessionId
   }
 
+  /** Sign-in needs a relay: without one the request would fail as a bare fetch error, so say it plainly. */
+  private requireRelay(): void {
+    if (!this.relay.origin) throw new RelayError(400, 'no_relay', 'No relay is configured: set NANOMUSE_CLOUD_URL to the relay this computer signs in to')
+  }
+
   /** Step one: a code to the phone or the mailbox. */
   async requestCode(identifier: string): Promise<void> {
+    this.requireRelay()
     await this.serialize(() => this.relay.requestCode(identifier.trim()))
   }
 
   /** Step two: the code for the key; wires the provider and remembers the account. */
   verify(identifier: string, code: string): Promise<CloudStatus> {
+    this.requireRelay()
     return this.serialize(async () => this.adopt(await this.relay.verify(identifier.trim(), code, this.deviceName(), undefined)))
   }
 
@@ -2692,6 +2702,7 @@ export default class NanomuseCloud extends Service {
 
   /** The other way in: the account's password instead of a code. */
   login(identifier: string, password: string): Promise<CloudStatus> {
+    this.requireRelay()
     return this.serialize(async () => this.adopt(await this.relay.login(identifier.trim(), password, this.deviceName())))
   }
 
