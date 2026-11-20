@@ -1,12 +1,15 @@
 name: Android
 
 # A debug APK (arm64-v8a) for every push and pull request that touches the
-# Android tree. Debug-signed only: no keystore and no secrets are involved;
-# release builds happen on a developer machine with scripts/release-apk.sh.
+# Android tree. Debug-signed only: no keystore and no secrets are involved.
+# A release tag builds the signed release APK and attaches it to the release
+# of the same name; the fork's release keystore comes from the repository
+# secrets, never from the tree.
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -27,6 +30,9 @@ jobs:
   # and a check that never reports would block every docs-only pull request.
   changes:
     name: what changed
+    # Tag pushes skip the path filter: the release job runs on every tag, and the
+    # debug build is a push-to-main job.
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -119,3 +125,112 @@ jobs:
           path: android/src/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
           if-no-files-found: error
+
+  release-apk:
+    name: release APK · arm64-v8a
+    # A signed release APK for the release of the same tag: the tag push is the
+    # only trigger. The keystore and its passwords come from the repository
+    # secrets; the signature is checked against the fork's release certificate
+    # before anything is attached, so a debug-signed or wrong-key build never
+    # reaches the release.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive # android/deps/proot (our fork)
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # gomobile@latest wants the current Go; GOTOOLCHAIN=auto below lets `go` fetch a
+          # newer one when it asks for it (setup-go v6+ pins the toolchain otherwise).
+          go-version: "1.26"
+          cache-dependency-path: android/deps/rclone-mobile/go.sum
+
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: platforms;android-36 build-tools;35.0.0 cmake;3.22.1 ndk;${{ env.NDK_VERSION }}
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      # The fork's release keystore, decoded from the secret into the tree (git-ignored,
+      # like the properties file); build.gradle.kts signs the release build with it when
+      # android/keystore.properties exists, and falls back to the debug key otherwise,
+      # which the signature check below refuses.
+      - name: The release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/nanomuse-release.keystore
+          [ -s android/nanomuse-release.keystore ] || { echo "the decoded keystore is empty" >&2; exit 1; }
+          {
+            printf 'storeFile=%s\n' "$GITHUB_WORKSPACE/android/nanomuse-release.keystore"
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+          } > android/keystore.properties
+
+      - name: Native artifacts (proot, Alpine rootfs, rclone.aar)
+        env:
+          GOTOOLCHAIN: auto
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          export GOROOT="$(go env GOROOT)" GOPATH="$(go env GOPATH)"
+          export PATH="$GOPATH/bin:$PATH" # gomobile / gobind land there
+          bash scripts/android/build-natives.sh
+
+      - name: assembleRelease
+        working-directory: android/src/android
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          ./gradlew :app:assembleRelease --console=plain --no-daemon
+
+      # The APK must carry the tag's version and the fork's release certificate.
+      - name: The signature is the fork's release key
+        run: |
+          bt="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          apk=android/src/android/app/build/outputs/apk/release/app-release.apk
+          version="${GITHUB_REF_NAME#v}"
+          "$bt/aapt" dump badging "$apk" | grep -E "^package:|application-label:" | head -2
+          "$bt/aapt" dump badging "$apk" | grep -q "versionName='$version'" || {
+            echo "the APK is not versionName $version" >&2; exit 1; }
+          certs="$("$bt/apksigner" verify --print-certs "$apk")"
+          echo "$certs" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          if echo "$certs" | grep -q "CN=Android Debug"; then
+            echo "signed with the debug key" >&2; exit 1
+          fi
+          expected="91:3A:48:A6:62:C3:CC:F7:F2:83:C3:4D:D5:F5:FC:EB:9C:4C:9B:85:86:48:BE:7D:CC:79:8D:59:0A:CD:98:4B"
+          expected="$(echo "$expected" | tr -d ':' | tr 'A-Z' 'a-z')"
+          echo "$certs" | grep -q "SHA-256 digest: $expected" || {
+            echo "the certificate is not the fork's release key" >&2; exit 1; }
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          version="${TAG#v}"
+          apk=android/src/android/app/build/outputs/apk/release/app-release.apk
+          mkdir -p dist
+          cp "$apk" "dist/nanoMuse-$version-arm64.apk"
+          (cd dist && sha256sum "nanoMuse-$version-arm64.apk" > "nanoMuse-$version-arm64.apk.sha256" && cat "nanoMuse-$version-arm64.apk.sha256")
+          # the release is created right after the tag is pushed;
+          # give it up to fifteen minutes
+          for i in $(seq 1 90); do
+            if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then break; fi
+            sleep 10
+          done
+          gh release view "$TAG" -R "$REPO" >/dev/null
+          gh release upload "$TAG" "dist/nanoMuse-$version-arm64.apk" "dist/nanoMuse-$version-arm64.apk.sha256" -R "$REPO" --clobber

@@ -4,7 +4,6 @@
 #   Windows  nanoMuse-Desktop-<v>-win-x64.exe        (NSIS installer; no in-app
 #                                                     update: a newer build comes from
 #                                                     the repository, installed by hand)
-#   macOS    nanoMuse-Desktop-<v>-mac-arm64.dmg / -x64.dmg  (+ .zip)
 #   Linux    nanoMuse-Desktop-<v>-linux-x64.AppImage / .deb / .tar.gz
 #
 # Each platform builds the bundle (harness/dsh-nanomuse: pnpm build, test, pack), stages dsh
@@ -12,18 +11,14 @@
 # the runtime (scripts/desktop-app/build-runtime.py --target harness/desktop/runtime, a
 # PyInstaller build), runs the shell's own tests (harness/desktop: npm test), wraps it all
 # with electron-builder, and then boots the unpacked app's harness once in Node mode (scripts/smoke.mjs) to see the Host
-# come up with the bundle's rows. On macOS the Swift helper that holds the hands' permissions
-# (harness/desktop/mac/computer-use/build.sh → "nanoMuse Computer Use.app") is built first and
-# electron-builder lays out the .app with it inside;
-# scripts/desktop-app/package-mac.sh ad-hoc signs it (or signs and notarizes with the Apple
-# secrets; docs/desktop.md says how they are made) and writes the zip and an APFS dmg.
-# No Windows certificate: Windows asks for "Run anyway"; without the Apple secrets the macOS
-# bundle is ad-hoc signed and macOS asks for Open Anyway in System Settings → Privacy & Security.
+# come up with the bundle's rows.
+# No Windows certificate: Windows asks for "Run anyway".
 # A push that touches harness/desktop builds Linux only; "Run workflow" and the release tags
-# `v*` build all four, and a tag uploads the installers to the release of the same name (the
-# one scripts/release-apk.sh creates with the APK), retrying until it exists; the platforms
-# that built are attached even when another one failed, and the run ends red. "Run workflow"
-# with a release tag does the same for a release that already exists (a platform fixed afterwards).
+# `v*` build both, and a tag uploads the installers to the release of the same name (created
+# right after the tag is pushed, with the signed APK attached by the Android workflow),
+# retrying until it exists; the platforms that built are attached even when another one
+# failed, and the run ends red. "Run workflow" with a release tag does the same for a
+# release that already exists (a platform fixed afterwards).
 name: desktop app
 
 on:
@@ -63,7 +58,7 @@ jobs:
       # The installers carry the version in harness/desktop/package.json; attaching them to a
       # release of another version (a manual run from main after the next bump, with
       # release_tag set to the previous tag) would replace that release's installers with the
-      # wrong build, so the run stops here before the four platforms start. As in harness.yml.
+      # wrong build, so the run stops here before the two platforms start. As in harness.yml.
       - name: The version matches the release
         env:
           TAG: ${{ inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
@@ -79,15 +74,14 @@ jobs:
           FULL: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
         run: |
           LINUX='{"os":"ubuntu-22.04","label":"linux-x64"}'
-          ALL="[{\"os\":\"windows-latest\",\"label\":\"windows-x64\"},{\"os\":\"macos-latest\",\"label\":\"macos-arm64\"},{\"os\":\"macos-15-intel\",\"label\":\"macos-x64\"},$LINUX]"
+          ALL="[{\"os\":\"windows-latest\",\"label\":\"windows-x64\"},$LINUX]"
           if [ "$FULL" = "true" ]; then echo "matrix=$ALL" >> "$GITHUB_OUTPUT"; else echo "matrix=[$LINUX]" >> "$GITHUB_OUTPUT"; fi
 
   build:
     name: ${{ matrix.label }}
     needs: plan
     runs-on: ${{ matrix.os }}
-    # a platform builds in about ten minutes; on macOS the notarization of the app and then of
-    # the dmg may each wait up to 45 minutes for Apple (scripts/desktop-app/package-mac.sh)
+    # a platform builds in about ten minutes
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -155,10 +149,6 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          # cryptography 49 stopped shipping Intel Mac wheels; the source build links Homebrew's
-          # OpenSSL, which PyInstaller then mixes up with Python's own. The last universal2
-          # wheel carries its OpenSSL inside.
-          if [ "${{ matrix.label }}" = "macos-x64" ]; then python -m pip install "cryptography<49"; fi
           python -m pip install -e ".[hands]" pyinstaller
           python scripts/desktop-app/build-runtime.py --check --target harness/desktop/runtime
       - name: The runtime for the hands (Linux, inside Debian 11, so it runs on glibc 2.31 and newer)
@@ -173,7 +163,6 @@ jobs:
           '
           ls harness/desktop/runtime | head
       - name: The app
-        if: runner.os != 'macOS'
         working-directory: harness/desktop
         shell: bash
         run: |
@@ -181,37 +170,11 @@ jobs:
           npm run typecheck
           npm test
           npm run dist
-      - name: The helper that holds the hands' permissions (macOS, nanoMuse Computer Use.app, Swift)
-        if: runner.os == 'macOS'
-        shell: bash
-        # a universal bundle (arm64 + x86_64) under harness/desktop/mac/computer-use/build/,
-        # which electron-builder.yml copies into nanoMuse.app/Contents/Helpers
-        run: harness/desktop/mac/computer-use/build.sh
-      - name: The app (macOS, signed and notarized with the Apple secrets, ad-hoc without; zip and APFS dmg by hand)
-        if: runner.os == 'macOS'
-        working-directory: harness/desktop
-        env:
-          MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
-          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_KEY_P8: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
-          APP_DIR: harness/desktop
-          APP_NAME: nanoMuse
-          ARTIFACT: nanoMuse-Desktop
-        run: |
-          npm ci
-          npm run typecheck
-          npm test
-          npm run dist:dir
-          ../../scripts/desktop-app/package-mac.sh "${{ matrix.label == 'macos-arm64' && 'arm64' || 'x64' }}"
       - name: Boot the packaged harness once
         working-directory: harness/desktop
         shell: bash
         run: |
           case "${{ runner.os }}" in
-            macOS) node scripts/smoke.mjs --app "$(ls -d dist/mac*/ | head -1)" ;;
             Windows) node scripts/smoke.mjs --app dist/win-unpacked ;;
             *) node scripts/smoke.mjs --app dist/linux-unpacked ;;
           esac
@@ -245,16 +208,14 @@ jobs:
             harness/desktop/dist/*.deb
             harness/desktop/dist/*.tar.gz
             harness/desktop/dist/*.exe
-            harness/desktop/dist/*.dmg
-            harness/desktop/dist/*.zip
           if-no-files-found: error
 
   # The platforms that built are attached even when another one failed: `needs.build.result`
   # is `failure` as soon as one leg of the matrix fails, which would skip this job and hold
-  # back three good installers for the one that broke. So the job runs on `success` and on
-  # `failure` alike (not when the build was cancelled or never ran), takes what the build
-  # uploaded, and attaches it; the run still ends red through the failed build job, and
-  # "Run workflow" with the tag, once the platform is fixed, builds all four again and
+  # back the other platform's installers for the one that broke. So the job runs on `success`
+  # and on `failure` alike (not when the build was cancelled or never ran), takes what the
+  # build uploaded, and attaches it; the run still ends red through the failed build job, and
+  # "Run workflow" with the tag, once the platform is fixed, builds both again and
   # replaces the installers and the checksum file.
   release:
     if: always() && (startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != '') && (needs.build.result == 'success' || needs.build.result == 'failure')
@@ -280,7 +241,7 @@ jobs:
           if [ "$BUILD_RESULT" != "success" ]; then
             echo "::warning::a platform's build failed; attaching the installers of the platforms that built, so the release is not left empty. SHA256SUMS-desktop.txt lists those only; fix the platform and run the workflow again with release_tag=$TAG to complete the set."
           fi
-          # the release is created by scripts/release-apk.sh right after it pushes the tag;
+          # the release is created right after the tag is pushed;
           # give it up to fifteen minutes
           for i in $(seq 1 90); do
             if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then break; fi
