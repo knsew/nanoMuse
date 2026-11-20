@@ -23,20 +23,45 @@ class ProviderCatalogueTest {
     private fun inst(type: ProviderType, base: String? = null, cred: ProviderCredential = ProviderCredential.apiKey) =
         ProviderInstance(id = "i-${type.name}-${base ?: ""}", label = type.displayName, providerType = type, credentialType = cred, customBaseURL = base)
 
-    @Test fun `the shipped catalogue parses with the vendors the contract names`() {
-        val ids = shipped.map { it.id }
-        for (id in listOf("bailian", "deepseek", "moonshot", "zhipu", "siliconflow", "volcengine", "minimax", "openrouter", "openai", "anthropic", "gemini", "xai", "groq", "mistral", "custom")) {
-            assertTrue(id, id in ids)
-        }
-        val openai = shipped.first { it.id == "openai" }
-        assertEquals(setOf("chat", "vision", "image"), openai.capabilities)
-        // a ChatGPT plan through the Codex OAuth is chat and vision only
-        assertEquals(setOf("chat", "vision"), openai.capabilitiesFor(ProviderCatalogue.AUTH_CHATGPT))
-        assertEquals(ProviderCatalogue.AUTH_CHATGPT, openai.signIn)
-        assertTrue(shipped.first { it.id == "bailian" }.servesMainland())
-        assertFalse(shipped.first { it.id == "bailian" }.servesGlobal())
+    /** A synthetic catalogue entry: the template and capability rules are the same whatever the catalogue ships. */
+    private fun vendor(
+        id: String,
+        nameZh: String = "",
+        protocol: String = "openai",
+        baseUrl: String = "https://$id.example/v1",
+        baseUrlGlobal: String? = null,
+        auth: List<String> = listOf("key"),
+        authCapabilities: Map<String, Set<String>> = emptyMap(),
+        capabilities: Set<String> = setOf("chat"),
+    ) = CatalogueProvider(
+        id = id,
+        name = id,
+        nameZh = nameZh,
+        protocol = protocol,
+        baseUrl = baseUrl,
+        baseUrlGlobal = baseUrlGlobal,
+        keyUrl = "",
+        keyUrlGlobal = null,
+        keyHint = null,
+        auth = auth,
+        authCapabilities = authCapabilities,
+        regions = setOf("global"),
+        capabilities = capabilities,
+        userCapabilities = false,
+        defaults = emptyMap(),
+        note = "",
+        noteZh = "",
+        verified = "2026-10",
+    )
+
+    @Test fun `the shipped catalogue parses with the local servers and the blank entry only`() {
+        assertEquals(listOf("ollama", "lm-studio", "vllm", "custom"), shipped.map { it.id })
         assertTrue(shipped.first { it.id == "custom" }.userCapabilities)
         assertTrue(shipped.first { it.id == "ollama" }.local)
+        assertTrue(shipped.first { it.id == "lm-studio" }.local)
+        assertTrue(shipped.first { it.id == "vllm" }.local)
+        assertFalse(shipped.first { it.id == "custom" }.local)
+        assertEquals("qwen3:8b", shipped.first { it.id == "ollama" }.defaults["chat"])
         for (p in shipped) assertTrue(p.id, p.verified.matches(Regex("\\d{4}-\\d{2}")))
     }
 
@@ -49,74 +74,77 @@ class ProviderCatalogueTest {
     }
 
     @Test fun `a vendor that wants a session id per conversation is on a host that gets one`() {
-        val go = shipped.first { it.id == "opencode-go" }
-        assertEquals(OpenCodeSession.HEADER, go.sessionHeader)
-        assertNull(shipped.first { it.id == "opencode-zen" }.sessionHeader)
-        // every entry naming a session header is on an endpoint OpenAIProvider sends it to
-        for (p in shipped.filter { it.sessionHeader != null }) {
-            assertEquals(p.id, OpenCodeSession.HEADER, p.sessionHeader)
-            assertTrue(p.id, OpenCodeSession.wants(p.baseUrl))
-        }
+        // the slimmed catalogue names no session header: no entry to check against
+        assertTrue(shipped.none { it.sessionHeader != null })
         assertTrue(OpenCodeSession.wants("https://opencode.ai/zen/go/v1"))
         assertFalse(OpenCodeSession.wants("https://api.deepseek.com/v1"))
         assertFalse(OpenCodeSession.wants("https://notopencode.ai/v1"))
         assertFalse(OpenCodeSession.wants(null))
-        // Zen and Go share a host: the whole address says which one a configured provider is
-        assertEquals("opencode-go", ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://opencode.ai/zen/go/v1"))?.id)
-        assertEquals("opencode-zen", ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://opencode.ai/zen/v1/"))?.id)
     }
 
-    @Test fun `the card's order - the region's first, local servers and the blank entry left out`() {
-        val cn = ProviderCatalogue.ordered(shipped, mainland = true).map { it.id }
-        assertEquals("bailian", cn.first())
-        assertTrue(cn.indexOf("deepseek") < cn.indexOf("openai")) // a vendor that signs up on the mainland before one that does not
-        for (id in listOf("ollama", "lm-studio", "vllm", "custom")) assertFalse(id, id in cn)
-
-        val global = ProviderCatalogue.ordered(shipped, mainland = false).map { it.id }
-        assertEquals(listOf("openrouter", "openai"), global.take(2))
-        assertTrue(global.indexOf("anthropic") < global.indexOf("bailian")) // Bailian signs up on the mainland only: after the rest
-        assertEquals(cn.toSet(), global.toSet())
-
-        // the sign-ins: ChatGPT, Claude, Kimi, OpenRouter, in the card's order
-        assertEquals(setOf("openai", "anthropic", "moonshot", "openrouter"), ProviderCatalogue.signIns(shipped, false).map { it.id }.toSet())
+    @Test fun `the card's order - the slimmed catalogue lists no cloud vendor`() {
+        // local servers and the blank entry are not ways on from a spent allowance, and
+        // the slimmed catalogue holds nothing else: the card's order is empty either way
+        assertEquals(emptyList<String>(), ProviderCatalogue.ordered(shipped, mainland = true).map { it.id })
+        assertEquals(emptyList<String>(), ProviderCatalogue.ordered(shipped, mainland = false).map { it.id })
+        assertTrue(ProviderCatalogue.signIns(shipped, false).isEmpty())
+        assertTrue(ProviderCatalogue.signIns(shipped, true).isEmpty())
     }
 
-    @Test fun `which vendor a configured provider is - by host first, then by type, and unknown hosts are nobody's`() {
-        // a Bailian key pasted into the OpenAI-compatible form (the preset's base, without /v1)
-        assertEquals("bailian", ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://dashscope.aliyuncs.com/compatible-mode"))?.id)
-        // Kimi's global edition
-        assertEquals("moonshot", ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://api.moonshot.ai/v1"))?.id)
-        // upstream's own types
-        assertEquals("openrouter", ProviderCatalogue.match(shipped, inst(ProviderType.openRouter))?.id)
-        assertEquals("anthropic", ProviderCatalogue.match(shipped, inst(ProviderType.anthropic))?.id)
-        assertEquals("gemini", ProviderCatalogue.match(shipped, inst(ProviderType.gemini))?.id)
-        assertEquals("xai", ProviderCatalogue.match(shipped, inst(ProviderType.xAI))?.id)
-        assertEquals("moonshot", ProviderCatalogue.match(shipped, inst(ProviderType.kimiCode, cred = ProviderCredential.oauth))?.id)
-        assertEquals("openai", ProviderCatalogue.match(shipped, inst(ProviderType.openAI))?.id)
+    @Test fun `which vendor a configured provider is - a local server by its address, anything else nobody's`() {
+        // the local servers, by their whole address
+        assertEquals("ollama", ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "http://127.0.0.1:11434/v1"))?.id)
+        assertEquals("lm-studio", ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "http://127.0.0.1:1234/v1"))?.id)
+        assertEquals("vllm", ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "http://127.0.0.1:8000/v1"))?.id)
+        // a cloud vendor's host is nobody's now: the catalogue no longer lists it
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://dashscope.aliyuncs.com/compatible-mode")))
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://api.moonshot.ai/v1")))
+        // upstream's own types are nobody's either: no entry carries their id
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.openRouter)))
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.anthropic)))
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.gemini)))
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.xAI)))
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.kimiCode, cred = ProviderCredential.oauth)))
+        assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.openAI)))
         // a relay of one's own, nanoMuse Cloud: not in the catalogue, not gated
         assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://relay.example.org/v1")))
         assertNull(ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "http://192.168.1.20:11434/v1")))
     }
 
     @Test fun `what a provider covers - the key's capabilities, or the sign-in's when that gives less`() {
+        val openai = vendor(
+            id = "openai",
+            auth = listOf("key", ProviderCatalogue.AUTH_CHATGPT),
+            authCapabilities = mapOf(ProviderCatalogue.AUTH_CHATGPT to setOf("chat", "vision")),
+            capabilities = setOf("chat", "vision", "image"),
+        )
         val chatgpt = inst(ProviderType.openAI, cred = ProviderCredential.oauth)
-        val openai = ProviderCatalogue.match(shipped, chatgpt)!!
         assertEquals(ProviderCatalogue.AUTH_CHATGPT, ProviderCatalogue.authOf(chatgpt, openai))
         assertEquals(setOf("chat", "vision"), openai.capabilitiesFor(ProviderCatalogue.authOf(chatgpt, openai)))
         // the same vendor with a key draws
         val keyed = inst(ProviderType.openAI)
         assertNull(ProviderCatalogue.authOf(keyed, openai))
         assertTrue("image" in openai.capabilitiesFor(null))
-        // DeepSeek has no image models; Bailian has everything
-        assertFalse("image" in ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://api.deepseek.com/v1"))!!.capabilities)
-        assertEquals(setOf("chat", "vision", "image", "video"), ProviderCatalogue.match(shipped, inst(ProviderType.openAI, "https://dashscope.aliyuncs.com/compatible-mode/v1"))!!.capabilities)
+        // a vendor with no image models
+        assertFalse("image" in vendor(id = "plain", capabilities = setOf("chat")).capabilities)
         // OpenRouter's sign-in gives what the key gives
-        val or = shipped.first { it.id == "openrouter" }
+        val or = vendor(id = "openrouter", auth = listOf("key", ProviderCatalogue.AUTH_OPENROUTER))
         assertEquals(or.capabilities, or.capabilitiesFor(ProviderCatalogue.AUTH_OPENROUTER))
     }
 
     @Test fun `the pre-filled form - endpoint split into base and the v1 toggle, the type per vendor, the sign-in's type`() {
-        fun t(id: String, mainland: Boolean = true, signIn: Boolean = false) = OwnKeyPresets.template(shipped.first { it.id == id }, mainland, chinese = false, signIn = signIn)
+        val vendors = listOf(
+            vendor("bailian", nameZh = "阿里云百炼", baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+            vendor("openrouter", baseUrl = "https://openrouter.ai/api/v1", auth = listOf("key", "oauth-openrouter")),
+            vendor("zhipu", baseUrl = "https://open.bigmodel.cn/api/paas/v4"),
+            vendor("groq", baseUrl = "https://api.groq.com/openai/v1"),
+            vendor("xai", baseUrl = "https://api.x.ai/v1"),
+            vendor("anthropic", protocol = "anthropic", baseUrl = "https://api.anthropic.com", auth = listOf("key", "oauth-claude")),
+            vendor("gemini", protocol = "gemini", baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai"),
+            vendor("moonshot", baseUrl = "https://api.moonshot.cn/v1", baseUrlGlobal = "https://api.moonshot.ai/v1", auth = listOf("key", "device-kimi")),
+            vendor("openai", baseUrl = "https://api.openai.com/v1", auth = listOf("key", "oauth-chatgpt")),
+        )
+        fun t(id: String, mainland: Boolean = true, signIn: Boolean = false) = OwnKeyPresets.template(vendors.first { it.id == id }, mainland, chinese = false, signIn = signIn)
         t("bailian").let { assertEquals(ProviderType.openAI, it.providerType); assertEquals("https://dashscope.aliyuncs.com/compatible-mode", it.baseURL); assertTrue(it.appendV1) }
         t("openrouter").let { assertEquals(ProviderType.openRouter, it.providerType); assertEquals("https://openrouter.ai/api", it.baseURL); assertTrue(it.appendV1) }
         t("zhipu").let { assertEquals("https://open.bigmodel.cn/api/paas/v4", it.baseURL); assertFalse(it.appendV1) }
@@ -132,7 +160,7 @@ class ProviderCatalogueTest {
         assertEquals(ProviderType.openAI, t("openai", signIn = true).providerType)
         assertEquals(ProviderType.anthropic, t("anthropic", signIn = true).providerType)
         // the Chinese name when the UI is Chinese
-        assertEquals("阿里云百炼", OwnKeyPresets.template(shipped.first { it.id == "bailian" }, true, chinese = true).name)
+        assertEquals("阿里云百炼", OwnKeyPresets.template(vendors.first { it.id == "bailian" }, true, chinese = true).name)
     }
 
     @Test fun `the preset value - id and the sign-in suffix, the deep link`() {

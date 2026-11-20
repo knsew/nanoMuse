@@ -84,9 +84,6 @@ class RelayAddressTest {
         assertEquals("cloud.nanomuse.cn", RelayAddress.display("https://cloud.nanomuse.cn"))
         assertEquals("192.168.1.20:8790", RelayAddress.display("http://192.168.1.20:8790"))
         assertEquals("box.example.org", RelayAddress.display("https://box.example.org/nanomuse"))
-        assertTrue(RelayAddress.isDefault(NanoMuseCloud.DEFAULT_BASE))
-        assertTrue(RelayAddress.isDefault(NanoMuseCloud.DEFAULT_BASE + "/"))
-        assertFalse(RelayAddress.isDefault("https://relay.example.org"))
     }
 
     @Test fun `healthz says whether a relay is there`() {

@@ -93,20 +93,22 @@ struct NanoMuseDevicesSection: View {
             Text(AppLocalized("Take this device off the list. It comes back the next time it signs in with this account."))
         }
 
-        Section {
-            Button {
-                UIPasteboard.general.string = hub.webConsoleURL
-            } label: {
-                LabeledContent {
-                    Text(AppLocalized("Copy link")).foregroundStyle(.tint)
+        if let console = hub.webConsoleURL {
+            Section {
+                Button {
+                    UIPasteboard.general.string = console
                 } label: {
-                    Label(AppLocalized("Web console"), systemImage: "globe")
-                    Text(hub.webConsoleURL).font(.footnote).foregroundStyle(.secondary)
+                    LabeledContent {
+                        Text(AppLocalized("Copy link")).foregroundStyle(.tint)
+                    } label: {
+                        Label(AppLocalized("Web console"), systemImage: "globe")
+                        Text(console).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
+                .tint(.primary)
+            } footer: {
+                Text(AppLocalized("Open the link in any browser, sign in with the same account, and drive your devices from there."))
             }
-            .tint(.primary)
-        } footer: {
-            Text(AppLocalized("Open the link in any browser, sign in with the same account, and drive your devices from there."))
         }
     }
 

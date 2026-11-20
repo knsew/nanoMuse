@@ -115,7 +115,6 @@ struct NanoMuseCloudError: LocalizedError, Sendable {
 
 @MainActor
 enum NanoMuseCloud {
-    nonisolated static let defaultBase = "https://cloud.nanomuse.cn"
     static let label = "nanoMuse Cloud"
 
     private enum Keys {
@@ -144,21 +143,22 @@ enum NanoMuseCloud {
     /// sheet, NanoMuseRelayPicker). The address must pass `relayProblem` first.
     static var canOverrideBase: Bool { true }
 
-    /// The relay this build talks to.
-    static var baseURL: String {
+    /// The relay this build talks to, or nil when no address is set. This fork has no
+    /// default relay: without an address, nothing is called and the sign-in asks for one.
+    static var baseURL: String? {
         if canOverrideBase,
            let custom = UserDefaults.standard.string(forKey: Keys.base)?.trimmingCharacters(in: .whitespacesAndNewlines),
            !custom.isEmpty {
             return trimSlash(custom)
         }
-        return defaultBase
+        return nil
     }
 
-    /// Whether the relay is one of the person's own rather than the default.
-    static var usesOwnRelay: Bool { baseURL != defaultBase }
+    /// Whether a relay address is set at all.
+    static var usesOwnRelay: Bool { baseURL != nil }
 
-    /// The host of the relay in use, for "Server: …" rows.
-    static var relayHost: String { URL(string: baseURL)?.host ?? baseURL }
+    /// The host of the relay in use, for "Server: …" rows ("" when no address is set).
+    static var relayHost: String { baseURL.flatMap { URL(string: $0)?.host ?? $0 } ?? "" }
 
     static func setBaseURL(_ url: String?) {
         let trimmed = url?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -257,7 +257,8 @@ enum NanoMuseCloud {
         guard let openAI = provider as? OpenAIAgentProvider,
               let base = openAI.provider.customBaseURL.flatMap(normalizedRelay) else { return 120 }
         let custom = UserDefaults.standard.string(forKey: Keys.base).flatMap(normalizedRelay)
-        return base == (custom ?? defaultBase) ? 300 : 120
+        if let custom, base == custom { return 300 }
+        return 120
     }
 
     /// The provider instance the relay is signed in as, if it still exists.
@@ -363,7 +364,9 @@ enum NanoMuseCloud {
         }
         // The host the code was sent to is the host the key is for; the relay's own idea of
         // its public address (`base_url`) is informational.
-        let base = baseURL
+        guard let base = baseURL else {
+            throw CloudError(code: "no_relay", message: "No relay address is set", status: 0)
+        }
         let store = ProviderConfigStore.shared
         // C12: who was here before the key is written — the phone's own set (signed out), or
         // an account a sign-in reached without a sign-out (nothing of it is deleted without
@@ -571,6 +574,8 @@ enum NanoMuseCloud {
             return AppLocalized("Too many requests at once. Try again shortly.")
         case "unreachable":
             return AppLocalized("Could not reach nanoMuse Cloud. Check the connection and try again.")
+        case "no_relay":
+            return AppLocalized("Enter the server's address, for example https://relay.example.org.")
         default:
             // a code we do not know: the status says what kind of thing it was
             switch cloud.status {
@@ -698,7 +703,10 @@ enum NanoMuseCloud {
     }()
 
     static func call(_ method: String, _ path: String, body: [String: Any]?, token: String?) async throws -> [String: Any] {
-        guard let url = URL(string: baseURL + path) else {
+        guard let base = baseURL else {
+            throw CloudError(code: "no_relay", message: "No relay address is set", status: 0)
+        }
+        guard let url = URL(string: base + path) else {
             throw CloudError(code: "bad_base", message: "Bad relay address", status: 0)
         }
         var request = URLRequest(url: url)

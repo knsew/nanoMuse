@@ -65,14 +65,8 @@ struct NanoMuseRelayPickerSheet: View {
                     .disabled(!usable || checking)
                 }
 
-                if NanoMuseCloud.usesOwnRelay {
+                if NanoMuseCloud.baseURL != nil {
                     Section {
-                        Button(AppLocalized("Use the default server")) {
-                            NanoMuseCloud.setBaseURL(nil)
-                            dismiss()
-                        }
-                        .disabled(checking)
-                    } footer: {
                         Text(String(format: AppLocalized("Server: %@"), NanoMuseCloud.relayHost))
                     }
                 }
@@ -85,7 +79,7 @@ struct NanoMuseRelayPickerSheet: View {
                 }
             }
             .onAppear {
-                if address.isEmpty, NanoMuseCloud.usesOwnRelay { address = NanoMuseCloud.baseURL }
+                if address.isEmpty, let base = NanoMuseCloud.baseURL { address = base }
             }
         }
     }

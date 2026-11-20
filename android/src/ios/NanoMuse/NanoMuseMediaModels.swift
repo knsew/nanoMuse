@@ -119,7 +119,7 @@ enum NanoMuseMediaModels {
     /// The Cloud instance's base is the relay's; a Bailian instance's is the compatible-mode URL.
     @MainActor
     static func host(of inst: ProviderInstance) -> String {
-        if inst.id == NanoMuseCloud.instance?.id { return NanoMuseCloud.baseURL }
+        if inst.id == NanoMuseCloud.instance?.id { return NanoMuseCloud.baseURL ?? "" }
         return NanoMuseVideoGen.host(of: inst.customBaseURL ?? "")
     }
 

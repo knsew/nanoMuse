@@ -78,7 +78,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )
-            // nanoMuse: the installed build and the latest release (tap: check again / get it).
+            // nanoMuse: the installed build.
             io.github.nanomuse.ui.settings.VersionLines()
             Text(
                 stringResource(R.string.about_minis_tagline),
@@ -99,7 +99,8 @@ fun AboutScreen(onBack: () -> Unit) {
                 // LocalInAppBrowserLauncher ambient defaults to a no-op when
                 // no InAppBrowserHost is in the tree above this screen — and
                 // nothing wraps Settings, so the row used to be a dead tap.
-                onClick = { openExternalUrl(context, "https://github.com/nano-muse/nanoMuse") },
+                // nanoMuse: the fork's repository, not upstream's.
+                onClick = { openExternalUrl(context, "https://github.com/knsew/nanoMuse") },
                 trailing = { ExternalLinkIcon() },
                 showDivider = false,
             )
@@ -113,7 +114,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 iconColor = tileBlue,
                 title = stringResource(R.string.nm_about_license),
                 subtitle = "GPL-3.0-or-later",
-                onClick = { openExternalUrl(context, "https://github.com/nano-muse/nanoMuse/blob/main/LICENSE") },
+                onClick = { openExternalUrl(context, "https://github.com/knsew/nanoMuse/blob/main/LICENSE") },
                 trailing = { ExternalLinkIcon() },
                 minHeight = 72.dp,
             )
@@ -122,7 +123,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 iconColor = tileBlue,
                 title = stringResource(R.string.nm_about_upstream),
                 subtitle = stringResource(R.string.nm_about_upstream_detail),
-                onClick = { openExternalUrl(context, "https://github.com/nano-muse/nanoMuse") },
+                onClick = { openExternalUrl(context, "https://github.com/knsew/nanoMuse") },
                 trailing = { ExternalLinkIcon() },
                 minHeight = 72.dp,
             )
@@ -136,11 +137,7 @@ fun AboutScreen(onBack: () -> Unit) {
             )
         }
 
-        // T122: surface the existing UpdateChecker entry on the About screen.
-        // The composable was already implemented but never wired anywhere, so
-        // users had no way to trigger a check.
-        CheckUpdateSection()
-
+        // nanoMuse: no in-app update check in this fork; a newer build comes from the repository.
         Spacer(Modifier.height(24.dp))
     }
 }

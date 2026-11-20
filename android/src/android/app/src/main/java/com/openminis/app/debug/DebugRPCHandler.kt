@@ -92,9 +92,8 @@ class DebugRPCHandler(private val context: Context) {
             "debug.agentTrace" -> handleAgentTrace(params)
             "debug.fetch" -> handleFetch(params)
             "debug.shellExecute" -> handleShellExecute(params)
-            "debug.update.check" -> handleUpdateCheck()
-            "debug.update.download" -> handleUpdateDownload(params)
-            "debug.update.install" -> handleUpdateInstall(params)
+            // nanoMuse: no update check in this fork (UpdateChecker deleted); the
+            // debug.update.* methods are gone with it.
             "debug.permissions.list" -> handlePermissionsList()
 
             // UI introspection (Layer A parity with iOS)
@@ -920,66 +919,6 @@ class DebugRPCHandler(private val context: Context) {
             .put("output", result.output)
             .put("exit_code", result.exitCode)
             .put("session", session)
-    }
-
-    // ── Update checker (T33) — exposed only via DebugRPC so the e2e flow can
-    // be exercised before the production UI entry point lands.
-    private suspend fun handleUpdateCheck(): JSONObject {
-        return when (val r = com.openminis.app.data.UpdateChecker.check()) {
-            is com.openminis.app.data.UpdateChecker.CheckResult.UpdateAvailable -> JSONObject()
-                .put("status", "update_available")
-                .put("tag_name", r.tagName)
-                .put("version_name", r.versionName)
-                .put("release_name", r.releaseName)
-                .put("apk_url", r.apkUrl)
-                .put("apk_size", r.apkSizeBytes)
-                .put("changelog", r.changelog)
-            com.openminis.app.data.UpdateChecker.CheckResult.UpToDate ->
-                JSONObject().put("status", "up_to_date")
-            com.openminis.app.data.UpdateChecker.CheckResult.NoReleaseAvailable ->
-                JSONObject().put("status", "no_release")
-            is com.openminis.app.data.UpdateChecker.CheckResult.NoApkAsset ->
-                JSONObject().put("status", "no_apk_asset").put("tag_name", r.tagName)
-            com.openminis.app.data.UpdateChecker.CheckResult.Forbidden ->
-                JSONObject().put("status", "forbidden")
-            com.openminis.app.data.UpdateChecker.CheckResult.NetworkUnreachable ->
-                JSONObject().put("status", "network_unreachable")
-            is com.openminis.app.data.UpdateChecker.CheckResult.Error ->
-                JSONObject().put("status", "error").put("message", r.message)
-        }
-    }
-
-    private suspend fun handleUpdateDownload(params: JSONObject): JSONObject {
-        val url = params.optString("url").ifEmpty {
-            throw RPCException(-32602, "Missing 'url' parameter")
-        }
-        return when (val r = com.openminis.app.data.UpdateChecker.download(context, url)) {
-            is com.openminis.app.data.UpdateChecker.DownloadResult.Success -> JSONObject()
-                .put("status", "ok")
-                .put("path", r.file.absolutePath)
-                .put("size", r.file.length())
-            is com.openminis.app.data.UpdateChecker.DownloadResult.Error -> JSONObject()
-                .put("status", "error")
-                .put("message", r.message)
-        }
-    }
-
-    private fun handleUpdateInstall(params: JSONObject): JSONObject {
-        val path = params.optString("path").ifEmpty {
-            throw RPCException(-32602, "Missing 'path' parameter")
-        }
-        val file = java.io.File(path)
-        if (!file.exists()) throw RPCException(-32000, "APK not found: $path")
-        val canInstall = com.openminis.app.data.UpdateChecker.canInstall(context)
-        return try {
-            com.openminis.app.data.UpdateChecker.installApk(context, file)
-            JSONObject().put("status", "launched").put("can_install", canInstall)
-        } catch (e: Exception) {
-            JSONObject()
-                .put("status", "error")
-                .put("can_install", canInstall)
-                .put("message", e.message ?: e.javaClass.simpleName)
-        }
     }
 
     // ── UI introspection (Layer A) ───────────────────────────────────────────

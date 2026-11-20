@@ -24,6 +24,8 @@ struct NanoMuseCloudView: View {
     @State private var confirm: WayOut?
     /// "Use a different server" (NanoMuseRelayPicker).
     @State private var pickingRelay = false
+    /// Whether a relay address is set at all: no address, no sign-in (this fork has no default relay).
+    @State private var relaySet = NanoMuseCloud.baseURL != nil
 
     private enum WayOut: String, Identifiable {
         case here, everywhere, delete
@@ -54,11 +56,12 @@ struct NanoMuseCloudView: View {
         }
         .navigationTitle(NanoMuseCloud.label)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $pickingRelay, onDismiss: { Task { config = await NanoMuseCloud.config() } }) {
+        .sheet(isPresented: $pickingRelay, onDismiss: { Task { config = await NanoMuseCloud.config(); relaySet = NanoMuseCloud.baseURL != nil } }) {
             NanoMuseRelayPickerSheet()
         }
         .task {
             account = NanoMuseCloud.account
+            relaySet = NanoMuseCloud.baseURL != nil
             if signedIn { await refresh(quiet: true) } else { config = await NanoMuseCloud.config() }
         }
     }
@@ -291,7 +294,7 @@ struct NanoMuseCloudView: View {
                         if busy { Spacer(); ProgressView() }
                     }
                 }
-                .disabled(busy || password.isEmpty || identifier.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(busy || !relaySet || password.isEmpty || identifier.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button(AppLocalized("Use a code instead")) {
                     usePassword = false
                     password = ""
@@ -307,7 +310,7 @@ struct NanoMuseCloudView: View {
                         if busy { Spacer(); ProgressView() }
                     }
                 }
-                .disabled(busy || code.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(busy || !relaySet || code.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button(AppLocalized("Use a password instead")) {
                     usePassword = true
                     message = nil
@@ -328,7 +331,7 @@ struct NanoMuseCloudView: View {
                         if busy { Spacer(); ProgressView() }
                     }
                 }
-                .disabled(busy || identifier.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(busy || !relaySet || identifier.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button(AppLocalized("Sign in with a password")) {
                     usePassword = true
                     message = nil
@@ -346,6 +349,8 @@ struct NanoMuseCloudView: View {
         } footer: {
             if NanoMuseCloud.usesOwnRelay {
                 Text(String(format: AppLocalized("Server: %@"), NanoMuseCloud.relayHost))
+            } else {
+                Text(AppLocalized("Enter the server's address, for example https://relay.example.org."))
             }
         }
     }

@@ -483,12 +483,13 @@ object ConversationSync {
     private fun engine(ctx: Context): SyncEngine? {
         val repo = (ctx.applicationContext as? MinisApp)?.chatRepositoryOrNull ?: return null
         val token = NanoMuseCloud.apiKey(ctx) ?: return null
+        val base = NanoMuseCloud.baseUrl(ctx) ?: return null
         // the ids are per account: the relay's id for it, or the key itself on a relay that gives none
         val account = accountKey(ctx) ?: return null
         return SyncEngine(
             store = RoomSyncStore(ctx),
             chats = RoomChats(ctx, repo),
-            api = RelaySyncApi(NanoMuseCloud.baseUrl(ctx), token, "nanoMuse-Android/${BuildConfig.VERSION_NAME}"),
+            api = RelaySyncApi(base, token, "nanoMuse-Android/${BuildConfig.VERSION_NAME}"),
             deviceId = Hub.deviceId(ctx),
             account = account,
             sideChats = { _sideChats.value },

@@ -145,10 +145,9 @@ struct NanoMuseRoot: View {
             NanoMuseStar.shared.dayOpened()
         }
         .nmOnChange(of: scenePhase) { phase in
-            // C1: one more day with the app, counted when it comes to the front; C2: the release check, when stale.
+            // C1: one more day with the app, counted when it comes to the front.
             guard phase == .active else { return }
             NanoMuseStar.shared.dayOpened()
-            NanoMuseUpdateCheck.shared.checkIfStale()
         }
         .task {
             hasSessions = !NanoMuseSync.shared.visible(await ChatStore.shared.listSessions()).isEmpty // C12: another account's chats do not count

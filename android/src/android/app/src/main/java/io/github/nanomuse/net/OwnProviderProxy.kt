@@ -153,7 +153,7 @@ object OwnProviderProxy {
         // later off the main thread, since opening the encrypted file goes through the keystore
         current = settings(prefs(app))
         scope.launch { config(app) }
-        relayHost = hostOf(NanoMuseCloud.baseUrl(app))
+        relayHost = NanoMuseCloud.baseUrl(app)?.let { hostOf(it) } ?: ""
         val catalogue = runCatching { ProviderCatalogue.load(app) }.getOrDefault(emptyList())
             .flatMap { listOfNotNull(it.baseUrl, it.baseUrlGlobal) }
             .mapNotNull { hostOf(it).takeIf(String::isNotBlank) }
@@ -165,7 +165,7 @@ object OwnProviderProxy {
                     val relayId = runCatching { NanoMuseCloud.instance(app)?.id }.getOrNull()
                     val custom = cfg.instances.filter { it.id != relayId }.mapNotNull { it.customBaseURL }
                         .mapNotNull { hostOf(it).takeIf(String::isNotBlank) }
-                    rebuildHosts(catalogue, custom, hostOf(NanoMuseCloud.baseUrl(app)))
+                    rebuildHosts(catalogue, custom, NanoMuseCloud.baseUrl(app)?.let { hostOf(it) })
                 }
             }
         }

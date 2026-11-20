@@ -7693,7 +7693,8 @@ private struct SettingsSheet: View {
                                 .background(.indigo, in: Circle())
                         }
                     }
-                    Link(destination: URL(string: "https://github.com/nano-muse/nanoMuse/blob/main/docs/privacy.md")!) {
+                    // nanoMuse: the fork's privacy page, not upstream's.
+                    Link(destination: URL(string: "https://github.com/knsew/nanoMuse/blob/main/docs/privacy.md")!) {
                         Label {
                             Text("Privacy Policy")
                         } icon: {
@@ -7966,7 +7967,8 @@ private struct SettingsSheet: View {
 
         """
 
-        var components = URLComponents(string: "https://github.com/nano-muse/nanoMuse/issues/new")
+        // nanoMuse: file bugs against the fork, not upstream.
+        var components = URLComponents(string: "https://github.com/knsew/nanoMuse/issues/new")
         components?.queryItems = [
             URLQueryItem(name: "template", value: "bug_report.md"),
             URLQueryItem(name: "title", value: "[Bug] "),

@@ -72,7 +72,7 @@ import kotlinx.coroutines.launch
 const val ROUTE_CLOUD_SIGN_IN = "nanomuse/cloud/sign-in"
 const val ROUTE_CLOUD_ACCOUNT = "nanomuse/cloud/account"
 
-private const val CLOUD_DOC_URL = "https://github.com/nano-muse/nanoMuse/blob/main/docs/cloud.md"
+private const val CLOUD_DOC_URL = "https://github.com/knsew/nanoMuse/blob/main/docs/cloud.md"
 
 /**
  * Sign in to nanoMuse Cloud: a mainland phone number (the code comes by SMS) or an e-mail
@@ -102,9 +102,10 @@ fun CloudSignInScreen(
     var showPassword by remember { mutableStateOf(false) }
     var countdown by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
-    // Someone's own relay (0.1.38): the address lives in NanoMuseCloud once "Use this server"
-    // is tapped; the form opens by itself when the phone is already pointed away from the default.
-    var serverOpen by remember { mutableStateOf(!RelayAddress.isDefault(NanoMuseCloud.baseUrl(context))) }
+    // The relay's address: this fork has no default relay, so the form opens by itself and
+    // sign-in stays disabled until an address is set ("Use this server" reports back here).
+    var serverOpen by remember { mutableStateOf(true) }
+    var server by remember { mutableStateOf(NanoMuseCloud.baseUrl(context)) }
     val onSurface = MaterialTheme.colorScheme.onSurface
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     // a number the relay cannot text: said here, before the code is asked for (item 8)
@@ -119,6 +120,10 @@ fun CloudSignInScreen(
 
     fun sendCode() {
         if (sending || identifier.isBlank() || phoneAbroad) return
+        if (server == null) {
+            error = context.getString(R.string.nm_cloud_server_bad_url)
+            return
+        }
         error = null
         sending = true
         scope.launch {
@@ -137,6 +142,10 @@ fun CloudSignInScreen(
 
     fun verify() {
         if (verifying || code.length < 4) return
+        if (server == null) {
+            error = context.getString(R.string.nm_cloud_server_bad_url)
+            return
+        }
         error = null
         verifying = true
         scope.launch {
@@ -154,6 +163,10 @@ fun CloudSignInScreen(
 
     fun login() {
         if (verifying || identifier.isBlank() || password.isEmpty()) return
+        if (server == null) {
+            error = context.getString(R.string.nm_cloud_server_bad_url)
+            return
+        }
         error = null
         verifying = true
         scope.launch {
@@ -169,7 +182,7 @@ fun CloudSignInScreen(
         }
     }
 
-    val canSubmit = when {
+    val canSubmit = server != null && when {
         byPassword -> identifier.isNotBlank() && password.isNotEmpty() && !verifying
         codeSent -> code.length >= 4 && !verifying
         else -> identifier.isNotBlank() && !sending && !phoneAbroad
@@ -342,7 +355,7 @@ fun CloudSignInScreen(
                 Spacer(Modifier.padding(horizontal = 6.dp))
                 TextButton(
                     onClick = { sendCode() },
-                    enabled = identifier.isNotBlank() && countdown == 0 && !sending && !verifying && !phoneAbroad,
+                    enabled = server != null && identifier.isNotBlank() && countdown == 0 && !sending && !verifying && !phoneAbroad,
                 ) {
                     if (sending) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MuseTones.action)
@@ -385,14 +398,24 @@ fun CloudSignInScreen(
                 }
             }
 
-            // Your own relay: a small link under the form, then the address, Check, Use this server.
+            // The relay: a small link under the form, then the address, Check, Use this server.
+            // No address, no sign-in (this fork has no default relay).
             Spacer(Modifier.height(6.dp))
             if (!serverOpen) {
                 TextButton(onClick = { serverOpen = true }, modifier = Modifier.align(Alignment.End)) {
                     Text(stringResource(R.string.nm_cloud_other_server), color = MuseTones.action, fontSize = 13.sp)
                 }
             } else {
-                RelayServerForm(enabled = !verifying && !sending, onClose = { serverOpen = false })
+                RelayServerForm(enabled = !verifying && !sending, onServerSet = { server = it })
+            }
+            if (server == null) {
+                Text(
+                    text = stringResource(R.string.nm_cloud_server_bad_url),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp, start = 4.dp, end = 4.dp),
+                )
             }
 
             error?.let {
@@ -444,17 +467,18 @@ fun CloudSignInScreen(
 }
 
 /**
- * The relay's address for people who run their own (0.1.38): the field, *Check* (the relay's
- * `/healthz`, its version shown), *Use this server*, and a way back to nanoMuse Cloud. https
- * unless the host is on a private network. What is chosen here is what the key will belong
- * to — the account page shows it, and changing it later means signing out first.
+ * The relay's address (this fork has no default relay): the field, *Check* (the relay's
+ * `/healthz`, its version shown), *Use this server*. https unless the host is on a private
+ * network. What is chosen here is what the key will belong to. The account page shows it,
+ * and changing it later means signing out first. [onServerSet] reports the address back so
+ * the sign-in can be enabled.
  */
 @Composable
-private fun RelayServerForm(enabled: Boolean, onClose: () -> Unit) {
+private fun RelayServerForm(enabled: Boolean, onServerSet: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val current = NanoMuseCloud.baseUrl(context)
-    var text by remember { mutableStateOf(if (RelayAddress.isDefault(current)) "" else current) }
+    var text by remember { mutableStateOf(current ?: "") }
     var checking by remember { mutableStateOf(false) }
     var line by remember { mutableStateOf<String?>(null) }
     var bad by remember { mutableStateOf(false) }
@@ -510,7 +534,7 @@ private fun RelayServerForm(enabled: Boolean, onClose: () -> Unit) {
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = stringResource(R.string.nm_cloud_server_now, RelayAddress.display(inUse)),
+                text = stringResource(R.string.nm_cloud_server_now, inUse?.let { RelayAddress.display(it) } ?: ""),
                 fontSize = 12.sp,
                 color = muted,
                 modifier = Modifier.weight(1f).padding(start = 4.dp),
@@ -524,6 +548,7 @@ private fun RelayServerForm(enabled: Boolean, onClose: () -> Unit) {
                     check { url ->
                         NanoMuseCloud.setBaseUrl(context, url)
                         inUse = url
+                        onServerSet(url)
                     }
                 },
                 enabled = enabled && !checking && text.isNotBlank(),
@@ -537,19 +562,6 @@ private fun RelayServerForm(enabled: Boolean, onClose: () -> Unit) {
                 color = if (bad) MaterialTheme.colorScheme.error else muted,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
-        }
-        if (!RelayAddress.isDefault(inUse)) {
-            TextButton(
-                onClick = {
-                    NanoMuseCloud.setBaseUrl(context, null)
-                    inUse = NanoMuseCloud.DEFAULT_BASE
-                    text = ""
-                    line = null
-                    onClose()
-                },
-                enabled = enabled && !checking,
-                modifier = Modifier.align(Alignment.End),
-            ) { Text(stringResource(R.string.nm_cloud_server_default), color = MuseTones.action, fontSize = 13.sp) }
         }
     }
 }

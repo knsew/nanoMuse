@@ -319,13 +319,13 @@ final class NanoMuseLogicTests: XCTestCase {
         XCTAssertEqual(NanoMuseModelMenu.lanes(relay[0]), ["gui", "chat"])
     }
 
-    func testPublicCloudRetiresMediaWhileSelfHostedRelaysMayAdvertiseIt() {
-        XCTAssertFalse(NanoMuseRelayMenu.allows(.image, at: "https://cloud.nanomuse.cn/"))
-        XCTAssertFalse(NanoMuseRelayMenu.allows(.video, at: NanoMuseCloud.defaultBase))
+    func testMediaSlotsNeedARelayAndOtherSlotsDoNot() {
         XCTAssertTrue(NanoMuseRelayMenu.allows(.image, at: "https://relay.example/v1"))
         XCTAssertTrue(NanoMuseRelayMenu.allows(.video, at: "https://relay.example"))
-        XCTAssertTrue(NanoMuseRelayMenu.allows(.chat, at: NanoMuseCloud.defaultBase))
-        XCTAssertTrue(NanoMuseRelayMenu.allows(.hands, at: NanoMuseCloud.defaultBase))
+        XCTAssertFalse(NanoMuseRelayMenu.allows(.image, at: nil))
+        XCTAssertFalse(NanoMuseRelayMenu.allows(.video, at: nil))
+        XCTAssertTrue(NanoMuseRelayMenu.allows(.chat, at: nil))
+        XCTAssertTrue(NanoMuseRelayMenu.allows(.hands, at: nil))
     }
 
     func testDeepSeekVisionRule() {
@@ -755,38 +755,5 @@ final class NanoMuseLogicTests: XCTestCase {
         XCTAssertEqual(NanoMuseStarGate.dayOpened(day1, dayKey: "2026-10-06").days, 2)
         XCTAssertEqual(NanoMuseStarMoment.daysUsed(7).key, "days_used.7")
         XCTAssertEqual(NanoMuseStarMoment.tasks(30).key, "tasks.30")
-    }
-
-    // MARK: - Update check (contract C2)
-
-    func testVersionCompare() {
-        XCTAssertEqual(NanoMuseUpdateCheck.compareVersions("1.4.0", "1.4.0"), 0)
-        XCTAssertEqual(NanoMuseUpdateCheck.compareVersions("v1.4.0", "1.4"), 0, "a missing part is 0; a leading v is ignored")
-        XCTAssertEqual(NanoMuseUpdateCheck.compareVersions("1.10.0", "1.9.9"), 1, "numbers, not strings")
-        XCTAssertEqual(NanoMuseUpdateCheck.compareVersions("1.4.0", "1.4.1"), -1)
-        XCTAssertEqual(NanoMuseUpdateCheck.compareVersions("1.4.0", "1.4.0-beta.1"), 1, "a release beats its pre-release")
-        XCTAssertEqual(NanoMuseUpdateCheck.compareVersions("1.4.0-beta.1", "1.4.0-beta.2"), -1)
-        XCTAssertEqual(NanoMuseUpdateCheck.compareVersions("1.4.0+7", "1.4.0+9"), 0, "build metadata does not count")
-        XCTAssertEqual(NanoMuseUpdateCheck.normalize(" v2.0.1\n"), "2.0.1")
-    }
-
-    func testUpdateIndexReadsTheReleasesList() {
-        // The index as nanomuse.cn/dl/index.json is written: releases newest first, each with a tag.
-        let index: [String: Any] = [
-            "repo": "nano-muse/nanoMuse",
-            "releases": [["tag": "v1.0.0", "name": "nanoMuse 1.0.0", "assets": [String]()], ["tag": "v0.1.41"]],
-        ]
-        let found = NanoMuseUpdateCheck.parseIndex(index)
-        XCTAssertEqual(found?.version, "v1.0.0", "the newest release's tag, as Android reads it")
-        XCTAssertEqual(found?.page, NanoMuseUpdateCheck.downloadPage, "a tap leads to the download page")
-        XCTAssertEqual(NanoMuseUpdateCheck.parseIndex(["releases": [["tag": ""], ["tag": "v0.9.0"]]])?.version, "v0.9.0", "an empty tag is skipped")
-        XCTAssertNil(NanoMuseUpdateCheck.parseIndex(["repo": "nano-muse/nanoMuse"]), "no releases, no answer")
-        XCTAssertNil(NanoMuseUpdateCheck.parseIndex(["releases": [[String: Any]]()]))
-        // The older shapes still read.
-        XCTAssertEqual(NanoMuseUpdateCheck.parseIndex(["ios": ["version": "1.2.0", "page": "https://example.invalid/r"]]), NanoMuseUpdateCheck.Found(version: "1.2.0", page: "https://example.invalid/r"))
-        XCTAssertEqual(NanoMuseUpdateCheck.parseIndex(["latest": "1.1.0"])?.page, NanoMuseUpdateCheck.downloadPage)
-        // GitHub's release object.
-        XCTAssertEqual(NanoMuseUpdateCheck.parseGitHubLatest(["tag_name": "v1.0.0", "html_url": "https://example.invalid/tag"]), NanoMuseUpdateCheck.Found(version: "v1.0.0", page: "https://example.invalid/tag"))
-        XCTAssertNil(NanoMuseUpdateCheck.parseGitHubLatest(["message": "Not Found"]))
     }
 }

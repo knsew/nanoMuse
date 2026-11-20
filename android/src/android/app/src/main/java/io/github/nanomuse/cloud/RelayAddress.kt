@@ -69,16 +69,13 @@ object RelayAddress {
         return LanOnly.isLocal(h)
     }
 
-    /** `cloud.nanomuse.cn`, `relay.example.org:8790`, `192.168.1.20:8790` — the address as the account page shows it. */
+    /** `relay.example.org:8790`, `192.168.1.20:8790`: the address as the account page shows it. */
     fun display(baseUrl: String): String {
         val uri = runCatching { URI(baseUrl) }.getOrNull() ?: return baseUrl
         val host = uri.host ?: return baseUrl
         val port = if (uri.port > 0) ":${uri.port}" else ""
         return host + port
     }
-
-    /** True when [baseUrl] is nanoMuse Cloud itself rather than someone's own relay. */
-    fun isDefault(baseUrl: String): Boolean = baseUrl.trimEnd('/') == NanoMuseCloud.DEFAULT_BASE
 
     /**
      * Asks the relay at [baseUrl] whether it is one: `GET /healthz` → `{"ok": true, "version":

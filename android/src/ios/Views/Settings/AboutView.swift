@@ -63,8 +63,9 @@ struct AboutView: View {
             }
 
             // MARK: - Links
+            // nanoMuse: the fork's repository and issue tracker, not upstream's.
             Section("Links") {
-                Link(destination: URL(string: "https://github.com/nano-muse/nanoMuse")!) {
+                Link(destination: URL(string: "https://github.com/knsew/nanoMuse")!) {
                     Label {
                         HStack {
                             Text("GitHub Repository")
@@ -78,7 +79,7 @@ struct AboutView: View {
                         Image(systemName: "link.circle.fill")
                     }
                 }
-                Link(destination: URL(string: "https://github.com/nano-muse/nanoMuse/issues")!) {
+                Link(destination: URL(string: "https://github.com/knsew/nanoMuse/issues")!) {
                     Label {
                         HStack {
                             Text("Report an Issue")

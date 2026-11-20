@@ -190,7 +190,7 @@ enum NanoMuseProxy {
             .filter { $0.id != relayInstance }
             .compactMap { $0.customBaseURL }
             .compactMap { hostOf($0) }
-        let relay = hostOf(NanoMuseCloud.baseURL) ?? ""
+        let relay = NanoMuseCloud.baseURL.flatMap(hostOf) ?? ""
         lock.lock()
         instanceHosts = hosts
         relayHost = relay

@@ -19,7 +19,6 @@ struct NanoMuseSettingsHomeView: View {
 
     @ObservedObject private var store = ProviderConfigStore.shared
     @ObservedObject private var hub = NanoMuseHub.shared
-    @ObservedObject private var updates = NanoMuseUpdateCheck.shared // C2: the installed build and the latest release
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -36,7 +35,6 @@ struct NanoMuseSettingsHomeView: View {
                 NanoMuseCaption(text: AppLocalized("Providers, model groups, skills, appearance and the rest of the OpenMinis settings."))
             }
         }
-        .onAppear { updates.checkIfStale() }
     }
 
     // MARK: Card 1 — the model
@@ -173,6 +171,15 @@ struct NanoMuseSettingsHomeView: View {
 
     // MARK: Card 5 — about
 
+    /// The installed build, "1.4.0 (123)". This fork has no in-app update check; a newer
+    /// build comes from the repository.
+    private var installedLine: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (\(build))"
+    }
+
     private var aboutCard: some View {
         NanoMuseCard {
             NanoMuseLinkRow(title: AppLocalized("About nanoMuse")) { AboutView() }
@@ -185,30 +192,8 @@ struct NanoMuseSettingsHomeView: View {
                 openURL(NanoMuseLinks.newIssue())
             }
             NanoMuseRowDivider()
-            // C2: the installed build and the latest release (NanoMuseUpdateCheck); "Update" when a newer one is out.
-            NanoMuseActionRow(
-                title: AppLocalized("Version"),
-                value: updates.installedLine,
-                titleColor: .primary,
-                chevron: false
-            ) {
-                if updates.latestIsNewer { openURL(updates.releasePage) } else { Task { @MainActor in await updates.checkNow() } }
-            }
-            HStack(spacing: 8) {
-                Text(updates.latestLine)
-                    .font(.footnote)
-                    .foregroundStyle(updates.latestIsNewer ? NanoMuseTones.action : Color.secondary)
-                    .lineLimit(2)
-                Spacer(minLength: 8)
-                if updates.latestIsNewer {
-                    Button(AppLocalized("Update")) { openURL(updates.releasePage) }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(NanoMuseTones.action)
-                        .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            // The installed build only: no in-app update check in this fork.
+            NanoMuseRowLabel(title: AppLocalized("Version"), value: installedLine, chevron: false)
         }
     }
 }
@@ -217,10 +202,10 @@ struct NanoMuseSettingsHomeView: View {
 
 /// The project's public pages.
 enum NanoMuseLinks {
-    /// The policy on the site (docs/privacy.md is its source), as Android's PRIVACY_URL.
-    static let privacy = URL(string: "https://nanomuse.cn/privacy/")!
-    /// The own-key guide on the site (docs/own-key.md), when the relay sent no address of its own (Android's OWN_KEY_DOCS).
-    static let ownKeyDocs = "https://nanomuse.cn/own-key"
+    /// The project's repository (docs/privacy.md is the policy's source), as Android's PRIVACY_URL.
+    static let privacy = URL(string: "https://github.com/knsew/nanoMuse")!
+    /// The own-key guide in the repository (docs/own-key.md), when the relay sent no address of its own (Android's OWN_KEY_DOCS).
+    static let ownKeyDocs = "https://github.com/knsew/nanoMuse"
 
     /// A new GitHub issue with the build and the device filled in (no personal data): the
     /// issue form's fields by id (.github/ISSUE_TEMPLATE/bug_report.yml); a bare `body`
@@ -229,7 +214,7 @@ enum NanoMuseLinks {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
-        var components = URLComponents(string: "https://github.com/nano-muse/nanoMuse/issues/new")!
+        var components = URLComponents(string: "https://github.com/knsew/nanoMuse/issues/new")!
         components.queryItems = [
             URLQueryItem(name: "template", value: "bug_report.yml"),
             URLQueryItem(name: "labels", value: "bug,ios"),
@@ -237,7 +222,7 @@ enum NanoMuseLinks {
             URLQueryItem(name: "version", value: "\(version) (\(build))"),
             URLQueryItem(name: "os", value: "iOS \(UIDevice.current.systemVersion), \(UIDevice.current.model)"),
         ]
-        return components.url ?? URL(string: "https://github.com/nano-muse/nanoMuse/issues")!
+        return components.url ?? URL(string: "https://github.com/knsew/nanoMuse/issues")!
     }
 }
 

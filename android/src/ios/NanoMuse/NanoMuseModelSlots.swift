@@ -296,18 +296,11 @@ enum NanoMuseRelayMenu {
         return ids
     }
 
-    /// Public Cloud retired account-funded media; a self-hosted relay may advertise its own.
-    static func allows(_ slot: NanoMuseSlot, at baseURL: String) -> Bool {
+    /// Image and video slots are allowed only when a relay address is set; every other
+    /// slot is allowed either way. This fork has no public cloud to retire routes for.
+    static func allows(_ slot: NanoMuseSlot, at baseURL: String?) -> Bool {
         guard slot == .image || slot == .video else { return true }
-        guard let url = URLComponents(string: baseURL),
-              let official = URLComponents(string: NanoMuseCloud.defaultBase),
-              let scheme = url.scheme?.lowercased(),
-              let host = url.host?.lowercased() else { return false }
-        let port = url.port ?? (scheme == "https" ? 443 : 80)
-        let officialPort = official.port ?? 443
-        return scheme != official.scheme?.lowercased()
-            || host != official.host?.lowercased()
-            || port != officialPort
+        return baseURL != nil
     }
 }
 
@@ -363,9 +356,8 @@ enum NanoMuseModelSlots {
             names = displayNames(entries)
         }
         // A phone upgrading from a release that offered hosted media can still have the old
-        // menu cached while offline. The public service has retired those routes permanently;
-        // never reconstruct them from stale local entries. A custom self-hosted relay remains
-        // governed by its live menu above.
+        // menu cached while offline. Without a relay address set, never reconstruct image
+        // or video slots from stale local entries; a relay's live menu governs above.
         for slot in [NanoMuseSlot.image, .video] {
             if !NanoMuseRelayMenu.allows(slot, at: NanoMuseCloud.baseURL) {
                 models[slot] = []

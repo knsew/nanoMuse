@@ -46,7 +46,6 @@ import org.json.JSONObject
  * content is forwarded to the model, not stored. See `docs/cloud.md`.
  */
 object NanoMuseCloud {
-    const val DEFAULT_BASE = "https://cloud.nanomuse.cn"
     const val LABEL = "nanoMuse Cloud"
 
     private const val PREFS = "nanomuse"
@@ -113,13 +112,13 @@ object NanoMuseCloud {
     private const val KEY_CHAT_IDS = "cloud.chat_ids"
     private const val KEY_GUI_IDS = "cloud.gui_ids"
     private const val KEY_MODELS_AT = "cloud.models_at"
-    /** The hosted fallback for a relay that does not mark its lanes itself. */
-    const val DEFAULT_CHAT_MODEL = "Qwen/Qwen3.6-27B-FP8"
-    const val DEFAULT_GUI_MODEL = "Qwen/Qwen3.6-27B-FP8"
+    /** The local relay's fallback for a relay that does not mark its lanes itself. */
+    const val DEFAULT_CHAT_MODEL = "halogen-qwen3.8-flash-next"
+    const val DEFAULT_GUI_MODEL = "halogen-qwen3.8-flash-next"
     private const val MODELS_FRESH_MS = 60 * 60 * 1000L
 
     /** Where the privacy policy is when the relay did not name one. */
-    const val PRIVACY_URL = "https://nanomuse.cn/privacy/"
+    const val PRIVACY_URL = "https://github.com/knsew/nanoMuse"
 
     /**
      * A refusal of the relay's: its stable [code], its own sentence, the HTTP [status]; relay
@@ -274,22 +273,23 @@ object NanoMuseCloud {
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /**
-     * The relay this phone talks to: nanoMuse Cloud, or the one the person named on the
-     * sign-in screen ("Use a different server" — people who run their own, 0.1.38). Kept
-     * across launches; the hub, the console links and the media models all read it from here.
+     * The relay this phone talks to: the one the person named on the sign-in screen ("Use a
+     * different server"). Null until one is named: this fork has no default relay, so
+     * sign-in stays disabled until an address is set. Kept across launches; the hub, the
+     * console links and the media models all read it from here.
      */
-    fun baseUrl(context: Context): String =
+    fun baseUrl(context: Context): String? =
         prefs(context).getString(KEY_BASE, null)?.takeIf { it.isNotBlank() }?.trimEnd('/')
-            ?: DEFAULT_BASE
+
+    /** [baseUrl], or the refusal a caller without one gets. */
+    private fun requireBase(context: Context): String =
+        baseUrl(context) ?: throw CloudException("no_relay", "No relay address is set")
 
     fun setBaseUrl(context: Context, url: String?) {
         prefs(context).edit().apply {
-            if (url.isNullOrBlank() || url.trim().trimEnd('/') == DEFAULT_BASE) remove(KEY_BASE) else putString(KEY_BASE, url.trim().trimEnd('/'))
+            if (url.isNullOrBlank()) remove(KEY_BASE) else putString(KEY_BASE, url.trim().trimEnd('/'))
         }.apply()
     }
-
-    /** Every build may point at another relay now (0.1.38); kept for the callers that asked. */
-    fun canOverrideBase(): Boolean = true
 
     /** Asks the relay at [url] for its `/healthz`; the version it reports. Throws [IOException]. */
     suspend fun checkRelay(url: String): RelayAddress.Health = withContext(Dispatchers.IO) { RelayAddress.check(url) }
@@ -479,7 +479,7 @@ object NanoMuseCloud {
     /** `HEAD /v1/blobs/{sha256}`: whether the account can already read the file (another device put it up). */
     fun hasBlob(context: Context, sha256: String): Boolean {
         val key = apiKey(context) ?: throw CloudException("bad_key", "Not signed in")
-        val req = Request.Builder().url(baseUrl(context) + "/v1/blobs/$sha256").head()
+        val req = Request.Builder().url(requireBase(context) + "/v1/blobs/$sha256").head()
             .header("Authorization", "Bearer $key").header("User-Agent", "nanoMuse-Android/${BuildConfig.VERSION_NAME}").build()
         val r = try { http.newCall(req).execute() } catch (e: IOException) { throw CloudException("unreachable", e.message ?: "unreachable") }
         r.use { if (it.code == 404) return false; if (it.isSuccessful) return true; read(it) }
@@ -489,7 +489,7 @@ object NanoMuseCloud {
     /** `PUT /v1/blobs/{sha256}` with the bytes and their type; the relay stores a file once, whoever sends it. */
     fun putBlob(context: Context, sha256: String, mime: String, data: ByteArray): JSONObject {
         val key = apiKey(context) ?: throw CloudException("bad_key", "Not signed in")
-        val req = Request.Builder().url(baseUrl(context) + "/v1/blobs/$sha256")
+        val req = Request.Builder().url(requireBase(context) + "/v1/blobs/$sha256")
             .put(data.toRequestBody(mime.toMediaType()))
             .header("Authorization", "Bearer $key").header("User-Agent", "nanoMuse-Android/${BuildConfig.VERSION_NAME}").build()
         val r = try { http.newCall(req).execute() } catch (e: IOException) { throw CloudException("unreachable", e.message ?: "unreachable") }
@@ -499,7 +499,7 @@ object NanoMuseCloud {
     /** `GET /v1/blobs/{sha256}`: the file's type and bytes, or null when the account has no such file. */
     fun getBlob(context: Context, sha256: String): Pair<String, ByteArray>? {
         val key = apiKey(context) ?: throw CloudException("bad_key", "Not signed in")
-        val req = Request.Builder().url(baseUrl(context) + "/v1/blobs/$sha256").get()
+        val req = Request.Builder().url(requireBase(context) + "/v1/blobs/$sha256").get()
             .header("Authorization", "Bearer $key").header("User-Agent", "nanoMuse-Android/${BuildConfig.VERSION_NAME}").build()
         val r = try { http.newCall(req).execute() } catch (e: IOException) { throw CloudException("unreachable", e.message ?: "unreachable") }
         r.use {
@@ -727,7 +727,7 @@ object NanoMuseCloud {
         val before = io.github.nanomuse.account.AccountData.key(context)
         // The host the code was sent to is the host the key is for; the relay's own idea of
         // its public address (`base_url`) is informational.
-        val base = baseUrl(context)
+        val base = requireBase(context)
 
         // One instance per relay: signing in again on the same phone refreshes the key and
         // keeps the entries, groups and the image model that already point at it.
@@ -836,6 +836,9 @@ object NanoMuseCloud {
     fun describe(context: Context, e: Throwable): String = when (e) {
         is CloudException -> when (e.code) {
             "bad_identifier" -> context.getString(R.string.nm_cloud_err_bad_identifier)
+            // no relay address is set yet: the sign-in screen disables the sign-in, so this
+            // is only reached by a call that slipped past it
+            "no_relay" -> context.getString(R.string.nm_cloud_server_bad_url)
             "code_wrong" -> context.getString(R.string.nm_cloud_err_code_wrong)
             "code_expired" -> context.getString(R.string.nm_cloud_err_code_expired)
             "code_too_often" -> context.getString(R.string.nm_cloud_err_code_too_often)
@@ -1250,6 +1253,8 @@ object NanoMuseCloud {
     private fun callBlocking(context: Context, method: String, path: String, body: JSONObject?, token: String?): JSONObject {
         val response = try {
             http.newCall(request(context, method, path, body, token)).execute()
+        } catch (e: CloudException) {
+            throw e // A relay error is not a transport failure.
         } catch (e: IOException) {
             throw CloudException("unreachable", e.message ?: "unreachable")
         }
@@ -1257,7 +1262,7 @@ object NanoMuseCloud {
     }
 
     private fun request(context: Context, method: String, path: String, body: JSONObject?, token: String?): Request {
-        val builder = Request.Builder().url(baseUrl(context) + path)
+        val builder = Request.Builder().url(requireBase(context) + path)
         if (token != null) builder.header("Authorization", "Bearer $token")
         builder.header("User-Agent", "nanoMuse-Android/${BuildConfig.VERSION_NAME}")
         when (method) {

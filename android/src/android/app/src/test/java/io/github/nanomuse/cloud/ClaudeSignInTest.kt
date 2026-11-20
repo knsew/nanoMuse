@@ -7,8 +7,6 @@ import com.openminis.app.provider.anthropic.AnthropicProvider
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Assume.assumeFalse
 import org.junit.Test
@@ -26,11 +24,26 @@ class ClaudeSignInTest {
     }
 
     @Test fun `the ways-on card lists the Claude sign-in only when the build can run it`() {
-        val all = Ways.resolve(null, shipped, mainland = false).signIns.map { it.name }
-        assertTrue("the catalogue has a Claude plan: $all", "Claude" in all)
-        val without = Ways.resolve(null, shipped, mainland = false, claudeSignIn = false).signIns.map { it.name }
-        assertFalse("Claude" in without)
-        assertEquals(all.filter { it != "Claude" }, without)
+        // synthetic catalogue: the slimmed shipped file lists no sign-in vendor
+        val catalogue = listOf(
+            CatalogueProvider(
+                id = "anthropic", name = "Anthropic", nameZh = "", protocol = "anthropic",
+                baseUrl = "https://api.anthropic.com", baseUrlGlobal = null, keyUrl = "", keyUrlGlobal = null,
+                keyHint = null, auth = listOf("key", "oauth-claude"), authCapabilities = emptyMap(),
+                regions = setOf("global"), capabilities = setOf("chat", "vision"), userCapabilities = false,
+                defaults = emptyMap(), note = "", noteZh = "", verified = "2026-10",
+            ),
+            CatalogueProvider(
+                id = "openai", name = "OpenAI", nameZh = "", protocol = "openai",
+                baseUrl = "https://api.openai.com/v1", baseUrlGlobal = null, keyUrl = "", keyUrlGlobal = null,
+                keyHint = null, auth = listOf("key", "oauth-chatgpt"), authCapabilities = emptyMap(),
+                regions = setOf("global"), capabilities = setOf("chat", "vision"), userCapabilities = false,
+                defaults = emptyMap(), note = "", noteZh = "", verified = "2026-10",
+            ),
+        )
+        assertEquals(listOf("ChatGPT", "Claude"), Ways.resolve(null, catalogue, mainland = false).signIns.map { it.name })
+        val without = Ways.resolve(null, catalogue, mainland = false, claudeSignIn = false).signIns.map { it.name }
+        assertEquals(listOf("ChatGPT"), without)
     }
 
     @Test fun `the relay's Claude plan is left out the same way`() {
@@ -38,7 +51,11 @@ class ClaudeSignInTest {
             """{"version": 1, "region": "global", "docs": "",
               "providers": [
                 {"id": "deepseek", "name": "DeepSeek", "protocol": "openai", "base_url": "https://api.deepseek.com/v1",
-                 "key_url": "https://platform.deepseek.com/api_keys", "auth": ["key"], "regions": ["global"], "covers": ["chat"]}
+                 "key_url": "https://platform.deepseek.com/api_keys", "auth": ["key"], "regions": ["global"], "covers": ["chat"]},
+                {"id": "openai", "name": "OpenAI", "protocol": "openai", "base_url": "https://api.openai.com/v1",
+                 "key_url": "https://platform.openai.com/api-keys", "auth": ["key"], "regions": ["global"], "covers": ["chat"]},
+                {"id": "anthropic", "name": "Anthropic", "protocol": "anthropic", "base_url": "https://api.anthropic.com",
+                 "key_url": "https://console.anthropic.com/settings/keys", "auth": ["key"], "regions": ["global"], "covers": ["chat"]}
               ],
               "plans": [
                 {"id": "chatgpt", "provider": "openai", "name": "ChatGPT", "auth": "oauth-chatgpt", "clients": ["android"], "covers": ["chat"]},

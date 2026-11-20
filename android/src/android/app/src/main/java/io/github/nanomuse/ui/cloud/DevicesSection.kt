@@ -165,17 +165,20 @@ fun DevicesSection(
     DeviceConversationPanel(others)
     if (onAsk != null && others.any { it.online }) MuseCaption(stringResource(R.string.nm_devices_ask_hint))
     MuseGap()
-    MuseCard {
-        MuseRow(
-            title = stringResource(R.string.nm_devices_web),
-            icon = Icons.Outlined.Language,
-            value = consoleUrl.removePrefix("https://").removePrefix("http://"),
-            chevron = false,
-            onClick = { copy(context, consoleUrl) },
-            trailing = { TextButton(onClick = { copy(context, consoleUrl) }) { Text(stringResource(R.string.nm_devices_web_copy), color = MuseTones.action) } },
-        )
+    // the relay's web console (absent when no relay is set; the section only shows signed in)
+    consoleUrl?.let { url ->
+        MuseCard {
+            MuseRow(
+                title = stringResource(R.string.nm_devices_web),
+                icon = Icons.Outlined.Language,
+                value = url.removePrefix("https://").removePrefix("http://"),
+                chevron = false,
+                onClick = { copy(context, url) },
+                trailing = { TextButton(onClick = { copy(context, url) }) { Text(stringResource(R.string.nm_devices_web_copy), color = MuseTones.action) } },
+            )
+        }
+        MuseCaption(stringResource(R.string.nm_devices_web_sub, url))
     }
-    MuseCaption(stringResource(R.string.nm_devices_web_sub, consoleUrl))
 
     forget?.let { d ->
         AlertDialog(

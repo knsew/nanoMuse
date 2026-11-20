@@ -37,7 +37,7 @@ enum NanoMuseRelayMedia {
         guard let key = NanoMuseCloud.apiKey else {
             throw NanoMuseCloudError(code: "signed_out", message: AppLocalized("Sign in to nanoMuse Cloud first."), status: 401)
         }
-        guard let url = URL(string: NanoMuseCloud.baseURL + path) else {
+        guard let base = NanoMuseCloud.baseURL, let url = URL(string: base + path) else {
             throw NanoMuseCloudError(code: "bad_base", message: "Bad relay address", status: 0)
         }
         var request = URLRequest(url: url)

@@ -182,7 +182,7 @@ object Nudges {
     /**
      * Asks the relay for the policy when the copy is older than a day. Runs in the background
      * and fails silently: a relay that is down leaves the last copy (or the default) in force.
-     * Own-key users without an account fetch from the default relay base too.
+     * Without a relay address there is nothing to ask, so the built-in default stands.
      */
     fun refreshIfStale(context: Context) {
         if (System.currentTimeMillis() - checkedAt(context) < FRESH_MS) return
@@ -197,9 +197,10 @@ object Nudges {
         }
     }
 
-    /** One `GET /v1/nudges`; null on any failure. */
+    /** One `GET /v1/nudges`; null on any failure, or when no relay is set. */
     internal fun fetch(context: Context): Policy? {
-        val url = NanoMuseCloud.baseUrl(context) + "/v1/nudges"
+        val base = NanoMuseCloud.baseUrl(context) ?: return null
+        val url = base + "/v1/nudges"
         return try {
             val req = Request.Builder().url(url).get()
                 .header("User-Agent", "nanoMuse-Android/${BuildConfig.VERSION_NAME}")

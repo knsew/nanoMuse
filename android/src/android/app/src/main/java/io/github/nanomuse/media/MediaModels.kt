@@ -10,18 +10,16 @@ import io.github.nanomuse.avatar.ImageGen
 import io.github.nanomuse.cloud.NanoMuseCloud
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONArray
 
-/** Media exposed by a relay: never from public Cloud, only from a self-hosted relay's live menu. */
+/** Media exposed by a relay: only from a relay's live menu, never without one. */
 object RelayMediaPolicy {
-    private fun isPublicCloud(baseUrl: String): Boolean {
-        val url = baseUrl.trim().toHttpUrlOrNull() ?: return false
-        return url.scheme == "https" && url.host == "cloud.nanomuse.cn" && url.port == 443
-    }
-
-    fun available(baseUrl: String, menuIds: Collection<String>, candidates: Collection<String>): List<String> {
-        if (isPublicCloud(baseUrl)) return emptyList()
+    /**
+     * The candidates the relay's menu actually carries. Null when no relay is set: no menu,
+     * no media.
+     */
+    fun available(baseUrl: String?, menuIds: Collection<String>, candidates: Collection<String>): List<String> {
+        baseUrl ?: return emptyList()
         val menu = menuIds.toSet()
         return candidates.filter { it in menu }.distinct()
     }

@@ -27,7 +27,9 @@ class GuidanceTest {
         {"id": "bailian", "name": "Alibaba Cloud Bailian", "name_zh": "阿里云百炼", "protocol": "openai", "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
          "key_url": "https://bailian.console.aliyun.com/?apiKey=1", "auth": ["key"], "regions": ["cn"], "covers": ["chat", "vision", "image", "video"], "one_key": true},
         {"id": "newvendor", "name": "New Vendor", "protocol": "openai", "base_url": "https://api.newvendor.example/v1",
-         "key_url": "https://newvendor.example/keys", "auth": ["key", "oauth-newvendor"], "regions": ["global"], "covers": ["chat", "vision"]}
+         "key_url": "https://newvendor.example/keys", "auth": ["key", "oauth-newvendor"], "regions": ["global"], "covers": ["chat", "vision"]},
+        {"id": "openai", "name": "OpenAI", "protocol": "openai", "base_url": "https://api.openai.com/v1",
+         "key_url": "https://platform.openai.com/api-keys", "auth": ["key"], "regions": ["global"], "covers": ["chat", "vision", "image"]}
       ],
       "plans": [
         {"id": "chatgpt", "provider": "openai", "name": "ChatGPT", "auth": "oauth-chatgpt", "clients": ["android", "ios", "desktop"], "covers": ["chat", "vision"]},
@@ -43,7 +45,7 @@ class GuidanceTest {
     @Test fun `the relay's guidance parses, providers in its order and the plans with their clients`() {
         val g = Guidance.parse(guidance)!!
         assertEquals("cn", g.region)
-        assertEquals(listOf("deepseek", "bailian", "newvendor"), g.providers.map { it.id })
+        assertEquals(listOf("deepseek", "bailian", "newvendor", "openai"), g.providers.map { it.id })
         assertEquals(setOf("chat", "vision", "image", "video"), g.providers[1].capabilities)
         assertEquals("深度求索", g.providers[0].displayName(chinese = true))
         assertEquals(mapOf("chat" to "deepseek-chat"), g.providers[0].defaults)
@@ -75,9 +77,9 @@ class GuidanceTest {
     @Test fun `guidance first - the relay's order and docs win over the bundled catalogue`() {
         val ways = Ways.resolve(Guidance.parse(guidance), shipped, mainland = true)
         assertTrue(ways.fromRelay)
-        // the relay put DeepSeek first; the catalogue would have put Bailian first
-        assertEquals(listOf("deepseek", "bailian", "newvendor"), ways.vendors.map { it.id })
-        assertEquals("bailian", ProviderCatalogue.ordered(shipped, mainland = true).first().id)
+        // the relay put DeepSeek first; the bundled catalogue lists no cloud vendor at all
+        assertEquals(listOf("deepseek", "bailian", "newvendor", "openai"), ways.vendors.map { it.id })
+        assertTrue(ProviderCatalogue.ordered(shipped, mainland = true).isEmpty())
         assertEquals("https://relay.example/docs/own-key", ways.docs)
         assertEquals(listOf("ollama"), ways.locals.map { it.id })
         assertTrue(ways.chatgptCaveat.startsWith("OpenAI's terms"))
@@ -90,7 +92,7 @@ class GuidanceTest {
         // Claude is listed for the desktop only: not on the phone
         assertEquals(listOf("ChatGPT", "New Vendor Pro"), names)
         val chatgpt = ways.signIns[0]
-        assertEquals("openai", chatgpt.vendor.id) // the bundled vendor, so the form pre-fills as before
+        assertEquals("openai", chatgpt.vendor.id) // the relay's vendor, so the form pre-fills as before
         assertEquals(ProviderCatalogue.AUTH_CHATGPT, chatgpt.auth)
         assertEquals(setOf("chat", "vision"), chatgpt.covers)
         // a plan with no clients named is for everyone; its vendor comes from the relay's own list
@@ -102,17 +104,19 @@ class GuidanceTest {
         assertEquals(listOf("ChatGPT", "New Vendor Pro"), Ways.resolve(orphan, shipped, mainland = true).signIns.map { it.name })
     }
 
-    @Test fun `no guidance - the bundled catalogue, ordered for the region, as before`() {
+    @Test fun `no guidance - the slimmed catalogue has no cloud vendor, only the local servers`() {
         val cn = Ways.resolve(null, shipped, mainland = true)
         assertFalse(cn.fromRelay)
         assertEquals(ProviderCatalogue.ordered(shipped, mainland = true).map { it.id }, cn.vendors.map { it.id })
-        assertEquals(setOf("ChatGPT", "Claude", "Kimi", "OpenRouter"), cn.signIns.map { it.name }.toSet())
-        assertEquals(ProviderCatalogue.AUTH_CHATGPT, cn.signIns.first { it.name == "ChatGPT" }.auth)
-        assertEquals(setOf("chat", "vision"), cn.signIns.first { it.name == "ChatGPT" }.covers)
+        assertTrue(cn.vendors.isEmpty())
+        assertTrue(cn.signIns.isEmpty())
+        assertEquals(listOf("ollama", "lm-studio", "vllm"), cn.locals.map { it.id })
         assertTrue(cn.locals.all { it.local })
         assertEquals("", cn.docs)
         assertEquals("", cn.chatgptCaveat) // the app's own line is used
         val global = Ways.resolve(null, shipped, mainland = false)
-        assertEquals(listOf("openrouter", "openai"), global.vendors.take(2).map { it.id })
+        assertTrue(global.vendors.isEmpty())
+        assertTrue(global.signIns.isEmpty())
+        assertEquals(listOf("ollama", "lm-studio", "vllm"), global.locals.map { it.id })
     }
 }

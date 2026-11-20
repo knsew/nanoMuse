@@ -29,17 +29,10 @@ class MediaTest {
         assertFalse(VideoGen.speaksDashScope("https://openrouter.ai/api/v1"))
     }
 
-    @Test fun `public Cloud ignores retired cached media while self hosted relays follow their menu`() {
+    @Test fun `a relay follows its menu, and no relay means no media`() {
         val candidates = listOf("Qwen/Qwen3.6-27B-FP8", "qwen-image-3.0", "wan2.2-i2v-flash")
         val oldMenu = listOf("qwen-image-3.0", "wan2.2-i2v-flash")
-        assertEquals(
-            emptyList<String>(),
-            RelayMediaPolicy.available("https://cloud.nanomuse.cn/", oldMenu, candidates),
-        )
-        assertEquals(
-            emptyList<String>(),
-            RelayMediaPolicy.available("https://CLOUD.NANOMUSE.CN:443/v1", oldMenu, candidates),
-        )
+        // any relay, this fork's included: the menu decides, whatever the host
         assertEquals(
             oldMenu,
             RelayMediaPolicy.available("https://relay.example/v1", oldMenu, candidates),
@@ -51,6 +44,11 @@ class MediaTest {
                 listOf("qwen-image-3.0"),
                 candidates,
             ),
+        )
+        // no relay set: no menu, no media
+        assertEquals(
+            emptyList<String>(),
+            RelayMediaPolicy.available(null, oldMenu, candidates),
         )
     }
 

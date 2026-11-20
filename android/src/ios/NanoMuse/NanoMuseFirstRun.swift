@@ -167,7 +167,7 @@ struct NanoMuseFirstRunView: View {
             secondaryLabel: AppLocalized("Use your own API key instead"),
             onSecondary: { NanoMuseFirstRun.markSourceChosen(); sourceChosen = true; showOwnKey = true },
             finePrint: AppLocalized("One account keeps your devices together and carries the free model use; nothing is charged. Your own API key can be added right after."),
-            learnMore: URL(string: "https://github.com/nano-muse/nanoMuse/blob/main/docs/cloud.md")
+            learnMore: URL(string: "https://github.com/knsew/nanoMuse/blob/main/docs/cloud.md")
         ) {
             NanoMuseFeatureRow(symbol: "bubble.left.and.bubble.right", title: AppLocalized("Chat, pictures, video"), subtitle: AppLocalized("A capable model, image and video generation, tools, skills and memory, on your phone"))
             NanoMuseFeatureRow(symbol: "desktopcomputer", title: AppLocalized("Reach: your computers, from here"), subtitle: AppLocalized("Pair a Mac, Windows or Linux machine and give it work from the phone"))
@@ -190,7 +190,7 @@ struct NanoMuseFirstRunView: View {
             onSecondary: { NanoMuseFirstRun.markSourceChosen(); sourceChosen = true; showOwnKey = true },
             finePrint: AppLocalized("The two do not compete: the Cloud model stays available, and each model group picks its own.")
         ) {
-            NanoMuseFeatureRow(symbol: "cloud", title: AppLocalized("Use the nanoMuse Cloud model"), subtitle: AppLocalized("Qwen/Qwen3.6-27B-FP8 handles chat, image input and screen operation with an account allowance. Drawing pictures and making clips requires a provider and API key of your own."))
+            NanoMuseFeatureRow(symbol: "cloud", title: AppLocalized("Use the nanoMuse Cloud model"), subtitle: AppLocalized("halogen-qwen3.8-flash-next handles chat, image input and screen operation with an account allowance. Drawing pictures and making clips requires a provider and API key of your own."))
             NanoMuseFeatureRow(symbol: "key", title: AppLocalized("I have my own API key"), subtitle: AppLocalized("Alibaba Cloud Bailian, OpenRouter, OpenAI, Anthropic, DeepSeek and other OpenAI-compatible endpoints. The key stays on this phone."))
         }
     }

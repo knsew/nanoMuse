@@ -15,16 +15,12 @@ final class NanoMuseOpenCodeSessionTests: XCTestCase {
         XCTAssertFalse(NanoMuseOpenCodeSession.wants(nil))
     }
 
-    func testEveryCatalogueEntryWithASessionHeaderIsOnThatHost() throws {
+    func testTheSlimmedCatalogueNamesNoSessionHeader() throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: "providers", withExtension: "json"))
         let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         let entries = (json["providers"] as? [[String: Any]] ?? []).filter { ($0["session_header"] as? String)?.isEmpty == false }
-        XCTAssertEqual(entries.compactMap { $0["id"] as? String }, ["opencode-go"])
-        for e in entries {
-            XCTAssertEqual(e["session_header"] as? String, NanoMuseOpenCodeSession.header)
-            XCTAssertTrue(NanoMuseOpenCodeSession.wants(e["base_url"] as? String))
-        }
-        XCTAssertTrue(NanoMuseCatalogue.bundled.contains { $0.id == "opencode-go" })
+        XCTAssertTrue(entries.isEmpty, "the slimmed catalogue names no session header")
+        XCTAssertEqual(NanoMuseCatalogue.bundled.map(\.id), ["ollama", "lm-studio", "vllm", "custom"])
     }
 
     @MainActor

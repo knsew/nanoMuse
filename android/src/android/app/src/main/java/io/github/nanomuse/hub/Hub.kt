@@ -67,7 +67,8 @@ object Hub {
         return raw.trim().ifBlank { "Phone" }.take(60)
     }
 
-    fun webConsoleUrl(context: Context): String = NanoMuseCloud.baseUrl(context).trimEnd('/') + "/app/"
+    /** The relay's web console, or null when no relay is set. */
+    fun webConsoleUrl(context: Context): String? = NanoMuseCloud.baseUrl(context)?.trimEnd('/')?.let { "$it/app/" }
 
     // ── the connection ─────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ object Hub {
         if (client != null) return
         val app = context.applicationContext
         val key = NanoMuseCloud.apiKey(app) ?: return
-        val base = NanoMuseCloud.baseUrl(app).trimEnd('/')
+        val base = NanoMuseCloud.baseUrl(app)?.trimEnd('/') ?: return
         val url = base.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") + "/v1/hub"
         appContext = app
         val c = HubClient(

@@ -77,7 +77,8 @@ struct AIDataSharingConsentView: View {
                         }
                     }
 
-                    Link("Read our full Privacy Policy", destination: URL(string: "https://github.com/nano-muse/nanoMuse/blob/main/docs/privacy.md")!)
+                    // nanoMuse: the fork's privacy page, not upstream's.
+                    Link("Read our full Privacy Policy", destination: URL(string: "https://github.com/knsew/nanoMuse/blob/main/docs/privacy.md")!)
                         .font(.footnote)
 
                     Spacer(minLength: 80)

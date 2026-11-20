@@ -131,10 +131,9 @@ final class NanoMuseRound7Tests: XCTestCase {
 
         let fallback = NanoMuseWays.resolve(guidance: nil, catalogue: catalogue, mainland: true)
         XCTAssertFalse(fallback.fromRelay)
-        if !catalogue.isEmpty {
-            XCTAssertEqual(fallback.vendors.first?.id, NanoMuseCatalogue.bailian, "mainland China hears about Bailian first")
-            XCTAssertEqual(NanoMuseWays.resolve(guidance: nil, catalogue: catalogue, mainland: false).vendors.first?.id, NanoMuseCatalogue.openrouter)
-        }
+        XCTAssertTrue(fallback.vendors.isEmpty, "the slimmed catalogue lists no cloud vendor")
+        XCTAssertTrue(fallback.signIns.isEmpty)
+        XCTAssertEqual(fallback.locals.map(\.id), ["ollama", "lm-studio", "vllm"])
         XCTAssertNil(NanoMuseGuidance.parse(json: #"{"region":"global","providers":[]}"#), "no providers is no guidance")
     }
 }

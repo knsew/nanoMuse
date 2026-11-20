@@ -147,7 +147,7 @@ final class NanoMuseHub: ObservableObject {
         }
     }
 
-    var webConsoleURL: String { NanoMuseCloud.baseURL + "/app/" }
+    var webConsoleURL: String? { NanoMuseCloud.baseURL.map { $0 + "/app/" } }
 
     /// The other devices of the account: never this phone, never a browser tab.
     var others: [HubDevice] { devices.filter { $0.id != deviceId && $0.kind != "web" } }
@@ -174,8 +174,9 @@ final class NanoMuseHub: ObservableObject {
 
     func start() {
         guard task == nil, let inst = NanoMuseCloud.instance,
-              let key = ProviderKeychainHelper.loadAPIKey(instanceId: inst.id), !key.isEmpty else { return }
-        var base = NanoMuseCloud.baseURL
+              let key = ProviderKeychainHelper.loadAPIKey(instanceId: inst.id), !key.isEmpty,
+              let configured = NanoMuseCloud.baseURL else { return }
+        var base = configured
         if base.hasPrefix("https://") { base = "wss://" + base.dropFirst(8) } else if base.hasPrefix("http://") { base = "ws://" + base.dropFirst(7) }
         guard let url = URL(string: base + "/v1/hub") else { return }
         stopping = false

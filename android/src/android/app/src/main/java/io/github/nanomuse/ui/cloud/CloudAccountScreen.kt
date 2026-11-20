@@ -199,8 +199,8 @@ fun CloudAccountScreen(
                     MuseRowDivider(inset = 16.dp)
                     MuseRow(title = stringResource(R.string.nm_cloud_sign_in), onClick = onSignIn, titleColor = MuseTones.action)
                     val base = NanoMuseCloud.baseUrl(context)
-                    if (!RelayAddress.isDefault(base)) {
-                        // pointed at someone's own relay: say which, so a sign-in that fails is understood
+                    if (base != null) {
+                        // pointed at a relay: say which, so a sign-in that fails is understood
                         MuseRowDivider(inset = 16.dp)
                         MuseRow(title = stringResource(R.string.nm_cloud_server_row), value = RelayAddress.display(base), chevron = false, onClick = onSignIn)
                     }
@@ -256,11 +256,11 @@ fun CloudAccountScreen(
                         onClick = { refresh() },
                     )
                     MuseRowDivider()
-                    // the relay the key belongs to (0.1.38: people who run their own); changing it means signing out first
+                    // the relay the key belongs to; changing it means signing out first
                     MuseRow(
                         title = stringResource(R.string.nm_cloud_server_row),
                         icon = Icons.Outlined.Storage,
-                        value = RelayAddress.display(NanoMuseCloud.baseUrl(context)),
+                        value = NanoMuseCloud.baseUrl(context)?.let { RelayAddress.display(it) } ?: "",
                         chevron = false,
                         trailing = {
                             TextButton(onClick = { changeServer = true }) {
@@ -1058,7 +1058,8 @@ private fun InviteCard(a: NanoMuseCloud.Account) {
     val clipboard = androidx.compose.ui.platform.LocalClipboard.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1500); copied = false } }
-    val link = a.inviteUrl.ifBlank { "https://nanomuse.cn/web/?invite=" + a.inviteCode }
+    // the relay's invite link when it sent one; empty otherwise (no official site to fall back to)
+    val link = a.inviteUrl
     MuseCard {
         Column(Modifier.padding(16.dp)) {
             Text(
@@ -1112,13 +1113,13 @@ private fun InviteCard(a: NanoMuseCloud.Account) {
     }
 }
 
-/** The notice on the site, with the whole story: who pays, what is kept, how to help. */
-const val NOTICE_URL = "https://nanomuse.cn/#open-source"
+/** The project's repository, where the whole story lives. */
+const val NOTICE_URL = "https://github.com/knsew/nanoMuse"
 
 /**
  * The community notice: nanoMuse is free, open source and non-profit; who pays; what the relay
  * keeps; and the invitation to file issues and pull requests — with the repository one tap
- * away. The title opens the same notice on the site. Shown on the account page, the sign-in
+ * away. The title opens the repository. Shown on the account page, the sign-in
  * screen and (in short) the first-run screen.
  */
 @Composable
@@ -1150,12 +1151,12 @@ fun CommunityNoticeCard(inset: Dp = 16.dp) {
             )
             Spacer(Modifier.height(6.dp))
             Row {
-                TextButton(onClick = { openExternalUrl(context, "https://github.com/nano-muse/nanoMuse") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
+                TextButton(onClick = { openExternalUrl(context, "https://github.com/knsew/nanoMuse") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
                     Icon(Icons.Outlined.Code, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.nm_notice_github))
                 }
-                TextButton(onClick = { openExternalUrl(context, "https://github.com/nano-muse/nanoMuse/issues/new/choose") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
+                TextButton(onClick = { openExternalUrl(context, "https://github.com/knsew/nanoMuse/issues/new/choose") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
                     Icon(Icons.Outlined.BugReport, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.nm_notice_issue))

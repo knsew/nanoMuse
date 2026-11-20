@@ -101,8 +101,8 @@ final class NanoMuseDeviceConversations: ObservableObject {
     private let hub = NanoMuseHub.shared
 
     private var currentAccount: String? {
-        guard NanoMuseCloud.isSignedIn, let id = NanoMuseCloud.account?.id, !id.isEmpty else { return nil }
-        return NanoMuseCloud.baseURL + "|" + id
+        guard NanoMuseCloud.isSignedIn, let id = NanoMuseCloud.account?.id, !id.isEmpty, let base = NanoMuseCloud.baseURL else { return nil }
+        return base + "|" + id
     }
 
     private var leavingAccount = false
