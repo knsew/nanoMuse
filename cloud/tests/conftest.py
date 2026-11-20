@@ -1,5 +1,5 @@
-"""The tests never reach the network: the GitHub collector's background task stays off
-unless a test turns it on with a mocked transport (`Settings(github_collect=True)`)."""
+"""The tests never reach the network: no test talks to a real upstream or a real
+mail server; the upstream is always a mocked transport and codes go to the log."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import os
 
 import pytest
 
-os.environ["GITHUB_COLLECT"] = "0"
 # Most relay tests exercise the optional self-hosted media/pricing machinery. Production
 # defaults are tested separately with these overrides removed.
 os.environ["CLOUD_MEDIA_ENABLED"] = "1"

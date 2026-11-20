@@ -1,36 +1,24 @@
-/** One address: where it is and the accounts seen from it. */
+/** One address: the accounts seen from it. */
 
 import { errorText } from "../App";
 import { fmt, when } from "../lib/format";
 import { useData } from "../lib/hooks";
 import { useT } from "../lib/i18n";
 import type { Address } from "../lib/types";
-import { DataTable, Drawer, Failed, KV, Loading, Panel } from "../ui/primitives";
+import { DataTable, Drawer, Failed, Loading, Panel } from "../ui/primitives";
 import { Ago, Who } from "../ui/who";
 
 export function AddressDrawer({ ip, onClose }: { ip: string; onClose: () => void }) {
   const T = useT();
   const q = useData<Address>(`/v1/admin/address?ip=${encodeURIComponent(ip)}`);
-  const p = q.data?.place;
   return (
-    <Drawer title={T.ad.title(ip)} sub={p ? (p.local ? T.g.local : p.text || [p.country, p.province, p.city].filter(Boolean).join(" ")) : undefined} onClose={onClose} width={640}>
+    <Drawer title={T.ad.title(ip)} onClose={onClose} width={640}>
       {q.error && !q.data ? (
         <Failed error={errorText(q.error)} onRetry={() => void q.reload()} />
       ) : !q.data ? (
         <Loading />
       ) : (
         <div className="flex flex-col gap-3">
-          {p && (
-            <Panel title={T.ad.place}>
-              <KV
-                rows={[
-                  [T.plc.country, `${p.country || T.g.unknown}${p.code ? ` (${p.code})` : ""}`],
-                  [T.plc.province, [p.province, p.city].filter(Boolean).join(" · ") || "·"],
-                  [T.ad.isp, p.isp || "·"],
-                ]}
-              />
-            </Panel>
-          )}
           <Panel title={T.ad.accounts(q.data.accounts.length)} pad={false}>
             <DataTable
               rows={q.data.accounts}

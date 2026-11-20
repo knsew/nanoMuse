@@ -3,9 +3,9 @@
 Five switches, each on unless the operator turned it off, kept in the database (not the
 environment) so a flip applies at once and survives a restart:
 
-- ``free_allowance`` — off: every limited account is refused at the model endpoints with a
-  ``429 allowance_exhausted`` whose body says ``paused: true`` (the apps already draw that
-  shape; members keep working, they are on the operator's own bill by choice);
+- ``free_allowance`` — off: reported under ``paused`` on /v1/me and /v1/config, but
+  nothing is refused for it any more (the allowance menu was removed; the switch stays
+  so the console and the rules that flip it keep working);
 - ``signups`` — off: an identifier without an account gets ``403 signup_closed`` before a
   code is sent; existing accounts sign in as before;
 - ``cloud_service`` — off: everything but the health check, the public config, the console

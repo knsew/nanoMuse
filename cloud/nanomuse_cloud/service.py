@@ -14,13 +14,11 @@ import hmac
 import json
 import logging
 import math
-import os
 import re
 import secrets
 import sqlite3
 import time
 from collections.abc import Callable
-from contextlib import closing
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,20 +26,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from . import __version__, provenance, turnview
-from .analytics import sample_shape
 from .client import client_version, platform_from, platform_of
 from .config import ModelSpec, Settings, menu_warnings
 from .controls import Controls
 from .crypto import IdentifierCrypto
 from .db import Database, now
-from .geo import Place
 from .identifiers import BadIdentifier, Identifier, parse
-from .nudges import BadNudges
-from .nudges import defaults as nudges_defaults
-from .nudges import merge as nudges_merge
-from .nudges import validate as nudges_validate
-from .providers import exhausted_key_line, guidance
-from .providers import provider as catalogue_provider
 from .record import BLOB_PREFIX, MediaStore, detach_media, inline_media_bytes, is_sha256, media_refs, pack, unpack
 from .senders import CodeSender, LogSender, SendError, make_sender
 
@@ -50,35 +40,9 @@ log = logging.getLogger("nanomuse_cloud")
 KEY_PREFIX = "nm_"
 HUB_KINDS = ("phone", "computer", "web")
 HUB_DEVICE_ID = re.compile(r"^[A-Za-z0-9._:-]{4,80}$")
-# the settings-table key of the nudges policy (0.18, nudges.py)
-NUDGES_KEY = "nudges"
-
 # What one request kind is called in the apps' usage breakdown; the ledger
 # keeps the short names.
 USAGE_KINDS = ("chat", "image", "video", "realtime")
-
-# Where the person is, as far as the relay can tell (0.17), for the "ways on" when the
-# allowance is out: Alibaba Cloud Bailian only signs up accounts from mainland China, so
-# the mainland is pointed there first and everyone else to OpenRouter first. `cn`: the
-# account's identifier is a mainland phone number, or the request's address is placed in
-# mainland China by ip2region; `intl`: the address is placed anywhere else (Hong Kong,
-# Macau and Taiwan count as elsewhere — Bailian does not take them either); `unknown`:
-# neither (an e-mail account on a local or unplaced address). The apps add their own
-# rule on top — a zh-Hans interface counts as the mainland.
-REGIONS = ("cn", "intl", "unknown")
-_NOT_MAINLAND = ("香港", "澳门", "台湾", "Hong Kong", "Macao", "Macau", "Taiwan")
-
-
-def region_of_place(place: Place | None) -> str:
-    """`cn`, `intl` or `unknown` for where an address was placed (geo.py)."""
-    if place is None or place.local or not place.country:
-        return "unknown"
-    if place.code in ("HK", "MO", "TW"):
-        return "intl"
-    if place.code == "CN" or place.country in ("中国", "China"):
-        where = f"{place.province} {place.city}"
-        return "intl" if any(w in where for w in _NOT_MAINLAND) else "cn"
-    return "intl"
 
 
 def hash_password(password: str) -> str:
@@ -116,30 +80,9 @@ class CloudError(Exception):
         self.extra = dict(extra or {})
 
 
-def _strip_binary(messages: list) -> list:
-    """Messages with pictures (data: URLs) replaced by a marker: the words are the sample."""
-    out = []
-    for m in messages:
-        if not isinstance(m, dict):
-            continue
-        m = dict(m)
-        content = m.get("content")
-        if isinstance(content, list):
-            parts = []
-            for part in content:
-                if isinstance(part, dict) and part.get("type") in ("image_url", "input_audio", "video_url", "video"):
-                    parts.append({"type": part["type"], "omitted": True})
-                elif isinstance(part, dict) and part.get("type") == "text":
-                    parts.append({"type": "text", "text": str(part.get("text", ""))})
-                else:
-                    parts.append(part if isinstance(part, (str, int, float, bool)) else {"type": "other", "omitted": True})
-            m["content"] = parts
-        out.append(m)
-    return out
-
-
 # What a kept turn holds — the words the apps show under Data controls and the privacy
-# policy repeats. _training_view enforces them: this is a promise, not a description.
+# policy repeats. Nothing new is kept since the training-sample collection was removed;
+# this describes the turns kept before that, which the person can still delete.
 SAMPLE_KEEPS = {
     "kept": [
         "what you wrote",
@@ -150,69 +93,6 @@ SAMPLE_KEEPS = {
     ],
     "not_kept": ["the system prompt (memory, SOUL, instructions)", "what tools returned", "pictures, audio and clips", "who you are"],
 }
-
-
-def _training_view(messages: list) -> list:
-    """The turn as the community's model may learn from it: what the person wrote and what
-    the model answered, with the tool calls the model chose — not the system prompt (the
-    person's memory, SOUL and instructions), not what a tool returned (their files, their
-    screen, what another app showed them), not a picture or a clip (a marker where one was)."""
-    out: list[dict] = []
-    for m in _strip_binary(messages):
-        role = m.get("role")
-        if role == "user":
-            out.append({"role": "user", "content": m.get("content", "")})
-        elif role == "assistant":
-            kept: dict = {"role": "assistant", "content": m.get("content", "")}
-            if m.get("tool_calls"):
-                kept["tool_calls"] = m["tool_calls"]
-            out.append(kept)
-        elif role == "tool":
-            out.append({"role": "tool", "tool_call_id": str(m.get("tool_call_id", "")), "content": "", "omitted": True})
-        # system, developer and anything else: never kept
-    return out
-
-
-def _fit_messages(messages: list, max_chars: int) -> tuple[str, bool]:
-    """The messages as JSON within ``max_chars`` — whole messages dropped from the middle
-    (the first message and the last exchange kept), then the longest text cut — so that what
-    is stored always parses. Returns the JSON and whether anything was left out. The caller
-    passes the training view (``_training_view``), so the first message is the person's
-    opening turn, not a system prompt."""
-    text = json.dumps(messages, ensure_ascii=False)
-    if len(text) <= max_chars:
-        return text, False
-    msgs = [dict(m) for m in messages if isinstance(m, dict)]
-    # 1. drop from the middle, oldest first, keeping the first message and the last two
-    while len(text) > max_chars and len(msgs) > 3:
-        del msgs[1]
-        text = json.dumps(msgs, ensure_ascii=False)
-    # 2. cut the longest text until it fits (a single huge paste, a long system prompt)
-    for _ in range(50):
-        if len(text) <= max_chars:
-            break
-        longest, where = -1, None
-        for i, m in enumerate(msgs):
-            c = m.get("content")
-            if isinstance(c, str) and len(c) > longest:
-                longest, where = len(c), (i, None)
-            elif isinstance(c, list):
-                for j, part in enumerate(c):
-                    if isinstance(part, dict) and isinstance(part.get("text"), str) and len(part["text"]) > longest:
-                        longest, where = len(part["text"]), (i, j)
-        if where is None or longest < 200:
-            break
-        over = len(text) - max_chars
-        keep = max(100, longest - over - 40)
-        i, j = where
-        if j is None:
-            msgs[i]["content"] = msgs[i]["content"][:keep] + " […]"
-        else:
-            parts = list(msgs[i]["content"])
-            parts[j] = {**parts[j], "text": parts[j]["text"][:keep] + " […]"}
-            msgs[i]["content"] = parts
-        text = json.dumps(msgs, ensure_ascii=False)
-    return text[:max_chars] if len(text) > max_chars else text, True
 
 
 def _load_messages(text: str) -> tuple[list, bool]:
@@ -276,16 +156,16 @@ class Caller:
     # Empty is a legacy credential whose first accepted hello performs the binding.
     hub_device_id: str = ""
     hub_device_kind: str = ""
-    # Invitations (0.4): the code this person hands out and how many came.
+    # Invitations (0.4, removed): the stored code and count stay on the account row.
     invite_code: str = ""
     invites: int = 0
-    # The lifetime pool (0.5), micro-yuan: the allowance, plus what invites and the operator
-    # added (and, for accounts from before 0.9, the co-creation bonus of the time). What is
+    # The lifetime pool (0.5), micro-yuan: the allowance, plus what the operator added
+    # (and, for accounts from before 0.9, the co-creation bonus of the time). What is
     # spent is the ledger's sum, read when needed.
     grant_uy: int = 0
     contribute_bonus_at: int | None = None
-    # Data controls: "Help improve nanoMuse's AI models" is on for this account — only then
-    # does the relay keep the text of what was said (service.keep_sample says exactly what).
+    # Data controls: "Help improve nanoMuse's AI models" was on for this account; the
+    # collection was removed, so nothing new is kept whatever this says.
     contribute: bool = False
 
     @property
@@ -407,7 +287,6 @@ CHAT_RESERVE_COMPLETION_TOKENS = 1500
 # value is read, its bounds. Anything else stays with the environment and a restart.
 RUNTIME_SETTINGS: dict[str, tuple[type, float, float]] = {
     "allowance_cny": (float, 0.0, 1000.0),
-    "invite_bonus_cny": (float, 0.0, 100.0),
     "signup_open": (bool, 0.0, 1.0),
 }
 
@@ -457,19 +336,11 @@ class Cloud:
         # The members' identifiers, hashed once so a request can be matched
         # against the list without ever seeing the plaintext.
         self.member_hashes: frozenset[str] = frozenset(h for i in self._listed_identifiers() for h in i.hashes(settings.hmac_key))
-        # The reviewer's addresses (REVIEW_ADDRESSES), hashed the same way; empty, and so
-        # the whole feature off, unless REVIEW_CODE is six digits as well.
-        self.review_hashes: frozenset[str] = frozenset(h for i in self._review_identifiers() for h in i.hashes(settings.hmac_key))
-        if self.review_hashes:
-            log.warning("review sign-in is on for %d address(es): a fixed code, nothing sent", len(self.review_hashes))
         if settings.signup_open:
             log.info(
-                "sign-up is open: %d member(s) without a limit, everyone else ¥%.2f in all (+¥%.2f an invite, to both sides); "
-                "new accounts start with 'help improve the models' %s",
+                "sign-up is open: %d member(s) without a limit, everyone else ¥%.2f in all",
                 len(self.member_hashes),
                 settings.allowance_cny,
-                settings.invite_bonus_cny,
-                "on" if settings.improve_default else "off",
             )
         else:
             log.warning("SIGNUP_OPEN=0: private relay, only the %d listed identifier(s) may sign in", len(self.member_hashes))
@@ -691,12 +562,7 @@ class Cloud:
             "paused": [k for k, v in self.controls.paused().items() if v],
             "allowance_cny": self.s.allowance_cny,
             "allowance_usd": self.s.cny_to_usd(self.s.allowance_cny),
-            "invite_bonus_cny": self.s.invite_bonus_cny,
-            "invitee_bonus_cny": self.s.invite_bonus_cny,
             "usd_cny": self.s.usd_cny,
-            "invite_url": self.s.invite_url,
-            "own_key_docs": self.s.own_key_docs,
-            "openrouter_url": self.s.openrouter_url,
             "privacy_url": self.s.privacy_url,
             "repo_url": self.s.repo_url,
             "improve_default": self.s.improve_default,
@@ -719,42 +585,13 @@ class Cloud:
                 log.warning("ALLOWED_IDENTIFIERS has an entry that is neither a number nor an address; ignored")
         return out
 
-    def _review_identifiers(self) -> list[Identifier]:
-        """The reviewer's addresses (REVIEW_ADDRESSES) — only when REVIEW_CODE is six digits
-        too; an entry that is not an e-mail address is ignored (a reviewer has no mainland
-        number, and a fixed code on a number is not something to offer)."""
-        code = self.s.review_code.strip()
-        if not (len(code) == 6 and code.isdigit()):
-            if self.s.review_addresses.strip():
-                log.warning("REVIEW_ADDRESSES is set but REVIEW_CODE is not six digits; review sign-in is off")
-            return []
-        out = []
-        for item in self.s.review_addresses.split(","):
-            if not item.strip():
-                continue
-            try:
-                ident = parse(item)
-            except BadIdentifier:
-                log.warning("REVIEW_ADDRESSES has an entry that is not an address; ignored")
-                continue
-            if ident.channel != "email":
-                log.warning("REVIEW_ADDRESSES has a phone number; only e-mail addresses are taken")
-                continue
-            out.append(ident)
-        return out
-
     def listed(self, ident: Identifier) -> bool:
         """On the operator's list (ALLOWED_IDENTIFIERS)."""
         return ident.hash(self.s.hmac_key) in self.member_hashes
 
-    def is_review(self, ident: Identifier) -> bool:
-        """The reviewer's address (REVIEW_ADDRESSES, with REVIEW_CODE set)."""
-        return bool(self.review_hashes) and ident.hash(self.s.hmac_key) in self.review_hashes
-
     def allowed(self, ident: Identifier) -> bool:
-        """May this identifier sign in? Anyone when sign-up is open; else members only — and
-        the reviewer's address either way, since the operator named it."""
-        return self.s.signup_open or self.listed(ident) or self.is_review(ident)
+        """May this identifier sign in? Anyone when sign-up is open; else members only."""
+        return self.s.signup_open or self.listed(ident)
 
     def _account_for(self, ident: Identifier) -> sqlite3.Row | None:
         """Look up an account by ``ident``'s canonical hash, falling back to its
@@ -764,9 +601,8 @@ class Cloud:
 
     def _refuse_if_signups_closed(self, ident: Identifier) -> None:
         """0.22: the *Sign-ups* switch is off; an identifier without an account is turned
-        away (`signup_closed`); everyone who already has one carries on, and so does the
-        reviewer's address (a review must not fail on a paused switch)."""
-        if self.controls.on("signups") or self.is_review(ident) or self._account_for(ident) is not None:
+        away (`signup_closed`); everyone who already has one carries on."""
+        if self.controls.on("signups") or self._account_for(ident) is not None:
             return
         raise CloudError(
             403,
@@ -792,8 +628,8 @@ class Cloud:
         a domain without an account yet is turned away (`domain_limited`) once the day's
         count is reached, and domains on the disposable blocklist are refused for new
         sign-ups right away. An existing account always gets its code; phone numbers are
-        never limited; the reviewer's address is never limited."""
-        if ident.channel != "email" or self.is_review(ident):
+        never limited."""
+        if ident.channel != "email":
             return
         domain = ident.value.rpartition("@")[2].lower()
         if not domain:
@@ -822,10 +658,9 @@ class Cloud:
         )
 
     def request_code(self, ident: Identifier, ip: str) -> None:
-        review = self.is_review(ident)
-        if not review and not self.sender.accepts(ident):
-            # the honest answer up front: a Hong Kong or overseas number gets no SMS from
-            # 号码认证, so the person should not wait for one; e-mail works everywhere
+        if not self.sender.accepts(ident):
+            # the honest answer up front: a number this relay cannot send a code to
+            # should not wait for one; e-mail works everywhere
             if ident.channel == "phone" and not ident.value.startswith("+86"):
                 raise CloudError(
                     400,
@@ -843,9 +678,7 @@ class Cloud:
         self._refuse_if_domain_limited(ident)
         account = self._account_for(ident)
         disabled = account is not None and bool(account["disabled"])
-        # The reviewer's code is the fixed one and goes nowhere: the row is written like
-        # anyone's, so the lifetime, the attempt limit and the rate limits are the same.
-        code = self.s.review_code.strip() if review else f"{secrets.randbelow(1_000_000):06d}"
+        code = f"{secrets.randbelow(1_000_000):06d}"
         limited = self.db.insert_code_limited(
             ident.hash(self.s.hmac_key),
             _code_hash(self.s.hmac_key, code),
@@ -858,9 +691,6 @@ class Cloud:
             raise CloudError(429, "code_too_often", "Too many codes for this address; wait a few minutes")
         if limited == "ip":
             raise CloudError(429, "code_too_often", "Too many codes from this network; wait an hour")
-        if review:
-            log.info("review sign-in: a code request for the reviewer's address; nothing sent")
-            return
         if disabled:
             # Refused quietly: the row above is written and the answer is the same 204 as
             # anyone's, so this route tells a stranger nothing about the number (not that it
@@ -889,7 +719,7 @@ class Cloud:
         hub_device_kind: str = "",
     ) -> tuple[str, Caller, bool]:
         """Returns (api_key, caller, created). The key is shown once. `invite` is
-        a friend's code; it counts only when this sign-in creates the account."""
+        accepted from older clients and ignored: invitations were removed."""
         if not self.allowed(ident):
             raise CloudError(403, "not_invited", "This relay is private; that address is not on its list")
         id_hash = ident.hash(self.s.hmac_key)
@@ -923,9 +753,7 @@ class Cloud:
             account_id = self.db.new_account_id()
             enc = self.crypto.encrypt(account_id, ident.value)
             domain = ident.value.rpartition("@")[2].lower() if ident.channel == "email" else ""
-            domain_limit = (
-                self.s.signup_per_domain_day if domain and not self.is_review(ident) and domain not in self.s.signup_domain_allow_set else 0
-            )
+            domain_limit = self.s.signup_per_domain_day if domain and domain not in self.s.signup_domain_allow_set else 0
             account, created = self.db.create_account_limited(
                 id_hash,
                 ident.channel,
@@ -950,12 +778,6 @@ class Cloud:
             account_id = str(account["id"])
         if created:
             self.db.add_event(account_id, "account.created", ident.channel)
-            if self.s.improve_default:
-                # the relay's default for a new account, said on its timeline as such (not as a
-                # choice the person made); it is theirs to turn off under Data controls
-                self.db.set_contribute(account_id, True)
-                self.db.add_event(account_id, "contribute.default", "on")
-            self._accept_invite(account_id, invite)
         elif account["disabled"]:
             raise CloudError(403, "account_disabled", "This account is disabled")
 
@@ -997,104 +819,6 @@ class Cloud:
         except Exception as e:  # noqa: BLE001
             log.warning("thresholds: could not send a queued notice: %s", e)
         return fired
-
-    # -- invitations ------------------------------------------------------------------
-
-    @staticmethod
-    def normalize_invite(code: str) -> str:
-        """Codes are eight letters and digits, shown in upper case; typed any way."""
-        return re.sub(r"[^A-Z0-9]", "", (code or "").upper())[:8]
-
-    def _accept_invite(self, new_account_id: str, invite: str) -> None:
-        code = self.normalize_invite(invite)
-        if not code:
-            return
-        inviter = self.db.account_by_invite_code(code)
-        if inviter is None or inviter["id"] == new_account_id or inviter["disabled"]:
-            # a wrong code is not an error: the person is signed in either way
-            self.db.add_event(new_account_id, "invite.unknown")
-            return
-        # the link and the counter now; the bonus (the same to both sides, 0.9) when the
-        # newcomer first uses the relay (settle_invite), so a sign-up alone pays nobody
-        self.db.link_invite(inviter["id"], new_account_id)
-        self.db.add_event(inviter["id"], "invite.accepted", new_account_id[:8])
-        self.db.add_event(new_account_id, "invite.used", inviter["id"][:8])
-        log.info("invite: %s brought %s (+¥%.2f each at first use)", inviter["id"][:8], new_account_id[:8], self.s.invite_bonus_cny)
-
-    def settle_invite(self, account_id: str) -> bool:
-        """Called after every charged request: when the account came through a code and its
-        bonus is still unpaid, both pools grow by the bonus in force now and both timelines
-        say so (`invite.settled`). One lookup by primary key on the common path; the
-        settlement itself happens once per account. A failure here must not cost a request."""
-        try:
-            if not self.db.invite_pending(account_id):
-                return False
-            settled, inviter_id, inviter_paid = self.db.settle_invite(
-                account_id,
-                self.s.cny_to_uy(self.s.invite_bonus_cny),
-                min_spent_uy=self.s.invite_settle_min_spent_uy,
-                refuse_same_ip=True,
-            )
-        except sqlite3.Error as e:
-            log.warning("invite: could not settle for %s: %s", account_id[:8], e)
-            return False
-        if not settled:
-            return False
-        self.db.add_event(account_id, "invite.settled", inviter_id[:8])
-        if inviter_paid:
-            self.db.add_event(inviter_id, "invite.settled", account_id[:8])
-        log.info(
-            "invite: %s used the relay, +¥%.2f to %s",
-            account_id[:8],
-            self.s.invite_bonus_cny,
-            "both" if inviter_paid else "the newcomer only",
-        )
-        return True
-
-    def invite_code_for(self, caller: Caller) -> str:
-        """The account's code, made on first ask (no confusable letters)."""
-        if caller.invite_code:
-            return caller.invite_code
-        alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-        for _ in range(20):
-            code = "".join(secrets.choice(alphabet) for _ in range(8))
-            if self.db.set_invite_code(caller.account_id, code):
-                return code
-            row = self.db.account(caller.account_id)
-            if row is not None and row["invite_code"]:
-                return str(row["invite_code"])
-        raise CloudError(500, "invite_code", "Could not make an invite code; try again")
-
-    def invite_view(self, caller: Caller) -> dict:
-        code = self.invite_code_for(caller)
-        # from the ledger, not invites × today's bonus: the bonus may have been another
-        # figure when some of these friends signed up
-        earned = self.s.uy_to_cny(self.db.invite_earned_uy(caller.account_id))
-        friends = self.db.invitees(caller.account_id)
-        settled = sum(1 for r in friends if r["invite_settled_at"] is not None)
-        return {
-            "code": code,
-            "url": self.s.invite_url + code if self.s.invite_url else "",
-            # sign-ups recorded with the code (the counter), as the apps have always read it
-            "invites": caller.invites,
-            "bonus_cny": self.s.invite_bonus_cny,
-            # 0.9: the friend who signs up with the code gets the same
-            "invitee_bonus_cny": self.s.invite_bonus_cny,
-            # the bonus is paid to both sides at the friend's first charged request, not at
-            # sign-up: how many friends have been paid for and how many are still to be
-            "bonus_when": "first_use",
-            "settled": settled,
-            "pending": max(0, len(friends) - settled),
-            "earned_cny": earned,
-            # 0.4 names, one more version: the money invites brought (there is no separate
-            # credit any more, it is all one pool) and no clips to count
-            "credit_cny": earned,
-            "credit_left_cny": earned,
-            "clips_per_invite": 0,
-            "friends": [
-                {"hint": r["hint"], "joined_at": int(r["created_at"]), "settled": r["invite_settled_at"] is not None} for r in friends
-            ],
-        }
 
     @staticmethod
     def clips_view() -> dict:
@@ -1445,7 +1169,7 @@ class Cloud:
             "warn": bool(limited and grant > 0 and spent_uy * 5 >= grant * 4),
         }
 
-    # -- where the person is, and the ways on when the allowance is out (0.17) ----------------
+    # -- where the person is (0.17) ----------------
 
     def mainland_phone(self, caller: Caller) -> bool:
         """Whether the account was opened with a mainland China phone number."""
@@ -1458,96 +1182,14 @@ class Cloud:
         # an account from before the number was kept: the hint of a mainland number has no "+"
         return not caller.hint.startswith("+")
 
-    def region(self, caller: Caller, place: Place | None = None) -> str:
-        """`cn` for a mainland phone account or a mainland address, `intl` for an address
-        placed elsewhere, `unknown` otherwise (REGIONS)."""
+    def region(self, caller: Caller, place: object = None) -> str:
+        """`cn` for a mainland phone account, `unknown` otherwise. `place` is accepted
+        from older callers and ignored: address lookup was removed."""
         if self.mainland_phone(caller):
             return "cn"
-        return region_of_place(place)
+        return "unknown"
 
-    def ways_on(self, caller: Caller, region: str) -> list[dict]:
-        """Where to go when the allowance is out, in the order the apps should show them:
-        the mainland to Bailian first, everyone else to OpenRouter first (Bailian only signs
-        up mainland accounts), the invitation last. Each has an `id` the apps have copy for,
-        a `url`, and the figures that belong to it. Since 0.21 the two key ways also carry
-        the catalogue's facts (`name`, `key_url`, `covers`, `auth`), and the fuller list —
-        every provider for the region, the plans an app can sign in with — is `guidance`
-        (contract C11; providers.py) next to this list, so a client from before keeps its
-        two rows and a new one draws the whole card."""
-        bailian = {"id": "bailian", "url": self.s.own_key_docs, "mainland_only": True, **self._way_facts("bailian")}
-        openrouter = {"id": "openrouter", "url": self.s.openrouter_url, "mainland_only": False, **self._way_facts("openrouter")}
-        invite = {
-            "id": "invite",
-            "url": (self.s.invite_url + self.invite_code_for(caller)) if self.s.invite_url else "",
-            "bonus_cny": self.s.invite_bonus_cny,
-        }
-        keys = [bailian, openrouter] if region == "cn" else [openrouter, bailian]
-        return [*keys, invite]
-
-    @staticmethod
-    def _way_facts(pid: str) -> dict:
-        """The catalogue's facts for one of the two 0.17 ways: additive fields only."""
-        p = catalogue_provider(pid)
-        if p is None:
-            return {}
-        return {
-            "name": p["name"],
-            "name_zh": p["name_zh"],
-            "key_url": p["key_url"],
-            "covers": list(p["capabilities"]),
-            "auth": list(p["auth"]),
-        }
-
-    def guidance(self, region: str) -> dict:
-        """The own-key guidance for this person (0.21, contract C11): the providers for the
-        region in order with what each covers, the plans an app can sign in with, the
-        local servers, the guide's URL and the ChatGPT caveat."""
-        return guidance(region, self.s.own_key_docs)
-
-    def _exhausted(self, caller: Caller, a: dict, region: str = "unknown") -> CloudError:
-        grant = f"¥{self.s.uy_to_cny(a['grant_uy']):g}"
-        bonus = f"+¥{self.s.invite_bonus_cny:g} for each of you"
-        key = exhausted_key_line(region)
-        message = (
-            f"Your free allowance ({grant}) is used up. Three ways on: {key}, or invite a friend ({bonus}). "
-            "Your sign-in and your devices keep working either way."
-        )
-        return CloudError(
-            429,
-            "allowance_exhausted",
-            message,
-            extra={
-                "left": self.s.uy_to_cny(a["left_uy"] or 0),
-                "grant": self.s.uy_to_cny(a["grant_uy"]),
-                "region": region,
-                "ways": self.ways_on(caller, region),
-                # 0.21: every provider for the region with what each covers, the plans an
-                # app can sign in with (contract C11)
-                "guidance": self.guidance(region),
-                "invite_url": (self.s.invite_url + self.invite_code_for(caller)) if self.s.invite_url else "",
-                "invite_bonus_cny": self.s.invite_bonus_cny,
-                "invitee_bonus_cny": self.s.invite_bonus_cny,
-                # 0.5 names, kept for the apps of the time: there is no co-creation bonus any more
-                "contribute_bonus_available": False,
-                "contribute_bonus_cny": 0,
-                "own_key_docs": self.s.own_key_docs,
-                "openrouter_url": self.s.openrouter_url,
-            },
-        )
-
-    def _paused_allowance(self, caller: Caller, a: dict, region: str = "unknown") -> CloudError:
-        """0.22: the *Free allowance* switch is off. Built on `_exhausted` so the extra keys
-        (ways, guidance, invite link) are the same ones; only the words and two flags differ."""
-        err = self._exhausted(caller, a, region)
-        key = exhausted_key_line(region)
-        err.message = (
-            f"The free allowance is paused on this relay for now, so the shared models are not answering. "
-            f"To keep going: {key}. Your sign-in, your devices and anything you have left stay as they are."
-        )
-        err.extra = {**err.extra, "paused": True, "reason": "allowance_paused"}
-        return err
-
-    def me(self, caller: Caller, place: Place | None = None) -> dict:
+    def me(self, caller: Caller, place: object = None) -> dict:
         t = now()
         day_start = self.s.day_start(t)
         spent_today_uy = self.db.spent_since(caller.account_id, day_start)
@@ -1557,8 +1199,7 @@ class Cloud:
         left_cny = None if a["left_uy"] is None else self.s.uy_to_cny(a["left_uy"])
         region = self.region(caller, place)
         return {
-            # 0.17: where the person seems to be — the apps order the "ways on" by it
-            # (REGIONS: cn | intl | unknown) when the allowance runs low or out
+            # 0.17: where the person seems to be (cn | unknown)
             "region": region,
             # 0.22: the operator's switches that are off right now, by name — an app may say
             # so on the account page before a request is refused
@@ -1607,19 +1248,9 @@ class Cloud:
                 "today_usd": self.s.cny_to_usd(self.s.uy_to_cny(spent_today_uy)),
                 # how the pool grows, for the account page
                 "allowance_cny": self.s.allowance_cny,
-                "invite_bonus_cny": self.s.invite_bonus_cny,
-                "invitee_bonus_cny": self.s.invite_bonus_cny,
                 # 0.5 names, kept for the apps of the time: there is no co-creation bonus any more
                 "contribute_bonus_cny": 0,
                 "contribute_bonus_available": False,
-                "own_key_docs": self.s.own_key_docs,
-                "openrouter_url": self.s.openrouter_url,
-                # 0.17: the ways on, in the order for this person (region above) — what the
-                # 80 % heads-up and the "used up" card list
-                "ways": self.ways_on(caller, region),
-                # 0.21: the whole own-key card — providers for the region with what each
-                # covers, the plans an app can sign in with, the ChatGPT caveat (C11)
-                "guidance": self.guidance(region),
                 # 0.4 names, one more version: apps from before 0.5 draw a "today / cap" bar;
                 # with the pool in `daily_cap` and the total in `today` that bar is the right
                 # one, and with no `resets_at` they print no midnight.
@@ -1630,13 +1261,28 @@ class Cloud:
                 "credit_left": 0,
                 "left_today": left_cny,
             },
-            "invite": self.invite_view(caller),
+            # invitations were removed: the empty shape, so older apps keep parsing
+            "invite": {
+                "code": "",
+                "url": "",
+                "invites": 0,
+                "bonus_cny": 0,
+                "invitee_bonus_cny": 0,
+                "bonus_when": "first_use",
+                "settled": 0,
+                "pending": 0,
+                "earned_cny": 0,
+                "credit_cny": 0,
+                "credit_left_cny": 0,
+                "clips_per_invite": 0,
+                "friends": [],
+            },
             "clips": self.clips_view(),
-            # Data controls: the switch, what has been kept (counted even when the switch is
-            # off now, so the person sees there is something to delete), the relay's default
-            # for new accounts and what exactly a kept turn holds.
+            # Data controls: nothing new is kept since the training-sample collection was
+            # removed (`on` is always false); what was kept before is still counted, so the
+            # person sees there is something to delete, and the record beside it.
             "contribute": {
-                "on": caller.contribute,
+                "on": False,
                 "samples": self.db.sample_count(caller.account_id),
                 "default_on": self.s.improve_default,
                 "keeps": SAMPLE_KEEPS,
@@ -1645,64 +1291,16 @@ class Cloud:
                 "bonus_cny": 0,
                 "bonus_available": False,
                 "bonus_at": caller.contribute_bonus_at,
-                # 0.29: the record — every turn in full, whatever the switch says; the same
-                # tap deletes both
+                # 0.29: the record — every turn in full; the same tap deletes both
                 "record": self.record_view(caller),
             },
             "models": [m.to_public() for m in self.offered_models()],
             "base_url": self.s.public_base,
             "recent": [self._ledger_row(r) for r in self.db.recent_ledger(caller.account_id)],
-            # 0.18: when the app may ask for a star (the same object as GET /v1/nudges), so a
-            # signed-in client has today's policy without a second request
-            "nudges": self.nudges(),
+            # 0.18: when the app may ask for a star (the same object as GET /v1/nudges),
+            # now always off; kept so older apps keep parsing
+            "nudges": {"star": {"enabled": False}},
         }
-
-    # -- 0.18: the nudges policy (when the apps ask for a star) ---------------------------------
-
-    def nudges(self) -> dict:
-        """The policy as served: what the operator stored, over the defaults."""
-        row = self.db.settings_get(NUDGES_KEY)
-        return nudges_merge(row[0] if row else None)
-
-    def admin_nudges(self) -> dict:
-        """For the page: the policy, whether it is the page's or the built-in one, and when
-        it was last saved (``updated_at`` is null for the defaults)."""
-        row = self.db.settings_get(NUDGES_KEY)
-        return {
-            "nudges": self.nudges(),
-            "defaults": nudges_defaults(),
-            "stored": row is not None,
-            "updated_at": row[1] if row else None,
-        }
-
-    def admin_put_nudges(self, body: dict) -> dict:
-        """The page saved a policy: checked (400 with a plain message when a value is not
-        right), ``version`` bumped past the one in force so every client can tell the copies
-        apart, kept across restarts, noted on the timeline. ``{"reset": true}`` removes the
-        stored policy so the defaults are served again."""
-        if body.get("reset") is True:
-            self.db.settings_put(NUDGES_KEY, None)
-            log.warning("nudges policy reset to the defaults from the page")
-            self.db.add_event("", "nudges.changed", "reset to the defaults")
-            return self.admin_nudges()
-        try:
-            policy = nudges_validate(body)
-        except BadNudges as e:
-            raise CloudError(400, "bad_request", str(e)) from e
-        current = self.nudges()
-        policy["version"] = int(current.get("version") or 0) + 1
-        self.db.settings_put(NUDGES_KEY, policy)
-        star = policy["star"]
-        said = (
-            f"v{policy['version']}: {'on' if star['enabled'] else 'off'}, tasks {star['moments']['tasks']}, "
-            f"days {star['moments']['days_used']}, cooldown {star['cooldown_days']}d, max {star['max_asks']}"
-        )
-        texts = [name for name in ("text", "text_zh") if star.get(name)]
-        if texts:
-            said += ", card " + "/".join(texts)
-        log.warning("nudges policy changed from the page: %s", said)
-        self.db.add_event("", "nudges.changed", said[:200])
-        return self.admin_nudges()
 
     def _ledger_row(self, r) -> dict:
         d = dict(r)
@@ -1768,7 +1366,7 @@ class Cloud:
         cost_uy: int = 0,
         request_id: str | None = None,
         hold_uy: int | None = None,
-        place: Place | None = None,
+        place: object = None,
     ) -> None:
         """Each limit is off when its setting is 0; the per-minute one guards the
         operator's bill against a runaway loop even on an unlimited relay.
@@ -1778,8 +1376,7 @@ class Cloud:
         as one of the account's in-flight requests (at most MAX_IN_FLIGHT) and
         `hold_uy` (its price, or a chat's typical turn) is held against the
         allowance — so requests started together cannot each pass this check and
-        together overshoot it. `place` is where the request came from (geo.py), for
-        the refusal's "ways on" when the allowance is out."""
+        together overshoot it. `place` is accepted from older callers and ignored."""
         try:
             self._check_budget(caller, minimum, cost_uy, place)
         except CloudError as e:
@@ -1793,7 +1390,7 @@ class Cloud:
         """The request is over (charged, failed or dropped): its reservation goes."""
         self.in_flight.settle(caller.account_id, request_id)
 
-    def _check_budget(self, caller: Caller, minimum: int, cost_uy: int, place: Place | None = None) -> None:
+    def _check_budget(self, caller: Caller, minimum: int, cost_uy: int, place: object = None) -> None:
         if not self.s.unlimited and caller.remaining < minimum:
             raise CloudError(
                 402,
@@ -1812,22 +1409,8 @@ class Cloud:
             raise CloudError(429, "rate_limited", "Too many requests; slow down a little")
         if self.s.daily_cap_tokens > 0 and self.db.used_since(caller.account_id, self.s.day_start(t)) >= self.s.daily_cap_tokens:
             raise CloudError(429, "daily_cap", "Today's share of the grant is used up; it resets at midnight")
-        if self.limited(caller):
-            a = self.allowance(caller)
-            if not self.controls.on("free_allowance"):
-                # 0.22: the operator paused the free allowance. The same shape as "used up"
-                # (code `allowance_exhausted`, the ways on, the invite link) so every app of
-                # today shows its usual screen; `paused: true` and `reason` tell a newer one
-                # the difference, and the message says it in words.
-                raise self._paused_allowance(caller, a, self.region(caller, place))
-            # the one pool: what the ledger has, plus what the requests under way and the
-            # clips still being made are expected to cost. A chat (priced after the fact)
-            # starts while anything is left beyond that; a picture or a clip only when its
-            # known price fits on top of it.
-            spent, grant = a["spent_uy"], a["grant_uy"]
-            held = self.in_flight.reserved(caller.account_id) + self.db.pending_video_cost(caller.account_id)
-            if spent + held >= grant or (cost_uy > 0 and spent + held + cost_uy > grant):
-                raise self._exhausted(caller, a, self.region(caller, place))
+        # no allowance gate: the ledger still records every charge, but nothing is
+        # refused for lack of pool (the allowance menu was removed).
 
     def chat_reserve_uy(self, model: ModelSpec) -> int:
         """What a chat on `model` is held at while it runs."""
@@ -1866,7 +1449,6 @@ class Cloud:
             cost_uy=cost,
             extra=json.dumps(detail) if detail else "",
         )
-        self.settle_invite(caller.account_id)
         return charged
 
     def charge_image(self, caller: Caller, model: ModelSpec, n: int, request_id: str, size: str | None = None, inputs: int = 0) -> int:
@@ -1874,7 +1456,6 @@ class Cloud:
         charged = model.per_image * max(1, n)
         cost = model.image_cost_uy(size, inputs) * max(1, n)
         self.db.charge(caller.account_id, "image", model.id, 0, 0, charged, request_id, cost_uy=cost)
-        self.settle_invite(caller.account_id)
         return charged
 
     def settle_video_task(self, task: Any, status: str | None) -> int | None:
@@ -1898,24 +1479,15 @@ class Cloud:
             return 0  # a model gone from the menu since the task was submitted
         account_id = str(task["account_id"])
         self.db.charge(account_id, "video", spec.id, 0, 0, spec.per_clip, task_id[:16], cost_uy=int(task["cost_uy"] or 0))
-        self.settle_invite(account_id)
         return spec.per_clip
 
     def note(self, account_id: str, kind: str, detail: str = "") -> None:
         """An event on the account's timeline (never message content)."""
         self.db.add_event(account_id, kind, detail)
 
-    # -- data controls: "Help improve nanoMuse's AI models" ----------------------------------
-    #
-    # With the switch on, each chat request's conversation and the model's reply are kept
-    # for the community's own model — nothing else changes, and the person can turn it off
-    # and delete what was kept at any time (Settings → Data controls on every app). What a
-    # kept turn holds is exactly SAMPLE_KEEPS below; keep_sample enforces it. Never the
-    # person's identity: samples carry the account id only, and are exported without it.
-    # The default for a new account is the relay's IMPROVE_DEFAULT (config.py).
-
-    SAMPLE_MAX_CHARS = 200_000
-
+    # -- data controls: the training-sample collection was removed, so nothing new is
+    # kept; what was kept before can still be deleted (delete_samples below), and the
+    # record (0.29) is untouched by that.
     # -- the profile: the agent's name and look, the same on every device ----------------
 
     PROFILE_MOODS = ("idle", "working", "waiting", "happy", "error")
@@ -2221,29 +1793,6 @@ class Cloud:
         self.db.set_blob_refs(caller.account_id, "profile", [])
         self.note(caller.account_id, "profile.clear")
 
-    def set_contribute(self, caller: Caller, on: bool) -> dict:
-        """The switch under Data controls. Turning it off keeps what was kept until the person
-        deletes it (delete_samples) — the count stays visible so they know there is something
-        to delete. Nothing is credited for it either way (the 0.5 bonus is gone)."""
-        if on != caller.contribute:
-            self.db.set_contribute(caller.account_id, on)
-            self.note(caller.account_id, "contribute.on" if on else "contribute.off")
-        return {
-            "on": on,
-            "samples": self.db.sample_count(caller.account_id),
-            "default_on": self.s.improve_default,
-            "keeps": SAMPLE_KEEPS,
-            "privacy_url": self.s.privacy_url,
-            # 0.5 names, for the apps of the time
-            "bonus_cny": 0,
-            "bonus_granted": False,
-            "bonus_available": False,
-            "bonus_at": caller.contribute_bonus_at,
-            # 0.30: the record's figures too, so an app that redraws the page from this answer
-            # alone (the desktop does) keeps them
-            "record": self.record_view(caller),
-        }
-
     def delete_samples(self, caller: Caller) -> dict:
         """The one tap under Data controls: the training turns and, since 0.29, the record
         with them — every turn kept of this account and every file only it referenced."""
@@ -2419,34 +1968,7 @@ class Cloud:
             ts=t,
             provenance_=where,
         )
-        if caller.contribute and status == "ok":
-            sample_meta = {k: v for k, v in meta.items() if k in ("ua", "lang", "ip", "provider")}
-            sample_meta.update(self.sample_provenance("own", turn_id, where, messages, conversation=conversation))
-            self.keep_sample(
-                caller,
-                model,
-                messages,
-                provenance.text_of(message.get("content")),
-                usage.prompt if usage else -1,
-                usage.completion if usage else -1,
-                sample_meta,
-                message=message,
-            )
         return {"id": turn_id, "ts": t}
-
-    @staticmethod
-    def sample_provenance(source: str, turn_id: str, where: dict, messages: Any, *, conversation: str = "") -> dict:
-        """What a kept turn's meta says about where it came from (0.31): its source (the
-        relay's model or the client's own key), the record's id for it, who started it and
-        where it sits, and the script of what the person wrote. Only what was said is kept."""
-        out: dict[str, Any] = {"source": source, "turn_id": turn_id}
-        if conversation:
-            out["conversation"] = conversation
-        out.update(provenance.said(where))
-        script = provenance.script_of(provenance.last_user_text(messages))
-        if script:
-            out["script"] = script
-        return out
 
     # -- 0.31: what the apps report around a turn (docs/cloud.md "Client events") -------------
 
@@ -3036,43 +2558,6 @@ class Cloud:
             "recent": recent,
         }
 
-    def keep_sample(
-        self,
-        caller: Caller,
-        model: str,
-        messages: list,
-        response: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-        meta: dict | None = None,
-        message: dict | None = None,
-    ) -> None:
-        """Called after a chat turn for an account with the switch on; anything else is a
-        no-op. Only the training view of the turn is written (_training_view). ``message``
-        is the assistant's whole message when the caller has it: its tool calls are kept in
-        the meta (0.31), since ``response`` is the text alone and a turn that only called
-        a tool would otherwise read as an empty reply."""
-        if not caller.contribute:
-            return
-        request, cut = _fit_messages(_training_view(messages), self.SAMPLE_MAX_CHARS)
-        meta = dict(meta or {})
-        if isinstance(message, dict) and isinstance(message.get("tool_calls"), list) and message["tool_calls"]:
-            calls = _training_view([message])
-            if calls and isinstance(calls[0], dict) and calls[0].get("tool_calls"):
-                meta["tool_calls"] = calls[0]["tool_calls"]
-        if cut or len(response) > self.SAMPLE_MAX_CHARS:
-            meta["truncated"] = True
-        meta_json = json.dumps(meta, ensure_ascii=False)
-        response = response[: self.SAMPLE_MAX_CHARS]
-        sid = self.db.add_sample(caller.account_id, model, request, response, prompt_tokens, completion_tokens, meta_json)
-        # 0.28: the turn's shape beside it (analytics.py), so the quality page never reads the turn
-        try:
-            self.db.add_sample_stats(
-                [sample_shape(sid, caller.account_id, now(), model, request, response, meta_json, prompt_tokens, completion_tokens)]
-            )
-        except Exception:  # the shape is a convenience; the turn is kept either way
-            log.exception("sample_stats row")
-
     def admin_samples(
         self, account_id: str | None = None, since: int = 0, limit: int = 100, before: int = 0, before_id: str = ""
     ) -> list[dict]:
@@ -3245,7 +2730,6 @@ class Cloud:
             d["unlimited"] = bool(d.get("unlimited"))
             d["listed"] = id_hash in self.member_hashes
             d["member"] = d["unlimited"] or d["listed"]
-            d["review"] = id_hash in self.review_hashes
             d["spent_today_cny"] = self.s.uy_to_cny(int(d.pop("spent_today_uy", 0) or 0))
             d["spent_cny"] = self.s.uy_to_cny(int(d.pop("spent_uy", 0) or 0))
             self._pool_fields(d, spent_cny=d["spent_cny"])
@@ -3258,8 +2742,8 @@ class Cloud:
 
     def _pool_fields(self, d: dict, spent_cny: float) -> None:
         """The account's pool in yuan (`grant_cny`), what is left of it (`left_cny`, None for a
-        member), the invites that fed it and whether the co-creation bonus was taken; the
-        0.4 credit columns leave the reply."""
+        member), and whether the co-creation bonus was taken; the 0.4 credit columns leave
+        the reply."""
         for k in ("credit_uy", "credit_used_uy", "clips_bonus"):
             d.pop(k, None)
         grant = int(d.pop("grant_uy", 0) or 0)
@@ -3309,7 +2793,7 @@ class Cloud:
                 "completion_tokens": int(r["completion_tokens"] or 0),
                 "cost_cny": self.s.uy_to_cny(int(r["cost_uy"] or 0)),
                 "active_accounts": self.db.active_accounts_since(s),
-                "new_accounts": self.db.accounts_created_since(s, self.review_hashes),
+                "new_accounts": self.db.accounts_created_since(s),
                 "by_kind": self._rows_cny(self.db.usage_by_kind(s)),
             }
 
@@ -3362,16 +2846,15 @@ class Cloud:
 
     def admin_series(self, days: int = 30) -> dict:
         """The relay's own numbers by local day, for the operator's charts: sign-ins,
-        new and active accounts, invites taken up, co-creation joins, calls, refusals —
-        one row per day of the period, zeros where nothing happened — plus the devices
-        by kind and system and the invite funnel as they stand now."""
+        new and active accounts, co-creation joins, calls, refusals — one row per day of
+        the period, zeros where nothing happened — plus the devices by kind and system."""
         t = now()
         off = self.s.day_offset_h * 3600
         since = self.s.day_start(t) - 86400 * max(0, days - 1)
         by_day: dict[int, dict[str, int]] = {}
         for r in self.db.events_by_day(since, off):
             by_day.setdefault(int(r["day"]), {})[str(r["kind"])] = int(r["n"])
-        new = {int(r["day"]): int(r["n"]) for r in self.db.accounts_by_day(since, off, self.review_hashes)}
+        new = {int(r["day"]): int(r["n"]) for r in self.db.accounts_by_day(since, off)}
         active = {int(r["day"]): int(r["n"]) for r in self.db.active_by_day(since, off)}
         rows = []
         for i in range(days):
@@ -3397,86 +2880,7 @@ class Cloud:
             "generated_at": t,
             "days": rows,
             "devices": devices,
-            "invites": self.db.invite_funnel(),
             "contributors": self.db.contributors(),
-        }
-
-    def admin_traffic(self, days: int = 30) -> dict:
-        """The site's visits and downloads, read from the traffic database that
-        demo/showcase/mirror/traffic.py keeps (TRAFFIC_DB, mounted read-only). Daily
-        counts only — the script never wrote an address, so there is none to show."""
-        path = self.s.traffic_db
-        if not path or not os.path.exists(path):
-            return {"available": False}
-        off = self.s.day_offset_h * 3600
-        first = now() + off - 86400 * max(0, days - 1)
-        since = time.strftime("%Y-%m-%d", time.gmtime(first))
-        try:
-            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
-        except sqlite3.Error:
-            return {"available": False}
-        conn.row_factory = sqlite3.Row
-        with closing(conn):
-            try:
-                have = {r["day"]: dict(r) for r in conn.execute("SELECT * FROM days WHERE day>=? ORDER BY day", (since,))}
-                # one row a day, zeros where the log had nothing, so the charts line up
-                day_rows = []
-                for i in range(days):
-                    d = time.strftime("%Y-%m-%d", time.gmtime(first + i * 86400))
-                    day_rows.append(
-                        have.get(d) or {"day": d, "requests": 0, "pages": 0, "visitors": 0, "bots": 0, "downloads": 0, "bytes": 0}
-                    )
-
-                def top(table: str, col: str, limit: int = 15) -> list[dict]:
-                    return [
-                        {"name": r[col], "hits": int(r["hits"])}
-                        for r in conn.execute(
-                            f"SELECT {col}, SUM(hits) AS hits FROM {table} WHERE day>=? GROUP BY {col} ORDER BY hits DESC LIMIT ?",
-                            (since, limit),
-                        )
-                    ]
-
-                pages, referrers = top("pages", "path"), top("referrers", "host")
-                downloads = [
-                    {"name": r["file"], "hits": int(r["hits"]), "bytes": int(r["bytes"] or 0)}
-                    for r in conn.execute(
-                        "SELECT file, SUM(hits) AS hits, SUM(bytes) AS bytes FROM downloads WHERE day>=? GROUP BY file ORDER BY hits DESC LIMIT 40",
-                        (since,),
-                    )
-                ]
-                gh_days = [
-                    {"day": r["day"], "stars": int(r["stars"]), "downloads": int(r["downloads"])}
-                    for r in conn.execute("SELECT day, stars, downloads FROM github WHERE day>=? ORDER BY day", (since,))
-                ]
-                latest = conn.execute("SELECT * FROM github ORDER BY day DESC LIMIT 1").fetchone()
-                last_run = conn.execute("SELECT value FROM state WHERE key='last_run'").fetchone()
-            except sqlite3.Error:
-                return {"available": False}
-        github: dict = {"days": gh_days}
-        if latest is not None:
-            try:
-                assets = json.loads(latest["assets"] or "{}")
-            except ValueError:
-                assets = {}
-            github.update(
-                {
-                    "day": latest["day"],
-                    "stars": int(latest["stars"]),
-                    "forks": int(latest["forks"]),
-                    "watchers": int(latest["watchers"]),
-                    "downloads": int(latest["downloads"]),
-                    "assets": assets,
-                }
-            )
-        return {
-            "available": True,
-            "since": since,
-            "updated_at": int(last_run["value"]) if last_run else 0,
-            "days": day_rows,
-            "pages": pages,
-            "referrers": referrers,
-            "downloads": downloads,
-            "github": github,
         }
 
     def admin_account(self, account_id: str, days: int = 30) -> dict:
@@ -3499,16 +2903,9 @@ class Cloud:
         a["unlimited"] = bool(a.get("unlimited"))
         a["listed"] = id_hash in self.member_hashes
         a["member"] = a["unlimited"] or a["listed"]
-        a["review"] = id_hash in self.review_hashes
         a["locked"] = bool(row["locked_until"] and int(row["locked_until"]) > t)
         spent_total = self.db.spent_since(account_id, 0)
         self._pool_fields(a, spent_cny=self.s.uy_to_cny(spent_total))
-        # who this account brought (the newest 500, with the count of all of them), and who
-        # brought this account: the operator can follow an invite chain either way
-        a["invited"] = [self._invitee_fields(r) for r in self.db.invitees(account_id, limit=500)]
-        a["invited_total"] = self.db.invitee_count(account_id)
-        a["inviter"] = self._account_label(str(a.get("invited_by") or ""))
-        a["invite_earned_cny"] = self.s.uy_to_cny(self.db.invite_earned_uy(account_id))
         a["contribute"] = bool(a.get("contribute"))
         # turns kept while the switch was on stay until the person deletes them: count them
         # whether or not it is on now, so the operator sees what is there
@@ -3590,150 +2987,6 @@ class Cloud:
             "avg_wait_ms": round(float(r["avg_wait_ms"] or 0)),
             "last_ts": int(r["last_ts"]) if r["last_ts"] else None,
         }
-
-    def _account_label(self, account_id: str) -> dict | None:
-        """`id`, `hint` and the identifier in clear for one account, or None when there is
-        no such account (an inviter who has since deleted theirs, say)."""
-        rows = self.db.accounts_brief([account_id]) if account_id else []
-        if not rows:
-            return None
-        r = rows[0]
-        return {"id": r["id"], "hint": r["hint"], "identifier": self.crypto.decrypt(r["id"], r["identifier_enc"] or "") or ""}
-
-    def _invitee_fields(self, r: sqlite3.Row) -> dict:
-        """One account that came through an invite, as the operator's page lists it."""
-        return {
-            "id": r["id"],
-            "hint": r["hint"],
-            "channel": r["channel"],
-            "created_at": int(r["created_at"]),
-            "disabled": bool(r["disabled"]),
-            "first_ip": r["first_ip"] or "",
-            "last_ip": r["last_ip"] or "",
-            "last_seen_at": int(r["last_seen_at"]) if r["last_seen_at"] else None,
-            "requests": int(r["requests"] or 0),
-            "spent_cny": self.s.uy_to_cny(int(r["spent_uy"] or 0)),
-            # whether the bonus for this one has been paid (at its first charged request)
-            "settled": r["invite_settled_at"] is not None,
-        }
-
-    def admin_invites(self, limit: int = 200, per: int = 20) -> dict:
-        """Who invited whom, for the operator: the funnel as it stands and the inviters in
-        order of how many accounts their code brought, each with how many of those ever
-        made a request, how many were seen from one of the inviter's own addresses, what
-        they spent and what the inviter's pool got from them, and the newest `per` of the
-        accounts themselves (the account page lists up to 500). An inviter with many
-        sign-ups from one address and nobody using anything is a pool being farmed; one
-        whose invitees go on to make requests brought people."""
-        leaders = []
-        for r in self.db.invite_leaders(limit):
-            leaders.append(
-                {
-                    "invitees": [self._invitee_fields(i) for i in self.db.invitees(r["id"], limit=per)] if per > 0 else [],
-                    "id": r["id"],
-                    "hint": r["hint"],
-                    "identifier": self.crypto.decrypt(r["id"], r["identifier_enc"] or "") or "",
-                    "channel": r["channel"],
-                    "created_at": int(r["created_at"]),
-                    "disabled": bool(r["disabled"]),
-                    "first_ip": r["first_ip"] or "",
-                    "last_ip": r["last_ip"] or "",
-                    "invites": int(r["invites"] or 0),
-                    "invited": int(r["invited"] or 0),
-                    "invited_active": int(r["invited_active"] or 0),
-                    "invited_settled": int(r["invited_settled"] or 0),
-                    "invited_pending": int(r["invited_pending"] or 0),
-                    "invited_same_ip": int(r["invited_same_ip"] or 0),
-                    "invited_spent_cny": self.s.uy_to_cny(int(r["invited_spent_uy"] or 0)),
-                    # net of any clawback: what the invites put in that is still in the pool
-                    "earned_cny": self.s.uy_to_cny(int(r["earned_uy"] or 0)),
-                    "first_invite_at": int(r["first_invite_at"] or 0),
-                    "last_invite_at": int(r["last_invite_at"] or 0),
-                }
-            )
-        return {"generated_at": now(), "funnel": self.db.invite_funnel(), "leaders": leaders}
-
-    def admin_invite_abuse(self, account_id: str, disable: bool = False, delete_unused: bool = False, actor: str = "console") -> dict:
-        """One action against an inviter who farmed the bonus: the invite credit still in its
-        pool is taken back (never below what it has spent, so `left` stays at zero or above;
-        a second call reclaims nothing), the account is disabled when asked, and when asked
-        every account it brought that never made a request and never spent anything is
-        deleted, in batches, all of them; the ones that used the relay are kept. The
-        inviter's timeline says what was done (`invite.clawback`) and the audit log who did
-        it. Returns ``{reclaimed_cny, disabled, deleted, kept, deleted_ids}``; the caller
-        (api.py) drops the deleted accounts' hub sockets and live notes by those ids and
-        answers without them."""
-        if self.db.account(account_id) is None:
-            raise CloudError(404, "no_account", "No such account")
-        reclaimed = self.db.clawback_invite(account_id, note=f"invite abuse ({actor})")
-        if disable:
-            self.db.set_disabled(account_id, True)
-            self.db.add_event(account_id, "account.disabled", f"by {actor} (invite abuse)"[:200])
-        deleted_ids: list[str] = []
-        if delete_unused:
-            while True:
-                batch = self.db.unused_invitee_ids(account_id, limit=500)
-                if not batch:
-                    break
-                for invitee_id in batch:
-                    self.purge_record(invitee_id)
-                    self.db.delete_account(invitee_id)
-                    self.db.add_event("", "account.deleted", f"{invitee_id[:8]} by {actor} (invite abuse)"[:200])
-                    deleted_ids.append(invitee_id)
-        deleted = len(deleted_ids)
-        kept = self.db.invitee_count(account_id)
-        row = self.db.account(account_id)
-        disabled = bool(row is not None and row["disabled"])
-        reclaimed_cny = self.s.uy_to_cny(reclaimed)
-        detail = (
-            f"¥{reclaimed_cny:g} reclaimed"
-            + (", disabled" if disable else "")
-            + (f", {deleted} unused invitee(s) deleted, {kept} kept" if delete_unused else "")
-        )
-        self.db.add_event(account_id, "invite.clawback", detail[:200])
-        self.db.audit_add(actor, "invite.abuse", account_id[:8], detail)
-        log.warning("invite abuse: %s by %s: %s", account_id[:8], actor, detail)
-        return {"reclaimed_cny": reclaimed_cny, "disabled": disabled, "deleted": deleted, "kept": kept, "deleted_ids": deleted_ids}
-
-    # the health check's two invite alerts: more sign-ups than this through one code in a
-    # day, and inviters this many of whose people (at this share or fewer) ever used anything
-    INVITE_VELOCITY_PER_DAY = 10
-    INVITE_UNUSED_MIN = 20
-    INVITE_UNUSED_SHARE = 0.05
-
-    def invite_alerts(self) -> list[dict]:
-        """What the health check says about invites (two aggregates): `invite_velocity`, any
-        inviter whose code brought more than ten accounts in the last 24 hours, and
-        `invite_unused`, any inviter with at least twenty invitees of whom one in twenty or
-        fewer ever made a request. Each carries a plain sentence, the inviters by the start
-        of their id and by hint with the counts, and where to look (the Invites view)."""
-        out: list[dict] = []
-        fast = self.db.invite_velocity(now() - 86400, self.INVITE_VELOCITY_PER_DAY)
-        if fast:
-            names = ", ".join(f"{r['id'][:8]} ({int(r['n'])})" for r in fast[:5]) + (", …" if len(fast) > 5 else "")
-            out.append(
-                {
-                    "kind": "invite_velocity",
-                    "message": f"{len(fast)} inviter(s) brought more than {self.INVITE_VELOCITY_PER_DAY} accounts in the last 24 hours: {names}",
-                    "hint": "open the Invites view of the admin page and check who they brought",
-                    "inviters": [{"id": r["id"], "hint": r["hint"], "n": int(r["n"])} for r in fast],
-                }
-            )
-        idle = self.db.invite_unused(self.INVITE_UNUSED_MIN, self.INVITE_UNUSED_SHARE)
-        if idle:
-            names = ", ".join(f"{r['id'][:8]} ({int(r['active'])}/{int(r['n'])})" for r in idle[:5]) + (", …" if len(idle) > 5 else "")
-            out.append(
-                {
-                    "kind": "invite_unused",
-                    "message": (
-                        f"{len(idle)} inviter(s) with {self.INVITE_UNUSED_MIN} or more invitees of whom "
-                        f"{self.INVITE_UNUSED_SHARE:.0%} or fewer ever made a request: {names}"
-                    ),
-                    "hint": "open the Invites view of the admin page; the abuse action reclaims the credit",
-                    "inviters": [{"id": r["id"], "hint": r["hint"], "n": int(r["n"]), "active": int(r["active"])} for r in idle],
-                }
-            )
-        return out
 
     def ledger_page(
         self,
@@ -3818,15 +3071,10 @@ class Cloud:
             "signup_open": self.s.signup_open,
             "allowance_cny": self.s.allowance_cny,
             "allowance_usd": self.s.cny_to_usd(self.s.allowance_cny),
-            "invite_bonus_cny": self.s.invite_bonus_cny,
-            "invitee_bonus_cny": self.s.invite_bonus_cny,
             "contribute_bonus_cny": 0,
             "improve_default": self.s.improve_default,
             "usd_cny": self.s.usd_cny,
             "day_offset_h": self.s.day_offset_h,
-            "invite_url": self.s.invite_url,
-            "own_key_docs": self.s.own_key_docs,
-            "openrouter_url": self.s.openrouter_url,
             "privacy_url": self.s.privacy_url,
             "contributors": self.db.contributors(),
             "allowed_identifiers": [s.strip() for s in self.s.allowed_identifiers.split(",") if s.strip()],

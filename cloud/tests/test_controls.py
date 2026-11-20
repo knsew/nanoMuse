@@ -94,21 +94,19 @@ async def test_signups_closed_turns_new_identifiers_away_but_not_existing_accoun
     assert (await client.post("/v1/auth/code", json={"identifier": "13900139000"})).status_code == 204
 
 
-async def test_free_allowance_off_refuses_limited_accounts_in_the_exhausted_shape():
+async def test_free_allowance_off_is_reported_but_nothing_is_refused():
+    """The switch survives (the console still flips it, /v1/me still reports it), but
+    the allowance menu is gone, so nothing is refused for it any more: limited accounts
+    and members alike keep working."""
     app, client, sender, up, cloud, settings = make(allowed_identifiers="13800138000")
     member = await sign_up(client, sender, "13800138000", "pixel")
     person = await sign_up(client, sender, "dev-a@example.com", "mac")
     cloud.controls.set("free_allowance", False, actor="ops")
     r = await client.post("/v1/chat/completions", json=CHAT, headers=auth(person["api_key"]))
-    assert r.status_code == 429, r.text
-    err = r.json()["error"]
-    # the code every app of today knows, with the flags a newer one reads
-    assert err["code"] == "allowance_exhausted" and err["paused"] is True and err["reason"] == "allowance_paused"
-    assert "paused" in err["message"] and "ways" in err and "guidance" in err
+    assert r.status_code == 200, r.text
     # the person's sign-in and account page keep working, and say what is off
     me = (await client.get("/v1/me", headers=auth(person["api_key"]))).json()
     assert me["paused"] == ["free_allowance"]
-    # a member is not limited and is not refused
     r = await client.post("/v1/chat/completions", json=CHAT, headers=auth(member["api_key"]))
     assert r.status_code == 200, r.text
     cloud.controls.set("free_allowance", True, actor="ops")

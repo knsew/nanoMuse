@@ -124,7 +124,7 @@ chmod 600 "$ENV_FILE"
 # --- 1. domain -----------------------------------------------------------------------------
 cur_domain="$(get CLOUD_DOMAIN)"
 [ "$cur_domain" = "cloud.example.com" ] && cur_domain=""
-prev_base="$(get PUBLIC_BASE)"
+
 if [ "$LOCAL" = 1 ]; then
   DOMAIN=local
   say
@@ -178,16 +178,14 @@ else
   say "3/5  How sign-in codes reach people:"
   say "       log     printed to the relay's log only (you read them out; fine for a family)"
   say "       smtp    e-mail, through a mailbox you own"
-  say "       aliyun  SMS to mainland China numbers through Alibaba Cloud (号码认证服务 by default); e-mail is not sent"
-  say "       both    smtp for e-mail addresses, aliyun for phone numbers"
   cur_sender="$(get CODE_SENDER)"
   while :; do
     ask SENDER "     Codes" "${cur_sender:-log}"
-    case "$SENDER" in log|smtp|aliyun|both) break ;; *) say "     one of: log smtp aliyun both" ;; esac
+    case "$SENDER" in log|smtp) break ;; *) say "     one of: log smtp" ;; esac
   done
 fi
 set_kv CODE_SENDER "$SENDER"
-if [ "$SENDER" = smtp ] || [ "$SENDER" = both ]; then
+if [ "$SENDER" = smtp ]; then
   ask V "     SMTP host" "$(get SMTP_HOST)"; set_kv SMTP_HOST "$V"
   ask V "     SMTP port" "$(get SMTP_PORT)"; set_kv SMTP_PORT "${V:-465}"
   ask V "     SMTP user" "$(get SMTP_USER)"; set_kv SMTP_USER "$V"
@@ -195,21 +193,15 @@ if [ "$SENDER" = smtp ] || [ "$SENDER" = both ]; then
   [ -n "$V" ] && set_kv SMTP_PASSWORD "$V"
   ask V "     From (e.g. nanoMuse <no-reply@$DOMAIN>)" "$(get SMTP_FROM)"; set_kv SMTP_FROM "$V"
 fi
-if [ "$SENDER" = aliyun ] || [ "$SENDER" = both ]; then
-  ask V "     Aliyun AccessKey id" "$(get ALIYUN_ACCESS_KEY_ID)"; set_kv ALIYUN_ACCESS_KEY_ID "$V"
-  ask_secret V "     Aliyun AccessKey secret" "$([ -n "$(get ALIYUN_ACCESS_KEY_SECRET)" ] && echo 1 || echo 0)"
-  [ -n "$V" ] && set_kv ALIYUN_ACCESS_KEY_SECRET "$V"
-  ask V "     SMS signature" "$(get ALIYUN_SMS_SIGN)"; set_kv ALIYUN_SMS_SIGN "$V"
-  ask V "     SMS template code" "$(get ALIYUN_SMS_TEMPLATE)"; set_kv ALIYUN_SMS_TEMPLATE "$V"
-fi
 
 # --- 4. the model provider -----------------------------------------------------------------
 say
 say "4/5  The OpenAI-compatible endpoint the relay spends your money on, and its key. The"
-say "     default is Alibaba Model Studio (百炼); OpenRouter is https://openrouter.ai/api/v1."
+say "     default is the local halogen endpoint (http://10.1.1.52:8000/v1); any other"
+say "     OpenAI-compatible endpoint works, for example Alibaba Model Studio (百炼) or OpenRouter."
 say "     With no key, sign-in and the devices' hub work; chat does not."
 ask UP_BASE "     Base URL" "$(get UPSTREAM_BASE)"
-set_kv UPSTREAM_BASE "${UP_BASE:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
+set_kv UPSTREAM_BASE "${UP_BASE:-http://10.1.1.52:8000/v1}"
 has_key=0; [ -n "$(get UPSTREAM_KEY)" ] && has_key=1
 ask_secret UP_KEY "     API key" "$has_key"
 [ -n "$UP_KEY" ] && set_kv UPSTREAM_KEY "$UP_KEY"
@@ -231,11 +223,6 @@ fi
 # CLOUD_SECRET keys the hashes every account is stored under; it is generated once and never
 # rotated by this script (rotating it would orphan every account).
 [ -z "$(get CLOUD_SECRET)" ] && set_kv CLOUD_SECRET "$(random_hex)"
-# A private relay for a few people: say so in INVITE_URL so invitations point here, and
-# follow the address when a second run changes it (--local first, --bind 0.0.0.0 later).
-case "$(get INVITE_URL)" in
-  "https://nanomuse.cn/web/?invite="|"$prev_base/app/?invite=") set_kv INVITE_URL "$BASE/app/?invite=" ;;
-esac
 
 say
 say "Wrote $ENV_FILE (mode 600). Back it up together with cloud/data/; see docs/self-hosting.md."

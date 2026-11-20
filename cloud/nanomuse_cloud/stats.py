@@ -3,7 +3,7 @@
 Each `Metric` says what it is called (English and 中文), *exactly how it is computed* (the
 tooltip on the page), what shape it has (a series by UTC day, a table of groups, or a list
 of facts) and which columns it carries; `Stats.build` fills it from the database and the
-live objects (the hub, the collector). The JSON the page reads and the CSV the operator
+live objects (the hub). The JSON the page reads and the CSV the operator
 downloads come from the same rows, so a number is never computed twice in two ways.
 
 Days are UTC (`db.utc_day`); the page shows the operator's local time alongside. The
@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING, Any
 
 from . import __version__
 from .db import utc_day
-from .github_stats import GitHubCollector
 
 if TYPE_CHECKING:
     from .hub import Hub
@@ -97,14 +96,13 @@ DAY = Column("day", "Day (UTC)", "日期（UTC）", "day")
 
 
 class Stats:
-    def __init__(self, cloud: Cloud, sync_store: SyncStore, collector: GitHubCollector | None, hub_getter: Callable[[], Hub | None]):
+    def __init__(self, cloud: Cloud, sync_store: SyncStore, hub_getter: Callable[[], Hub | None]):
         self.cloud = cloud
         # the metrics read through the read-only connection (Database.reader), off the loop
         # (api.py), so a slow one never holds the requests' lock; the one write, the health
         # probe, goes through cloud.db (see _relay)
         self.db = cloud.db.reader()
         self.sync_store = sync_store
-        self.collector = collector
         self.hub_getter = hub_getter
         self.started_at = int(time.time())
 
@@ -179,7 +177,7 @@ def _accounts_daily(s: Stats, days: int) -> list[dict[str, Any]]:
     since, _today, window = s.window(days)
     # the sign-ups of a day: the accounts still there plus those deleted since (a count per
     # sign-up day written at deletion; deletions before 0.29 left no such count)
-    new = {int(r["day"]): int(r["n"]) for r in s.db.accounts_by_day(since, 0, s.cloud.review_hashes)}
+    new = {int(r["day"]): int(r["n"]) for r in s.db.accounts_by_day(since, 0)}
     for r in s.db.daily_rows("accounts", since, "gone"):
         new[int(r["day"])] = new.get(int(r["day"]), 0) + int(r["value"])
     active_model = {int(r["day"]): int(r["n"]) for r in s.db.active_by_day(since, 0)}
@@ -436,44 +434,12 @@ def _api_daily(s: Stats, days: int) -> list[dict[str, Any]]:
     return [{"day": d, "total": sum(by_day.get(d, {}).values()), **{g: by_day.get(d, {}).get(g, 0) for g in groups}} for d in window]
 
 
-def _github_daily(s: Stats, days: int) -> list[dict[str, Any]]:
-    if s.collector is None:
-        return []
-    return [
-        {
-            k: r.get(k)
-            for k in (
-                "day",
-                "snapshot",
-                "stars",
-                "new_stars",
-                "forks",
-                "new_forks",
-                "watchers",
-                "new_watchers",
-                "issues",
-                "downloads",
-                "new_downloads",
-            )
-        }
-        for r in s.collector.series(days)["days"]
-    ]
-
-
-def _github_assets(s: Stats, days: int) -> list[dict[str, Any]]:
-    if s.collector is None:
-        return []
-    latest = s.collector.series(1)["latest"]
-    return [{"asset": a["name"], "platform": a["platform"], "downloads": a["downloads"]} for a in latest["assets"]]
-
-
 def _relay(s: Stats, days: int) -> list[dict[str, Any]]:
     t = int(time.time())
     hub = s.hub_getter()
     db = s.cloud.db.health()  # a write probe: the relay's own connection, not the read-only one
     paused = [k for k, v in s.cloud.controls.paused().items() if v]
     sync = s.sync_store.admin_totals()
-    gh_ok = s.collector.last_ok if s.collector is not None else None
     return [
         {"fact": "version", "value": __version__},
         {"fact": "started_at", "value": _iso(s.started_at)},
@@ -486,7 +452,6 @@ def _relay(s: Stats, days: int) -> list[dict[str, Any]]:
         {"fact": "paused", "value": ", ".join(paused) or "none"},
         {"fact": "sync_accounts_on", "value": str(sync.get("accounts_enabled", 0))},
         {"fact": "sync_bytes", "value": str(sync.get("bytes", 0))},
-        {"fact": "github_last_ok", "value": _iso(gh_ok) if gh_ok else "never"},
     ]
 
 
@@ -508,11 +473,11 @@ METRICS: list[Metric] = [
         "accounts_daily",
         "Accounts by day",
         "账号 · 每日",
-        "Per UTC day: total = accounts existing at the day's end (today's count minus those created later); new = accounts whose created_at falls in the day, the app store reviewer's (REVIEW_ADDRESSES) left out; "
+        "Per UTC day: total = accounts existing at the day's end (today's count minus those created later); new = accounts whose created_at falls in the day; "
         "active_any = distinct accounts that made at least one authenticated API call that day (counted in the `daily` table as requests pass); "
         "active_model = distinct accounts with at least one charged model request in the ledger; sign_ins = sign_in.code + sign_in.password events; "
         "sign_in_failures = sign_in.failed events.",
-        "按 UTC 日：total = 当天结束时存在的账号数（今天的总数减去之后创建的）；new = created_at 落在当天的账号，不含应用商店审核员的账号（REVIEW_ADDRESSES）；active_any = 当天至少发过一次带密钥 API 请求的账号数（请求经过时记入 daily 表）；"
+        "按 UTC 日：total = 当天结束时存在的账号数（今天的总数减去之后创建的）；new = created_at 落在当天的账号；active_any = 当天至少发过一次带密钥 API 请求的账号数（请求经过时记入 daily 表）；"
         "active_model = 账单里当天至少有一次计费模型请求的账号数；sign_ins = sign_in.code 与 sign_in.password 事件之和；sign_in_failures = sign_in.failed 事件。",
         "series",
         (
@@ -714,52 +679,12 @@ METRICS: list[Metric] = [
         chart=("total",),
     ),
     Metric(
-        "github_daily",
-        "GitHub stars and downloads by day",
-        "GitHub stars 与下载 · 每日",
-        "One snapshot per UTC day from GitHub's API (GET /repos/{owner}/{repo}: stargazers_count, forks_count, subscribers_count as watchers, open_issues_count; GET /repos/{owner}/{repo}/releases: "
-        "the sum of every asset's download_count). The last run of a day is the day's figure; new_* = the day's figure minus the previous snapshot's (a gap counts towards the next day with a snapshot). "
-        "Empty = no snapshot that day.",
-        "每个 UTC 日一份快照，来自 GitHub API（GET /repos/{owner}/{repo}：stargazers_count、forks_count、subscribers_count 作为 watchers、open_issues_count；GET /repos/{owner}/{repo}/releases：全部 asset 的 download_count 之和）。"
-        "当天最后一次采集为当天数值；new_* = 当天数值减去上一份快照（中间缺的天数算到下一个有快照的日子）。空 = 当天没有快照。",
-        "series",
-        (
-            DAY,
-            Column("stars", "Stars", "Stars", N),
-            Column("new_stars", "New stars", "新增 stars", N),
-            Column("forks", "Forks", "Forks", N),
-            Column("new_forks", "New forks", "新增 forks", N),
-            Column("watchers", "Watchers", "Watchers", N),
-            Column("new_watchers", "New watchers", "新增 watchers", N),
-            Column("issues", "Open issues", "打开的 issue", N),
-            Column("downloads", "Downloads", "下载", N),
-            Column("new_downloads", "New downloads", "新增下载", N),
-            Column("snapshot", "Snapshot", "有快照", "bool"),
-        ),
-        _github_daily,
-        chart=("new_stars", "new_downloads"),
-    ),
-    Metric(
-        "github_assets",
-        "Release downloads by asset",
-        "各发布文件的下载",
-        "From the latest snapshot: every release asset on GitHub with its download_count, and the platform guessed from its name (apk → android, ipa → ios, dmg/pkg/mac → mac, exe/msi/win → windows, AppImage/deb/rpm/linux → linux, docker/tar → docker).",
-        "来自最新快照：GitHub 上每个发布文件及其 download_count，平台由文件名推断（apk → android，ipa → ios，dmg/pkg/mac → mac，exe/msi/win → windows，AppImage/deb/rpm/linux → linux，docker/tar → docker）。",
-        "table",
-        (
-            Column("asset", "Asset", "文件", "str"),
-            Column("platform", "Platform", "平台", "str"),
-            Column("downloads", "Downloads", "下载", N),
-        ),
-        _github_assets,
-    ),
-    Metric(
         "relay",
         "The relay",
         "中继本身",
         "Live facts: the package version, when this process started and how long it has run, the server's clock (UTC), DAY_OFFSET_H (the local day the older panels group by), the database file's size and whether a write goes through, "
-        "hub sockets open, which switches are off, sync totals, and the GitHub collector's last successful run.",
-        "实时事实：版本、本进程启动时间与运行时长、服务器时钟（UTC）、DAY_OFFSET_H（旧面板按此划分本地日）、数据库文件大小与是否可写、在线的设备通道连接数、关闭的开关、同步合计、GitHub 采集最近一次成功时间。",
+        "hub sockets open, which switches are off, and sync totals.",
+        "实时事实：版本、本进程启动时间与运行时长、服务器时钟（UTC）、DAY_OFFSET_H（旧面板按此划分本地日）、数据库文件大小与是否可写、在线的设备通道连接数、关闭的开关、同步合计。",
         "facts",
         (Column("fact", "Fact", "项目", "str"), Column("value", "Value", "值", "str")),
         _relay,

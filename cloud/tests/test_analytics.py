@@ -31,6 +31,23 @@ ADMIN = {"X-Admin-Token": "admin"}
 PHONE_UA = "nanoMuse/1.0.6 (iOS 27.2; iPhone)"
 
 
+def add_sample_row(db, aid, model, request, response, prompt_tokens, completion_tokens, meta="{}"):
+    """A kept turn as it was written before the collection was removed (db.add_sample
+    went with it): straight into `samples`, with a random id."""
+    import uuid
+
+    from nanomuse_cloud.db import now as db_now
+
+    sid = uuid.uuid4().hex
+    with db.tx() as c:
+        c.execute(
+            "INSERT INTO samples(id, account_id, ts, model, request, response, prompt_tokens, completion_tokens, meta) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (sid, aid, db_now(), model, request, response, prompt_tokens, completion_tokens, meta),
+        )
+    return sid
+
+
 # -- the client software's name ------------------------------------------------------------------
 
 
@@ -722,13 +739,9 @@ async def test_the_usage_page_says_how_much_of_the_prompts_the_cache_served(stac
     assert own[("openai", "gpt-5.6")]["turns"] == 2 and own[("openai", "gpt-5.6")]["accounts"] == 1
     assert (own[("openai", "gpt-5.6")]["prompt_tokens"], own[("openai", "gpt-5.6")]["cached_tokens"]) == (3_000, 2_500)
     assert (own[("anthropic", "claude-5")]["prompt_tokens"], own[("anthropic", "claude-5")]["cached_tokens"]) == (300, 0)
-    # the relay's own turns in the record carry the figure too (written off the loop)
-    while app.state.record_tasks:
-        await asyncio.gather(*list(app.state.record_tasks))
+    # the record holds the own turns only: the relay records no turn of its own any more
     turns = cloud.db._conn.execute("SELECT source, prompt_tokens, cached_tokens FROM turns ORDER BY ts, rowid").fetchall()
-    assert sorted((r[0], r[1], r[2]) for r in turns) == sorted(
-        [("cloud", 100, 0), ("cloud", 100, 80), ("cloud", 40, 30), ("own", 2_000, 1_500), ("own", 1_000, 1_000), ("own", 300, 0)]
-    )
+    assert sorted((r[0], r[1], r[2]) for r in turns) == sorted([("own", 2_000, 1_500), ("own", 1_000, 1_000), ("own", 300, 0)])
     # 0.31.1: the table is read from the own turns' figures rows (own_figures), one small row
     # per own turn written with it, never from the turns' bodies; an own turn sent up again
     # under the same id replaces its row rather than adding one
@@ -762,20 +775,45 @@ async def test_the_usage_page_says_how_much_of_the_prompts_the_cache_served(stac
 async def test_kept_turns_get_a_shape_row_and_older_ones_are_backfilled(stack):
     app, client, sender, up, cloud = stack
     headers, aid = await sign_up(client, sender)
-    assert (await client.post("/v1/me/contribute", headers=headers, json={"on": True})).status_code == 200
     # three turns kept before 0.28 have no shape row: written straight into `samples`
     for text in ("hi", "Plan my week around two deadlines and a trip", "Plan my week around two deadlines and a trip"):
-        cloud.db.add_sample(
-            aid, "qwen3.8-27b", json.dumps([{"role": "user", "content": text}]), "Here is a plan " * 5, 10, 20, json.dumps({"ua": PHONE_UA})
+        add_sample_row(
+            cloud.db,
+            aid,
+            "qwen3.8-27b",
+            json.dumps([{"role": "user", "content": text}]),
+            "Here is a plan " * 5,
+            10,
+            20,
+            json.dumps({"ua": PHONE_UA}),
         )
     assert cloud.db.sample_count() == 3 and cloud.db.sample_stats_count() == 0
-    # a turn kept now carries its row at once
-    r = await client.post(
-        "/v1/chat/completions",
-        headers=headers,
-        json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "What is the capital of Peru"}]},
+    # a turn kept with its shape row (written the same way: no new turn is kept any more)
+    sid = add_sample_row(
+        cloud.db,
+        aid,
+        "qwen3.8-27b",
+        json.dumps([{"role": "user", "content": "What is the capital of Peru"}]),
+        "Lima",
+        100,
+        50,
+        json.dumps({"ua": PHONE_UA}),
     )
-    assert r.status_code == 200
+    cloud.db.add_sample_stats(
+        [
+            an.sample_shape(
+                sid,
+                aid,
+                int(time.time()),
+                "qwen3.8-27b",
+                json.dumps([{"role": "user", "content": "What is the capital of Peru"}]),
+                "Lima",
+                json.dumps({"ua": PHONE_UA}),
+                100,
+                50,
+            )
+        ]
+    )
     assert cloud.db.sample_count() == 4 and cloud.db.sample_stats_count() == 1
 
     analytics = app.state.analytics
@@ -800,24 +838,28 @@ async def test_kept_turns_get_a_shape_row_and_older_ones_are_backfilled(stack):
     assert sum(t["accounts"] for t in quality["tiers"]) == 1
     acc = quality["top_accounts"][0]
     assert (
-        acc["turns"] == 4 and acc["trivial"] == 1 and acc["repeat_share"] == 0.25 and acc["platform"] == "ios" and acc["contribute"] is True
+        acc["turns"] == 4
+        and acc["trivial"] == 1
+        and acc["repeat_share"] == 0.25
+        and acc["platform"] == "ios"
+        and acc["contribute"] is False
     )
     assert acc["tier"] in ("medium", "low") and "identifier" in acc and "hint" in acc
     assert quality["by_platform"][0]["platform"] == "ios" and quality["by_platform"][0]["turns"] == 4
     assert not any(word in json.dumps(quality) for word in ("Peru", "deadlines", "plan"))
-    # the person turning the switch off and deleting their turns takes the rows along
+    # the person deleting their turns takes the rows along
     r = await client.delete("/v1/me/samples", headers=headers)
     assert r.status_code in (200, 204), r.text
     assert cloud.db.sample_count() == 0 and cloud.db.sample_stats_count() == 0
     # a turn whose shape row never got written (the second write failed) is not lost to the
     # figures: the daily pass finds it by its missing row, and finds nothing the next day
-    cloud.db.add_sample(aid, "qwen3.8-27b", json.dumps([{"role": "user", "content": "Draft the invoice mail"}]), "Sure", 5, 5, "{}")
+    add_sample_row(cloud.db, aid, "qwen3.8-27b", json.dumps([{"role": "user", "content": "Draft the invoice mail"}]), "Sure", 5, 5)
     assert cloud.db.sample_count() == 1 and cloud.db.sample_stats_count() == 0
     assert fresh.describe_missing() == 1 and cloud.db.sample_stats_count() == 1
     assert fresh.describe_missing() == 0
     # the pass looks a few days back only (older turns are the paged backfill's): a turn
     # without its row from before the window is left alone, so the walk stays short
-    cloud.db.add_sample(aid, "qwen3.8-27b", json.dumps([{"role": "user", "content": "An old one"}]), "Yes", 5, 5, "{}")
+    add_sample_row(cloud.db, aid, "qwen3.8-27b", json.dumps([{"role": "user", "content": "An old one"}]), "Yes", 5, 5)
     with cloud.db.tx() as c:
         c.execute(
             "UPDATE samples SET ts=? WHERE id NOT IN (SELECT sample_id FROM sample_stats)", (int(time.time()) - fresh.REPAIR_WINDOW_S - 60,)
@@ -862,7 +904,7 @@ async def test_the_analytics_loop_warms_the_meter_sweeps_old_calls_and_backfills
     }
     cloud.db.add_call({**base, "ts": now - 120})
     cloud.db.add_call({**base, "ts": now - 3 * 86400})
-    cloud.db.add_sample(aid, "m", json.dumps([{"role": "user", "content": "an old kept turn"}]), "r", 1, 1, "{}")
+    add_sample_row(cloud.db, aid, "m", json.dumps([{"role": "user", "content": "an old kept turn"}]), "r", 1, 1)
     app = create_app(settings, cloud, upstream_transport=httpx.ASGITransport(app=up))
     with TestClient(app):
         meter = app.state.meter
@@ -912,7 +954,6 @@ def test_the_pages_read_through_the_read_only_service(tmp_path):
     assert reads.db is cloud.db.reader() and reads.db is not cloud.db and reads.s is cloud.s
     assert reads.admin_overview(7)["accounts"]["total"] == 1
     assert reads.admin_data(7)["accounts"]["total"] == 1
-    assert reads.admin_invites()["funnel"]["invited"] == 0
     assert reads.admin_account(aid, 7)["account"]["id"] == aid
     assert [m["id"] for m in reads.admin_turns()] == []
     with pytest.raises(sqlite3.OperationalError, match="readonly"):
@@ -928,19 +969,37 @@ async def test_the_data_view_sums_tokens_from_the_shape_rows_and_fills_older_one
     from the turn, a page at a time, remembering where it was."""
     app, client, sender, up, cloud = stack
     headers, aid = await sign_up(client, sender)
-    assert (await client.post("/v1/me/contribute", headers=headers, json={"on": True})).status_code == 200
     # two turns kept before 0.30: a shape row each, without tokens
     for text in ("Plan my week around two deadlines", "Draft the invoice mail"):
-        sid = cloud.db.add_sample(aid, "qwen3.8-27b", json.dumps([{"role": "user", "content": text}]), "Sure " * 10, 100, 50, "{}")
+        sid = add_sample_row(cloud.db, aid, "qwen3.8-27b", json.dumps([{"role": "user", "content": text}]), "Sure " * 10, 100, 50)
         cloud.db.add_sample_stats([an.sample_shape(sid, aid, int(time.time()), "qwen3.8-27b", "[]", "", "{}")])
     assert cloud.db.sample_stats_without_tokens() == 2
-    # a turn kept now carries its tokens at once
-    r = await client.post(
-        "/v1/chat/completions",
-        headers=headers,
-        json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "What is the capital of Peru"}]},
+    # a turn kept with its tokens at once (written the same way: no new turn is kept any more)
+    sid = add_sample_row(
+        cloud.db,
+        aid,
+        "qwen3.8-27b",
+        json.dumps([{"role": "user", "content": "What is the capital of Peru"}]),
+        "Lima",
+        100,
+        50,
+        json.dumps({"ua": PHONE_UA}),
     )
-    assert r.status_code == 200
+    cloud.db.add_sample_stats(
+        [
+            an.sample_shape(
+                sid,
+                aid,
+                int(time.time()),
+                "qwen3.8-27b",
+                json.dumps([{"role": "user", "content": "What is the capital of Peru"}]),
+                "Lima",
+                json.dumps({"ua": PHONE_UA}),
+                100,
+                50,
+            )
+        ]
+    )
     view = cloud.reads.admin_data(7)
     assert view["tokens_pending"] == 2 and view["totals"]["samples"] == 3
     fresh_tokens = view["totals"]["prompt_tokens"] + view["totals"]["completion_tokens"]

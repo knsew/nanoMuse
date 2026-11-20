@@ -121,11 +121,12 @@ def test_the_platform_claim_beats_the_user_agent_only_when_it_is_one_of_ours():
 # -- through the relay -----------------------------------------------------------------------
 
 
-async def test_a_cloud_turn_carries_who_ran_it_into_the_record_the_training_view_and_the_calls(tmp_path):
+async def test_an_uploaded_turn_carries_who_ran_it_into_the_record_and_the_calls(tmp_path):
+    """Provenance rides on an uploaded turn into the record's own columns, and on a chat
+    into the telemetry row. The training view is frozen: no sample is kept any more."""
     app, client, sender, up, cloud = relay(tmp_path)
     data = await sign_up(client, sender, identifier="prov-a@example.com")
     headers = {"Authorization": f"Bearer {data['api_key']}", "User-Agent": "nanoMuse-Android/1.0.8"}
-    assert (await client.post("/v1/me/contribute", headers=headers, json={"on": True})).status_code == 200
     said = {
         "X-NanoMuse-Device": "pixel-1",
         "X-NanoMuse-Conversation": "conv-9",
@@ -135,6 +136,8 @@ async def test_a_cloud_turn_carries_who_ran_it_into_the_record_the_training_view
         "X-NanoMuse-Trajectory": "hands-01",
         "X-NanoMuse-Trajectory-Step": "3",
     }
+    # the chats still run (and their telemetry rows still say who ran them), but the
+    # relay records no turn of its own any more: the record's rows come from uploads
     r = await client.post(
         "/v1/chat/completions",
         headers={**headers, **said},
@@ -142,7 +145,6 @@ async def test_a_cloud_turn_carries_who_ran_it_into_the_record_the_training_view
     )
     assert r.status_code == 200
     request_id = r.headers["x-nanomuse-request"]
-    # a streamed turn a person typed, with no headers but the run
     async with client.stream(
         "POST",
         "/v1/chat/completions",
@@ -152,14 +154,48 @@ async def test_a_cloud_turn_carries_who_ran_it_into_the_record_the_training_view
         await s.aread()
         streamed_id = s.headers["x-nanomuse-request"]
     await settled(app)
+    assert (await client.get("/v1/turns", headers=headers)).json() == {"turns": []}
+
+    r = await client.post(
+        "/v1/turns",
+        headers={**headers, **said},
+        json={
+            "id": "u-1",
+            "model": "qwen3.8-27b",
+            "messages": [{"role": "user", "content": "打开设置里的蓝牙"}],
+            "conversation": "conv-9",
+            "run": "schedule",
+            "turn": 4,
+            "step": 2,
+            "trajectory": "hands-01",
+            "trajectory_step": 3,
+            "response": {"message": {"role": "assistant", "content": "hi"}, "usage": {"prompt_tokens": 100, "completion_tokens": 50}},
+        },
+    )
+    assert r.status_code == 201, r.text
+    up_id = r.json()["id"]
+    r = await client.post(
+        "/v1/turns",
+        headers={**headers, "X-NanoMuse-Run": "person", "X-NanoMuse-Turn": "1"},
+        json={
+            "id": "u-2",
+            "model": "qwen3.8-27b",
+            "messages": [{"role": "user", "content": "hello there"}],
+            "run": "person",
+            "turn": 1,
+            "response": {"message": {"role": "assistant", "content": "hi"}, "usage": {"prompt_tokens": 40, "completion_tokens": 26}},
+        },
+    )
+    assert r.status_code == 201, r.text
+    up_streamed_id = r.json()["id"]
 
     # the record: the columns in the turn's own row, read back by the account and the operator
     mine = (await client.get("/v1/turns", headers=headers)).json()["turns"]
     by_id = {t["id"]: t for t in mine}
-    t = by_id[request_id]
+    t = by_id[up_id]
     assert (t["run"], t["turn"], t["step"], t["trajectory"], t["trajectory_step"], t["script"]) == ("schedule", 4, 2, "hands-01", 3, "zh")
     assert t["conversation"] == "conv-9" and t["platform"] == "android"
-    st = by_id[streamed_id]
+    st = by_id[up_streamed_id]
     assert st["run"] == "person" and st["turn"] == 1 and st["script"] == "latin" and "step" not in st and "trajectory" not in st
     admin_turn = (await client.get("/v1/admin/turns?conversation=conv-9", headers=ADMIN)).json()["turns"][0]
     assert admin_turn["run"] == "schedule" and admin_turn["trajectory"] == "hands-01"
@@ -167,29 +203,17 @@ async def test_a_cloud_turn_carries_who_ran_it_into_the_record_the_training_view
     lines = [json.loads(ln) for ln in (await client.get("/v1/admin/turns/export", headers=ADMIN)).text.splitlines() if ln]
     assert {ln["subject"] for ln in lines} == {cloud.subject_of(data["account"]["id"])} and all(ln["account_id"] for ln in lines)
 
-    # the training view: the kept turn's meta says the same, names the record's turn, and the export's subject
-    samples = (await client.get("/v1/admin/samples", headers=ADMIN)).json()["samples"]
-    assert len(samples) == 2
-    first = next(s for s in samples if s["meta"]["turn_id"] == request_id)
-    assert first["meta"]["source"] == "cloud" and first["meta"]["run"] == "schedule" and first["meta"]["turn"] == 4
-    assert first["meta"]["trajectory"] == "hands-01" and first["meta"]["trajectory_step"] == 3 and first["meta"]["script"] == "zh"
-    assert first["meta"]["conversation"] == "conv-9" and "ip" in first["meta"]
-    r = await client.get("/v1/admin/samples/export", headers=ADMIN)
-    lines = [json.loads(ln) for ln in r.text.splitlines() if ln]
-    assert all("account_id" not in ln and "ip" not in ln["meta"] for ln in lines)
-    assert {ln["subject"] for ln in lines} == {cloud.subject_of(data["account"]["id"])}
-    assert {ln["platform"] for ln in lines} == {"android"}
-    # the shape rows beside them, for the quality page
-    stats = cloud.db._conn.execute("SELECT run, source, turn_id FROM sample_stats ORDER BY ts").fetchall()
-    assert sorted((r["run"], r["source"], r["turn_id"]) for r in stats) == sorted(
-        [("schedule", "cloud", request_id), ("person", "cloud", streamed_id)]
-    )
+    # the training view: nothing is kept any more, for either turn
+    assert (await client.get("/v1/admin/samples", headers=ADMIN)).json()["total"] == 0
+    assert cloud.db._conn.execute("SELECT COUNT(*) FROM sample_stats").fetchone()[0] == 0
     # and the telemetry row
     calls = cloud.db._conn.execute("SELECT request_id, run FROM calls ORDER BY id").fetchall()
     assert {(r["request_id"], r["run"]) for r in calls} == {(request_id, "schedule"), (streamed_id, "person")}
 
 
-async def test_an_own_key_turn_joins_the_training_view_when_the_switch_is_on(tmp_path):
+async def test_an_own_key_turn_keeps_provenance_in_the_record_and_never_joins_the_training_view(tmp_path):
+    """An uploaded turn's provenance lands in the record's columns; the training view
+    is frozen, so no upload ever adds a sample, whatever the account's old switch said."""
     app, client, sender, up, cloud = relay(tmp_path)
     data = await sign_up(client, sender, identifier="prov-own@example.com")
     # the desktop's uploads go out from Node, whose user agent says nothing; the header does
@@ -222,7 +246,7 @@ async def test_an_own_key_turn_joins_the_training_view_when_the_switch_is_on(tmp
             "usage": {"prompt_tokens": 12, "completion_tokens": 5},
         },
     }
-    # switch off: the record keeps the turn, the training view does not
+    # the record keeps the turn, the training view does not
     r = await client.post("/v1/turns", headers=headers, json=turn)
     assert r.status_code == 201, r.text
     assert (await client.get("/v1/admin/samples", headers=ADMIN)).json()["total"] == 0
@@ -232,33 +256,19 @@ async def test_an_own_key_turn_joins_the_training_view_when_the_switch_is_on(tmp
     # the body's own fields do not land in the request the record keeps
     assert not ({"run", "turn", "step", "trajectory", "platform"} & set(kept["request"]))
 
-    # switch on: the training view too, in the same shape as a Cloud turn's, never the system prompt or the tool's result
-    assert (await client.post("/v1/me/contribute", headers=headers, json={"on": True})).status_code == 200
+    # a second turn with a trajectory: the record keeps its provenance too, still no sample
     r = await client.post("/v1/turns", headers=headers, json={**turn, "id": "t-2", "trajectory": "desk-7", "trajectory_step": 2})
     assert r.status_code == 201, r.text
     own_id = r.json()["id"]
-    got = (await client.get("/v1/admin/samples", headers=ADMIN)).json()
-    assert got["total"] == 1
-    s = got["samples"][0]
-    assert s["platform"] == "desktop" and s["model"] == "gpt-5.6"
-    assert [m["role"] for m in s["request"]] == ["user", "assistant", "tool"]
-    assert s["request"][2] == {"role": "tool", "tool_call_id": "c1", "content": "", "omitted": True}
-    dumped = json.dumps(s, ensure_ascii=False)
-    assert "SECRET" not in dumped and "Ada" not in dumped
-    assert s["response"] == "" and s["meta"]["tool_calls"][0]["function"]["name"] == "send"  # a turn that only called a tool
-    assert s["meta"]["source"] == "own" and s["meta"]["provider"] == "openai" and s["meta"]["turn_id"] == own_id
-    assert (
-        s["meta"]["run"] == "goal" and s["meta"]["turn"] == 6 and s["meta"]["trajectory"] == "desk-7" and s["meta"]["trajectory_step"] == 2
-    )
-    assert s["meta"]["platform"] == "desktop" and s["meta"]["script"] == "latin" and s["prompt_tokens"] == 12
-    # the quality page's shape row says source and run too
-    row = cloud.db._conn.execute("SELECT platform, run, source, turn_id FROM sample_stats").fetchone()
-    assert tuple(row) == ("desktop", "goal", "own", own_id)
+    kept2 = next(t for t in (await client.get("/v1/admin/turns", headers=ADMIN)).json()["turns"] if t["id"] == own_id)
+    assert kept2["trajectory"] == "desk-7" and kept2["trajectory_step"] == 2 and kept2["run"] == "goal"
+    assert (await client.get("/v1/admin/samples", headers=ADMIN)).json()["total"] == 0
+    assert cloud.db._conn.execute("SELECT COUNT(*) FROM sample_stats").fetchone()[0] == 0
     # a partial own-key turn is in the record, not in the training view
     r = await client.post("/v1/turns", headers=headers, json={**turn, "id": "t-3", "status": "partial", "ended": "aborted"})
-    assert r.status_code == 201 and (await client.get("/v1/admin/samples", headers=ADMIN)).json()["total"] == 1
-    # /v1/me counts the sample like any other
-    assert (await client.get("/v1/me", headers=headers)).json()["contribute"]["samples"] == 1
+    assert r.status_code == 201 and (await client.get("/v1/admin/samples", headers=ADMIN)).json()["total"] == 0
+    # /v1/me counts no sample
+    assert (await client.get("/v1/me", headers=headers)).json()["contribute"]["samples"] == 0
 
 
 async def test_the_apps_reports_are_kept_tied_to_their_turns_and_deleted_with_the_data(tmp_path):

@@ -3,21 +3,19 @@
     GET  /healthz                                               → {ok, version, models, paused}
     GET  /v1/config                                             → the public figures the apps print (allowance, bonus, links, code_ttl_s, password_min_len); a minute's cache
     POST /v1/auth/code        {identifier}                      → 204 (400 phone_region: a number the SMS sender cannot reach; a disabled account gets the same 204 and no code is sent; 429 domain_limited: a new address of a domain at its day's sign-up limit)
-    POST /v1/auth/verify      {identifier, code, device, invite?, device_id?, device_kind?} → {api_key, base_url, account, tokens, models}
+    POST /v1/auth/verify      {identifier, code, device, invite? (ignored), device_id?, device_kind?} → {api_key, base_url, account, tokens, models}
     POST /v1/auth/login       {identifier, password, device, device_id?, device_kind?} → the same, for accounts that set a password
     POST /v1/auth/password    {password, current?}              → 204 (set / change; "" + current removes)
-    GET  /v1/me                                                 → account, tokens, spend (¥ spent / pool / left), invite, contribute, usage by kind, models, recent, nudges
-    GET  /v1/nudges                                             → when the apps may ask for a star (0.18; public, cached an hour; the operator's policy over the defaults)
-    GET  /v1/me/invite                                          → the invite code and link, who came with it, what they brought
+    GET  /v1/me                                                 → account, tokens, spend (¥ spent / pool / left), invite (empty), contribute, usage by kind, models, recent, nudges
+    GET  /v1/nudges                                             → when the apps may ask for a star: always {"star": {"enabled": false}} (public, cached an hour)
     GET  /v1/estimate         ?images=5&clips=4                 → what that would cost next to what is left (nothing charged)
     GET  /v1/me/sessions                                        → live sign-ins (device, via, when; the current one marked)
     DELETE /v1/me/sessions/{prefix}                             → 204 (sign one device out)
     GET  /v1/me/events                                          → the account's own timeline (sign-ins, password changes…)
-    POST /v1/me/contribute {on}                                 → Data controls: "help improve nanoMuse's AI models" — keep the text of my chat turns (the default for new accounts is IMPROVE_DEFAULT)
     DELETE /v1/me/samples                                       → delete every turn kept from me: the training turns and (0.29) the record, files included → {deleted, turns, files}
     GET  /v1/turns            ?since=&limit=&before=&before_id=&conversation= → 0.29: the account's record — every turn in full, newest first (pictures as blob:sha256 references)
     GET  /v1/turns/{id}                                         → one turn
-    POST /v1/turns            {model, messages, response{message, usage?}, provider?, ts?, conversation?, id?, run?, turn?, step?, trajectory?, trajectory_step?, platform?} → 201 {id, ts}: a turn run on the app's own key, kept beside the Cloud ones (and, with the switch on, in the training view)
+    POST /v1/turns            {model, messages, response{message, usage?}, provider?, ts?, conversation?, id?, run?, turn?, step?, trajectory?, trajectory_step?, platform?} → 201 {id, ts}: a turn run on the app's own key, kept beside the Cloud ones
     POST /v1/events           {events: [{kind, ts?, turn?, conversation?, data}]} → 202 {kept}: 0.31, what happened in the app around a turn — the Sentinel's decision, an approval's result, a stopped reply's reason, a thumb; codes only, never a message
     PUT  /v1/blobs/{sha256}   raw body + Content-Type           → {sha256, bytes, mime, known}: a picture, audio or clip, stored once by its hash (HEAD first saves the upload)
     HEAD /v1/blobs/{sha256}  /  GET /v1/blobs/{sha256}          → the file, for an account that holds a reference to it (a turn, the profile's clips, an upload of its own)
@@ -38,11 +36,6 @@
     GET  /v1/models                                             → OpenAI list, with modalities; for a member, the usable models under the operator's key after the menu (catalog: true)
     GET  /v1/models/{id}      ?kind=chat                        → one model, or a member's typed id checked (listed, priced_as)
     POST /v1/chat/completions                                   → forwarded; stream or not
-    POST /v1/images/generations                                 → 410 unless self-host media is enabled
-    POST /v1/images/edits     multipart                         → 410 unless self-host media is enabled
-    POST /api/v1/services/aigc/video-generation/video-synthesis → 410 unless self-host media is enabled
-    GET  /api/v1/tasks/{id}                                     → its task poll (own tasks only)
-    GET  /api/v1/uploads?action=getPolicy&model=…               → its temporary-storage policy
     WS   /v1/hub                                                → the devices of one account meet (hub.py)
     GET  /v1/devices                                            → remembered devices with presence
     DELETE /v1/devices/{id}                                     → forget an offline device
@@ -55,21 +48,15 @@
     POST /v1/admin/disable    X-Admin-Token  {account_id | identifier, disabled}
     POST /v1/admin/unlimited  X-Admin-Token  {account_id | identifier, unlimited}  → a member: no limit
     POST /v1/admin/delete     X-Admin-Token  {account_id | identifier}
-    GET  /v1/admin/nudges     X-Admin-Token                     → the nudges policy in force, the defaults, whether the page set it and when (0.18)
-    PUT  /v1/admin/nudges     X-Admin-Token  {version?, star{…}} | {reset: true} → set the policy (version bumped by the server) or go back to the defaults
     GET  /v1/admin/accounts   X-Admin-Token                     → with identifiers in clear, tokens and money
     GET  /v1/admin/accounts/{id} X-Admin-Token ?days=30         → one account in full: usage by kind/model/day, sign-ins, devices, addresses, timeline
     GET  /v1/admin/accounts/{id}/ledger X-Admin-Token ?limit=&before= → the account's statement, every line, page by page (before = last id shown)
     GET  /v1/admin/accounts/{id}/events X-Admin-Token ?limit=&before= → the account's timeline, every entry, page by page
     GET  /v1/admin/address    X-Admin-Token  ?ip=…              → the accounts seen from one address
-    GET  /v1/admin/invites    X-Admin-Token  ?limit=200&per=20  → who invited whom: the funnel and the inviters ranked by the accounts their code brought, with the newest `per` of them
-    POST /v1/admin/invites/abuse X-Admin-Token {account_id | identifier, disable?, delete_unused?} → take back an inviter's invite credit, disable it, delete the invited accounts that never used anything; {reclaimed_cny, disabled, deleted, kept}
     GET  /v1/admin/usage      X-Admin-Token  ?days=14           → charged tokens and yuan per day and kind
     GET  /v1/admin/overview   X-Admin-Token  ?days=30           → the dashboard: accounts, today / week / period by kind and model, signals, events
     GET  /v1/admin/events     X-Admin-Token  ?limit=200&kind=…  → the timeline across accounts (never message content)
-    GET  /v1/admin/series     X-Admin-Token  ?days=30           → by day: sign-ins, new / active accounts, invites, data switches turned on; devices by kind and OS; nanoMuse Web's counts
-    GET  /v1/admin/traffic    X-Admin-Token  ?days=30           → the site: pages, visitors, downloads per file, referrers, GitHub stars and release downloads (TRAFFIC_DB)
-    GET  /v1/admin/demo       X-Admin-Token  ?days=30           → the phone in the browser: visitors with addresses and browsers, every demo and what it used (WEB_ADMIN_URL)
+    GET  /v1/admin/series     X-Admin-Token  ?days=30           → by day: sign-ins, new / active accounts, data switches turned on; devices by kind and OS
     GET  /v1/admin/data       X-Admin-Token  ?days=30           → Data controls: accounts with the switch on, kept turns by day / model / app / account, switches on and off, the newest turns
     GET  /v1/admin/samples    X-Admin-Token  ?account_id=&limit=&since=&before=&before_id= → kept turns (accounts with the switch on only)
     GET  /v1/admin/samples/export X-Admin-Token ?since=&account_id= → the same as JSON lines, without account ids or addresses (each line carries the account's pseudonym, `subject`)
@@ -83,9 +70,7 @@
     GET  /v1/admin/deletions  X-Admin-Token  ?since=            → 0.31: the deletions ledger — the `subject` of every account that deleted its data or itself since, to drop from a training set built earlier
     GET  /v1/admin/sync       X-Admin-Token                     → conversation sync in aggregate: accounts on / off, conversations, messages, bytes (never a text)
     GET  /v1/admin/health     X-Admin-Token                     → aggregates only: requests under way, the hub, the last hour, the database, problems (what selfcheck.sh reads)
-    GET  /v1/admin/places     X-Admin-Token  ?days=30           → accounts, sign-ins, requests and demo visitors by country and province
     GET  /v1/admin/catalog    X-Admin-Token                     → the provider's models under the operator's key and what the probes found
-    GET  /v1/admin/github     X-Admin-Token  ?days=30           → stars, forks, watchers, issues, release downloads by day;  POST …/github/refresh reads now
     GET  /v1/admin/stats      X-Admin-Token  ?days=30           → every figure of the Stats page;  GET …/stats/{id} one figure, …/stats/{id}.csv as CSV
     GET  /v1/admin/live       X-Admin-Token                     → 0.28: the model endpoint now — the provider gate, requests under way, the last hour by minute, latency percentiles, the newest calls
     GET  /v1/admin/analytics/usage     X-Admin-Token ?days=30   → 0.28: requests, tokens, money and accounts per local day and model (the matrix)
@@ -95,7 +80,7 @@
     GET  /v1/admin/analytics/hands     X-Admin-Token ?days=30   → screen operation: turns and accounts by day and platform, the tools called, operable devices
     GET  /v1/admin/analytics/quality   X-Admin-Token ?days=30   → the kept turns' shape and quality: trivial and repeated shares, accounts scored and tiered (never a text)
     GET  /v1/admin/analytics/abuse     X-Admin-Token ?days=30   → clients that are not the apps: user-agent families, sign-ins by client, the heaviest such accounts, shared addresses
-    GET  /v1/admin/settings   X-Admin-Token                     → the runtime settings in force (0.15);  POST …/settings {allowance_cny?, invite_bonus_cny?, signup_open?} sets them
+    GET  /v1/admin/settings   X-Admin-Token                     → the runtime settings in force (0.15);  POST …/settings {allowance_cny?, signup_open?} sets them
     POST /v1/admin/allowance/apply X-Admin-Token                → the raised allowance reaches the accounts below it
     POST /v1/admin/credit-all X-Admin-Token  {cny, note?}       → the same credit into every limited pool
     GET  /v1/admin/controls … X-Admin-Token                     → the switches, the threshold rules and the audit log (0.22; the routes are listed above their handlers)
@@ -105,9 +90,6 @@
     the account keeps a timeline, a line on it too. A deletion writes `account.deleted` across
     accounts, since the account's own timeline goes with it.
 
-The video paths mirror the provider's own so the app's VideoGen, which
-already speaks that API, only needs to point its host at the relay.
-
 Errors are OpenAI-shaped: {"error": {"message", "type", "code"}} with the
 status the app expects (401 bad key, 402 out of tokens, 429 rate limit).
 """
@@ -115,7 +97,6 @@ status the app expects (401 bad key, 402 out of tokens, 429 rate limit).
 from __future__ import annotations
 
 import asyncio
-import base64
 import dataclasses
 import hashlib
 import json
@@ -131,10 +112,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
 
 import httpx
-from fastapi import Depends, FastAPI, File, Form, Header, Request, Response, UploadFile, WebSocket
+from fastapi import Depends, FastAPI, Header, Request, Response, WebSocket
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
@@ -154,10 +134,8 @@ from .analytics import (
     request_shape,
 )
 from .catalog import Catalog
-from .config import ModelSpec, Settings
+from .config import Settings
 from .controls import ControlError
-from .geo import Geo, collect_ips, group_places
-from .github_stats import GitHubCollector
 from .hub import Hub
 from .identifiers import BadIdentifier, parse
 from .record import StreamAssembler, is_sha256
@@ -445,10 +423,6 @@ def relay_error_body(status: int, raw: bytes) -> dict:
     return {"error": err}
 
 
-# where the provider keeps the pictures it makes: its own API host and Alibaba Cloud OSS buckets
-PROVIDER_HOST_SUFFIXES = (".aliyuncs.com", ".alicdn.com")
-
-
 def _unlink_quietly(path: str) -> None:
     """Remove a temporary file once its response has gone out; one already gone is no error."""
     try:
@@ -457,26 +431,10 @@ def _unlink_quietly(path: str) -> None:
         pass
 
 
-def _provider_url_ok(url: object, own_hosts: tuple[str, ...] = ()) -> bool:
-    """Only URLs on the provider's own hosts are fetched (the relay must not become an open proxy):
-    the configured API hosts themselves, or https on Alibaba Cloud's storage domains."""
-    try:
-        parts = urlsplit(str(url))
-    except ValueError:
-        return False
-    host = (parts.hostname or "").lower()
-    if not host or parts.scheme not in ("http", "https"):
-        return False
-    if host in own_hosts:
-        return True
-    return parts.scheme == "https" and host.endswith(PROVIDER_HOST_SUFFIXES)
-
-
 def create_app(
     settings: Settings | None = None,
     cloud: Cloud | None = None,
     upstream_transport: httpx.AsyncBaseTransport | None = None,
-    github_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
     cloud = cloud or Cloud(settings)
@@ -487,28 +445,12 @@ def create_app(
         follow_redirects=False,
     )
 
-    # where an address is (geo.py) — the file is fetched in the background on start
-    geo = Geo(settings.geoip_path, settings.geoip_url, settings.geoip_v6_url, enabled=settings.geoip_enabled)
-
-    # 0.22: the GitHub collector (stars, forks, release downloads once a day) and the
-    # operator's threshold rules, both run from the server's own loop
-    collector = GitHubCollector(cloud.db, settings.github_repo_path, settings.github_token, settings.github_api, transport=github_transport)
-
+    # 0.22: the operator's threshold rules run from the server's own loop
     async def _rules_loop() -> None:
         while True:
             await asyncio.sleep(60)
             # off the loop: a *notify* rule sends an e-mail, and SMTP may take its whole timeout
             await asyncio.to_thread(cloud.rules_tick)
-
-    async def _video_loop() -> None:
-        # 0.24: clips the app never polled to an end are settled by the relay itself
-        # (settle_video_tasks, below, with the video routes); a bad tick must not end the loop
-        while True:
-            await asyncio.sleep(60)
-            try:
-                await settle_video_tasks()
-            except Exception:
-                log.exception("settle_video_tasks")
 
     async def _analytics_loop() -> None:
         # 0.28: the live meter's last hour is read back from `calls` after a restart; the
@@ -604,35 +546,26 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        geo.ensure()
-        if settings.github_collect:
-            collector.start()
         rules_task = asyncio.create_task(_rules_loop(), name="control-rules")
-        video_task = asyncio.create_task(_video_loop(), name="video-settle")
         analytics_task = asyncio.create_task(_analytics_loop(), name="analytics")
         try:
             yield
         finally:
             rules_task.cancel()
-            video_task.cancel()
             analytics_task.cancel()
             # waited for, so no cancellation lands after the database is closed
-            await asyncio.gather(rules_task, video_task, analytics_task, return_exceptions=True)
-            await collector.stop()
+            await asyncio.gather(rules_task, analytics_task, return_exceptions=True)
             await http.aclose()
 
     app = FastAPI(title="nanoMuse Cloud", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan)
     app.state.cloud = cloud
     app.state.settings = settings
     app.state.http = http
-    app.state.geo = geo
-    app.state.collector = collector
 
     def with_places(out: dict) -> dict:
-        """The admin page's answers carry addresses; this adds ``places`` — ``{ip: place}``
-        for the ones the database knows — so every address is shown with where it is."""
-        geo.ensure()  # a fetch that failed earlier is tried again after a while
-        out["places"] = geo.places(collect_ips(out)) if geo.ready else {}
+        """The admin page's answers carry addresses; ``places`` used to add where each
+        one is. Address lookup was removed, so the key stays empty for older pages."""
+        out["places"] = {}
         return out
 
     @app.exception_handler(CloudError)
@@ -658,9 +591,9 @@ def create_app(
         return client_info.visitor_ip(request.headers, request.client.host if request.client else None, trusted_proxies)
 
     def client_place(request: Request):
-        """Where the request came from (geo.py), for the region in /v1/me and the "ways on"
-        of a refusal; None when the database is not there or the address is unplaced."""
-        return geo.place(client_ip(request)) if geo.ready else None
+        """Where the request came from: always None now (address lookup was removed).
+        Kept so the callers read the same way."""
+        return None
 
     def count_request(error_code: str, group: str) -> None:
         # Keep both writes in one worker call if the waiting request is cancelled.
@@ -713,12 +646,6 @@ def create_app(
             raise CloudError(503, "upstream_unconfigured", "nanoMuse Cloud has no model key configured")
         return {"Authorization": f"Bearer {settings.upstream_key}", "Content-Type": "application/json"}
 
-    def dashscope_headers() -> dict[str, str]:
-        key = settings.dashscope_key or settings.upstream_key
-        if not key:
-            raise CloudError(503, "upstream_unconfigured", "nanoMuse Cloud has no media model key configured")
-        return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-
     # -- health ----------------------------------------------------------------
 
     @app.get("/healthz")
@@ -733,9 +660,9 @@ def create_app(
 
     @app.get("/v1/config")
     async def public_config() -> Response:
-        """The figures a client prints before anyone signs in — the allowance, the invite
-        bonus, whether sign-up is open, the links — live from the operator's settings (0.15),
-        so no app needs a release to show a new number. No secrets, no auth, a minute's cache."""
+        """The figures a client prints before anyone signs in — the allowance, whether
+        sign-up is open, the links — live from the operator's settings (0.15), so no app
+        needs a release to show a new number. No secrets, no auth, a minute's cache."""
         return JSONResponse(cloud.public_config(), headers={"Cache-Control": "public, max-age=60"})
 
     # -- sign-up -----------------------------------------------------------------
@@ -817,19 +744,14 @@ def create_app(
 
     @app.get("/v1/nudges")
     async def public_nudges() -> Response:
-        """When the apps may ask for a star on GitHub (0.18, nudges.py): the operator's policy
-        over the defaults every client also carries. No key, an hour's cache; the same object
-        rides along in /v1/me for a signed-in client."""
-        return JSONResponse(cloud.nudges(), headers={"Cache-Control": "public, max-age=3600"})
+        """When the apps may ask for a star on GitHub: never. The nudges policy module was
+        removed; this route stays, answering the star ask as off, so older apps keep their
+        shape. No key, an hour's cache; the same object rides along in /v1/me."""
+        return JSONResponse({"star": {"enabled": False}}, headers={"Cache-Control": "public, max-age=3600"})
 
     @app.get("/v1/me")
     async def me(request: Request, caller: Caller = Depends(caller_dep)) -> dict:
         return cloud.me(caller, client_place(request))
-
-    @app.get("/v1/me/invite")
-    async def me_invite(caller: Caller = Depends(caller_dep)) -> dict:
-        """The account's invite code and link, who came with it, the credit earned."""
-        return cloud.invite_view(caller)
 
     @app.get("/v1/estimate")
     async def estimate(
@@ -843,12 +765,6 @@ def create_app(
         """What `images` pictures and `clips` clips would cost, next to what is left
         today — the app asks before a new face. Nothing is charged."""
         return cloud.estimate(caller, images, clips, image_model, video_model, size or None)
-
-    @app.post("/v1/me/contribute")
-    async def me_contribute(request: Request, caller: Caller = Depends(caller_dep)) -> dict:
-        """Opt in (or out of) contributing chat turns to the community's training set."""
-        body = await _json(request)
-        return cloud.set_contribute(caller, bool(body.get("on")))
 
     @app.get("/v1/me/profile")
     async def me_profile(face: bool = True, caller: Caller = Depends(caller_dep)) -> dict:
@@ -1052,7 +968,7 @@ def create_app(
         """What a deletion must take with it besides the rows: the account's hub sockets
         (closed with 4001 `account_gone`) and its live "working" notes, which are memory,
         not rows, so `Database.delete_account` cannot reach them. The person's own
-        deletion, the operator's and the invite-abuse clean-up all come through here."""
+        deletion and the operator's all come through here."""
         hub = getattr(app.state, "hub", None)
         if hub is not None:
             await hub.drop_account(account_id)
@@ -1293,44 +1209,16 @@ def create_app(
         except Exception:  # telemetry must never fail a chat
             log.exception("calls row")
 
-    # the record's writes in flight, held so the loop does not drop them half-way (and so
-    # a test can wait for them: app.state.record_tasks)
+    # the record's writes used to be chained here (record_later); the relay's own turns
+    # are no longer recorded, so the set stays empty. Devices still upload and read their
+    # own turns through /v1/turns, and service.record_turn stays for that path.
     record_tasks: set[asyncio.Task] = set()
     app.state.record_tasks = record_tasks
-    # the turn list reads newest first by (ts, rowid). ts is taken below, as the answer
-    # leaves — a record written seconds later under load keeps the turn's own time — and
-    # writes for each account are chained in that order. A slow media write keeps its
-    # place within that account without holding up another account's history.
-    record_prev: dict[str, asyncio.Task] = {}
 
     def record_later(caller: Caller, *args: Any, **kwargs: Any) -> None:
-        """The turn's record (service.record_turn) written off the loop after the answer
-        has left — the pictures are decoded, hashed and written to disk there, and the
-        row after them. A failure is logged; it is never the person's problem."""
-        if not settings.record_turns:
-            return
-        kwargs.setdefault("ts", int(time.time()))
-        account_id = caller.account_id
-        prev = record_prev.get(account_id)
-
-        async def run() -> None:
-            try:
-                if prev is not None:
-                    await prev  # its own run() swallows its failure; nothing propagates here
-                await asyncio.to_thread(cloud.record_turn, caller, *args, **kwargs)
-            except Exception:
-                log.exception("record turn")
-
-        task = asyncio.create_task(run(), name="record-turn")
-        record_tasks.add(task)
-        record_prev[account_id] = task
-
-        def recorded(done: asyncio.Task) -> None:
-            record_tasks.discard(done)
-            if record_prev.get(account_id) is done:
-                record_prev.pop(account_id)
-
-        task.add_done_callback(recorded)
+        """The relay's own turns are no longer recorded: a no-op, kept so the chat
+        handlers read the same way."""
+        return None
 
     async def chat_post(url: str, headers: dict[str, str], payload: bytes, call: InFlightCall) -> tuple[httpx.Response, int]:
         """One non-streaming turn, queued globally and retried before an answer exists;
@@ -1393,9 +1281,6 @@ def create_app(
         url = settings.upstream_base.rstrip("/") + "/chat/completions"
         request_body = dumps(body).encode()
         fallback_prompt_tokens = math.ceil(prompt_chars(body.get("messages") or []) / 3)
-        # For an account that opted in, the turn is kept once it is answered (service.keep_sample)
-        # with the platform and language hints from the headers and, since 0.10, the address
-        # (the export for training drops the address along with the account id).
         turn_meta = _turn_meta(request)
         # 0.29: the record keeps the whole turn once it is answered (service.record_turn, off
         # the loop); a 1.0.7 app names the device and the conversation the turn belongs to
@@ -1404,16 +1289,6 @@ def create_app(
             "conversation": (request.headers.get("x-nanomuse-conversation") or "")[:80],
             "provenance_": where,
         }
-        sample_messages = body.get("messages") if caller.contribute and isinstance(body.get("messages"), list) else []
-        sample_meta = None
-        if caller.contribute:
-            # 0.31: the kept turn says where it came from and names the record's turn, so the
-            # app's later word on it (a thumb, why it was stopped) joins it
-            sample_meta = dict(turn_meta)
-            sample_meta.update(
-                cloud.sample_provenance("cloud", request_id, where, sample_messages, conversation=turn_where["conversation"])
-            )
-
         if not stream:
             retries = 0
             try:
@@ -1457,10 +1332,6 @@ def create_app(
                 retries=retries,
                 request_id=request_id,
             )
-            if sample_meta is not None:
-                cloud.keep_sample(
-                    caller, spec.id, sample_messages, text, usage.prompt, usage.completion, sample_meta, message=_reply_message(obj)
-                )
             record_later(caller, spec.id, body, _reply_message(obj), usage, request_id=request_id, meta=turn_meta, **turn_where)
             if isinstance(obj, dict):
                 obj["model"] = spec.id
@@ -1597,17 +1468,6 @@ def create_app(
                     if usage is None:
                         usage = Usage(fallback_prompt_tokens, estimate_tokens("".join(reply)))
                     cloud.charge_chat(caller, spec, usage.prompt, usage.completion, request_id, cached_tokens=usage.cached)
-                    if sample_meta is not None:
-                        cloud.keep_sample(
-                            caller,
-                            spec.id,
-                            sample_messages,
-                            "".join(reply),
-                            usage.prompt,
-                            usage.completion,
-                            sample_meta,
-                            message=assembler.message(),
-                        )
                     # a turn kept short says why (0.30): `client_gone` is the app closing the
                     # stream (the person stopped, or the app gave up waiting), `upstream_timeout`
                     # and `broken` are the provider's end — the same words as the telemetry row
@@ -1641,306 +1501,6 @@ def create_app(
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "x-nanomuse-request": request_id},
         )
-
-    # -- images -------------------------------------------------------------------------------
-
-    # the provider draws only a couple of pictures per account at a time: everyone's
-    # requests pass through this gate, and a 429 behind it is waited out (see Settings)
-    image_gate = asyncio.Semaphore(max(1, settings.image_concurrency))
-    IMAGE_PAUSES = (2.0, 4.0, 8.0, 12.0, 15.0)
-
-    async def _dashscope_post_image(url: str, payload: bytes) -> httpx.Response:
-        """The upstream call, behind the gate, tried again on a 429 or a 5xx."""
-        async with image_gate:
-            attempt = 0
-            while True:
-                try:
-                    r = await http.post(url, headers=dashscope_headers(), content=payload)
-                except httpx.HTTPError as e:
-                    raise CloudError(502, "upstream", "The image provider did not answer") from e
-                if r.status_code != 429 and r.status_code < 500:
-                    return r
-                if attempt >= settings.image_retries:
-                    return r
-                pause = IMAGE_PAUSES[min(attempt, len(IMAGE_PAUSES) - 1)]
-                retry_after = r.headers.get("retry-after", "")
-                if retry_after.isdigit():
-                    pause = min(max(float(retry_after), 1.0), 30.0)
-                log.info("dashscope image HTTP %s; again in %.0fs (%d/%d)", r.status_code, pause, attempt + 1, settings.image_retries)
-                await asyncio.sleep(pause)
-                attempt += 1
-
-    async def _dashscope_image(model: str, content: list[dict], parameters: dict) -> bytes:
-        host = settings.dashscope_base.rstrip("/")
-        url = f"{host}/services/aigc/multimodal-generation/generation"
-        payload = {"model": model, "input": {"messages": [{"role": "user", "content": content}]}, "parameters": parameters}
-        r = await _dashscope_post_image(url, dumps(payload).encode())
-        if r.status_code == 429:
-            log.warning("dashscope image still 429 after %d retries", settings.image_retries)
-            raise CloudError(429, "provider_busy", "The image provider is busy right now; try again in a moment", {"retry_after": 20})
-        if r.status_code >= 400:
-            msg = ""
-            try:
-                msg = r.json().get("message", "")
-            except ValueError:
-                pass
-            log.warning("dashscope image HTTP %s: %s", r.status_code, r.text[:300])
-            if r.status_code == 400 and content_check_refusal(r.content):
-                raise CloudError(400, "content_rejected", "The image provider's content check declined this prompt; try different words")
-            raise CloudError(502, "upstream", f"The image provider refused ({r.status_code}{': ' + msg if msg else ''})")
-        try:
-            image_url = r.json()["output"]["choices"][0]["message"]["content"][0]["image"]
-        except (ValueError, KeyError, IndexError, TypeError) as e:
-            raise CloudError(502, "upstream", "The image provider sent no picture") from e
-        own_hosts = tuple((urlsplit(u).hostname or "").lower() for u in (settings.dashscope_base, settings.upstream_base))
-        if not _provider_url_ok(image_url, own_hosts):
-            log.warning("dashscope image URL off the provider's hosts: %s", str(image_url)[:120])
-            raise CloudError(502, "upstream", "The image provider sent a picture from somewhere unexpected")
-        try:
-            img = await http.get(image_url)
-        except httpx.HTTPError as e:
-            raise CloudError(502, "upstream", "Could not fetch the picture") from e
-        if img.status_code >= 400:
-            raise CloudError(502, "upstream", "Could not fetch the picture")
-        return img.content
-
-    def _size_param(size: str | None) -> str:
-        s = (size or "1024x1024").lower().replace("x", "*")
-        return s if "*" in s else "1024*1024"
-
-    @app.post("/v1/images/generations")
-    async def images_generations(request: Request, caller: Caller = Depends(caller_dep)) -> Response:
-        body = await _json(request)
-        spec = cloud.model_for(str(body.get("model", "")), "image", caller)
-        size = _size_param(body.get("size"))
-        prompt = str(body.get("prompt", "")).strip()
-        if not prompt:
-            raise CloudError(400, "bad_request", "prompt is required")
-        try:
-            n = int(body.get("n") or 1)
-        except (TypeError, ValueError) as e:
-            raise CloudError(400, "bad_request", "n is a whole number") from e
-        if n != 1:
-            raise CloudError(400, "bad_request", "nanoMuse Cloud draws one picture per request")
-        params = {"size": size, "watermark": False}
-        if spec.upstream.startswith("qwen-image"):
-            params["prompt_extend"] = False
-        request_id = uuid.uuid4().hex[:16]
-        cloud.check_budget(
-            caller, minimum=spec.per_image, cost_uy=spec.image_cost_uy(size), request_id=request_id, place=client_place(request)
-        )
-        try:
-            png = await _dashscope_image(spec.upstream, [{"text": prompt}], params)
-            charged = cloud.charge_image(caller, spec, 1, request_id, size=size)
-        finally:
-            cloud.settle(caller, request_id)
-        return JSONResponse(
-            content={"created": int(time.time()), "data": [{"b64_json": base64.b64encode(png).decode()}], "nanomuse": {"charged": charged}},
-            headers={"x-nanomuse-charged": str(charged)},
-        )
-
-    @app.post("/v1/images/edits")
-    async def images_edits(
-        request: Request,
-        caller: Caller = Depends(caller_dep),
-        model: str = Form(...),
-        prompt: str = Form(...),
-        n: int = Form(1),
-        size: str | None = Form(None),
-        image: UploadFile = File(...),
-    ) -> Response:
-        spec = cloud.model_for(model, "image", caller)
-        if n != 1:
-            raise CloudError(400, "bad_request", "nanoMuse Cloud draws one picture per request")
-        # read one byte past the cap rather than the whole picture first: larger than the
-        # limit is refused, so nothing beyond it is ever held
-        data = await image.read(settings.max_request_bytes + 1)
-        if len(data) > settings.max_request_bytes:
-            raise CloudError(413, "too_large", "The picture is too large")
-        mime = image.content_type or "image/png"
-        # Same rules as the app's own DashScope path: qwen-image-3.x and wan take
-        # the picture themselves; an older text-only qwen-image is posed by
-        # qwen-image-edit-max.
-        three_x = spec.upstream.startswith("qwen-image-3") or spec.upstream.startswith("wan")
-        edit_model = spec.upstream if (three_x or "edit" in spec.upstream) else "qwen-image-edit-max"
-        params = {"size": _size_param(size), "prompt_extend": False, "watermark": False} if three_x else {"n": 1, "watermark": False}
-        content = [{"image": f"data:{mime};base64," + base64.b64encode(data).decode()}, {"text": prompt}]
-        request_id = uuid.uuid4().hex[:16]
-        # the picture sent in is billed too (price_image_in), on top of the one drawn
-        cloud.check_budget(
-            caller,
-            minimum=spec.per_image,
-            cost_uy=spec.image_cost_uy(_size_param(size), inputs=1),
-            request_id=request_id,
-            place=client_place(request),
-        )
-        try:
-            png = await _dashscope_image(edit_model, content, params)
-            charged = cloud.charge_image(caller, spec, 1, request_id, size=_size_param(size), inputs=1)
-        finally:
-            cloud.settle(caller, request_id)
-        return JSONResponse(
-            content={"created": int(time.time()), "data": [{"b64_json": base64.b64encode(png).decode()}], "nanomuse": {"charged": charged}},
-            headers={"x-nanomuse-charged": str(charged)},
-        )
-
-    # -- video: the provider's asynchronous API, relayed under its own paths ------------------------
-    #
-    # The app's VideoGen submits a task, polls it, downloads the clip from the
-    # URL the task ends with (the provider's storage, not us), and uploads a
-    # first frame to the provider's temporary storage beforehand. Each call is
-    # forwarded with the operator's key; the user's key never sees the provider.
-    # Status codes come back as the provider sent them so the app's probe
-    # (an empty task: accepted or 400 = the model exists, 404 = it does not)
-    # keeps working; 401/403 from the provider are the operator's problem and
-    # turn into 502. A clip is charged when its task is first seen SUCCEEDED —
-    # a probe's task fails at once and costs nothing, here or upstream.
-
-    VIDEO_PATH = "/services/aigc/video-generation/video-synthesis"
-
-    def _dashscope_reply(r: httpx.Response) -> Response:
-        if r.status_code in (401, 403):
-            log.error("dashscope refused the relay's key: HTTP %s %s", r.status_code, r.text[:200])
-            return JSONResponse(status_code=502, content={"code": "upstream", "message": "The video provider refused the relay's key"})
-        media = r.headers.get("content-type", "application/json")
-        return Response(status_code=r.status_code, content=r.content, media_type=media.split(";")[0])
-
-    def _clip_seconds(body: dict, spec: ModelSpec) -> float:
-        """The seconds the app asked for (`parameters.duration`), else the model's
-        fixed or shortest length; the provider bills per output second."""
-        params = body.get("parameters") if isinstance(body.get("parameters"), dict) else {}
-        try:
-            return float(params.get("duration") or spec.clip_seconds)
-        except (TypeError, ValueError):
-            return spec.clip_seconds
-
-    def _clip_resolution(body: dict) -> str | None:
-        """The resolution the app asked for — Wan's `parameters.resolution` ("480P"), else
-        the tier a `parameters.size` ("1280*720") falls in; None when neither is said."""
-        params = body.get("parameters") if isinstance(body.get("parameters"), dict) else {}
-        res = params.get("resolution")
-        if isinstance(res, str) and res.strip():
-            return res.strip().upper()
-        size = params.get("size")
-        if isinstance(size, str) and size.strip():
-            try:
-                short = min(int(p) for p in size.lower().replace("*", "x").split("x")[:2])
-            except ValueError:
-                return None
-            return "1080P" if short >= 1080 else "720P" if short >= 720 else "480P"
-        return None
-
-    @app.post("/api/v1" + VIDEO_PATH)
-    async def video_synthesis(request: Request, caller: Caller = Depends(caller_dep)) -> Response:
-        body = await _json(request)
-        spec = cloud.model_for(str(body.get("model", "")), "video", caller)
-        # A probe (no input) costs nothing upstream and is not priced here either.
-        probe = not body.get("input")
-        clip_cost = 0 if probe else spec.video_cost_uy(_clip_seconds(body, spec), _clip_resolution(body))
-        # reserved while the submission runs; once accepted, the task row holds the clip's
-        # price against the allowance (db.pending_video_cost) until the clip is charged
-        headers = dashscope_headers()  # before the hold, as for chat: no key, nothing held
-        request_id = uuid.uuid4().hex[:16]
-        cloud.check_budget(caller, minimum=spec.per_clip, cost_uy=clip_cost, request_id=request_id, place=client_place(request))
-        body["model"] = spec.upstream
-        headers["X-DashScope-Async"] = "enable"
-        if request.headers.get("x-dashscope-ossresourceresolve"):
-            headers["X-DashScope-OssResourceResolve"] = request.headers["x-dashscope-ossresourceresolve"]
-        try:
-            try:
-                r = await http.post(settings.dashscope_base.rstrip("/") + VIDEO_PATH, headers=headers, content=dumps(body).encode())
-            except httpx.HTTPError as e:
-                log.warning("dashscope video error: %s", e)
-                raise CloudError(502, "upstream", "The video provider did not answer") from e
-            if r.status_code < 400:
-                try:
-                    task_id = str(r.json()["output"]["task_id"])
-                except (ValueError, KeyError, TypeError):
-                    task_id = ""
-                if task_id:
-                    cloud.db.insert_video_task(task_id, caller.account_id, spec.id, cost_uy=clip_cost, probe=probe)
-                    log.info("video task %s for %s: %s%s", task_id[:12], caller.account_id[:8], spec.id, " (probe)" if probe else "")
-            else:
-                log.warning("dashscope video HTTP %s: %s", r.status_code, r.text[:300])
-        finally:
-            cloud.settle(caller, request_id)
-        return _dashscope_reply(r)
-
-    @app.get("/api/v1/tasks/{task_id}")
-    async def video_task(task_id: str, caller: Caller = Depends(caller_dep)) -> Response:
-        # Polling is a media route too: after hosted media is retired it must not reach the
-        # provider or settle a pending charge left by an older client.
-        if not settings.media_enabled:
-            cloud.model_for("", "video", caller)
-        task = cloud.db.video_task(task_id)
-        if task is None or task["account_id"] != caller.account_id:
-            raise CloudError(404, "no_task", "No such task")
-        try:
-            r = await http.get(settings.dashscope_base.rstrip("/") + f"/tasks/{task_id}", headers=dashscope_headers())
-        except httpx.HTTPError as e:
-            raise CloudError(502, "upstream", "The video provider did not answer") from e
-        if r.status_code < 400:
-            charged = cloud.settle_video_task(task, _task_status(r))
-            if charged is not None:
-                log.info("video task %s done for %s: charged %d", task_id[:12], caller.account_id[:8], charged)
-        return _dashscope_reply(r)
-
-    def _task_status(r: httpx.Response) -> str | None:
-        try:
-            status = r.json().get("output", {}).get("task_status")
-        except (ValueError, AttributeError):
-            return None
-        return str(status) if status else None
-
-    async def settle_video_tasks(limit: int = 5) -> int:
-        """0.24: the relay asks the provider itself about clips the app never polled to an
-        end: once shortly before the hour's hold on the allowance lapses, once more before
-        the row is purged. A SUCCEEDED answer charges the clip exactly once (the same path
-        as a poll); FAILED or CANCELED lets the hold go; a task the provider no longer knows
-        is marked UNKNOWN. A handful per call. Returns how many tasks were asked about."""
-        if not settings.media_enabled or not (settings.dashscope_key or settings.upstream_key):
-            return 0
-        done = 0
-        for task in cloud.db.video_tasks_to_settle(limit):
-            task_id = str(task["task_id"])
-            try:
-                r = await http.get(settings.dashscope_base.rstrip("/") + f"/tasks/{task_id}", headers=dashscope_headers())
-            except httpx.HTTPError as e:
-                log.warning("video task %s: the provider did not answer the relay's check: %s", task_id[:12], e)
-                continue  # not counted as a check: the next tick asks again
-            if r.status_code < 400:
-                status = _task_status(r)
-            elif r.status_code in (400, 404):
-                status = "UNKNOWN"  # the provider keeps a task a day; gone means nothing to charge
-            else:
-                log.warning("video task %s: provider HTTP %s on the relay's check", task_id[:12], r.status_code)
-                continue
-            charged = cloud.settle_video_task(task, status)
-            cloud.db.note_video_check(task_id)
-            done += 1
-            if charged is not None:
-                log.info(
-                    "video task %s settled by the relay for %s: %s, charged %d", task_id[:12], str(task["account_id"])[:8], status, charged
-                )
-        return done
-
-    app.state.settle_video_tasks = settle_video_tasks  # the tests call it directly
-
-    @app.get("/api/v1/uploads")
-    async def video_upload_policy(request: Request, caller: Caller = Depends(caller_dep)) -> Response:
-        if request.query_params.get("action") != "getPolicy":
-            raise CloudError(400, "bad_request", "action=getPolicy is the only upload call the relay makes")
-        spec = cloud.model_for(request.query_params.get("model", ""), "video", caller)
-        cloud.check_budget(caller, minimum=spec.per_clip, cost_uy=spec.video_cost_uy(spec.clip_seconds), place=client_place(request))
-        try:
-            r = await http.get(
-                settings.dashscope_base.rstrip("/") + "/uploads",
-                params={"action": "getPolicy", "model": spec.upstream},
-                headers=dashscope_headers(),
-            )
-        except httpx.HTTPError as e:
-            raise CloudError(502, "upstream", "The video provider did not answer") from e
-        return _dashscope_reply(r)
 
     # -- the hub: devices of one account, across networks ------------------------------------------
 
@@ -2068,12 +1628,7 @@ def create_app(
             problems.append("the database is not writable")
         if not settings.upstream_key:
             problems.append("no upstream key")
-        # invites being farmed: a code bringing many accounts in a day, or inviters whose
-        # people never use anything; each alert is one sentence here and the detail below
-        alerts = await asyncio.to_thread(cloud.reads.invite_alerts)
-        for alert in alerts:
-            problems.append(f"{alert['message']}; {alert['hint']}")
-        out["alerts"] = alerts
+        out["alerts"] = []
         out["ok"] = not problems
         out["problems"] = problems
         return out
@@ -2084,7 +1639,6 @@ def create_app(
         hub = getattr(app.state, "hub", None)
         out["online_devices"] = hub.online_count() if hub is not None else 0
         out["version"] = __version__
-        out["geo"] = geo.status()
         return with_places(out)
 
     @app.get("/v1/admin/series", dependencies=[Depends(admin_dep)])
@@ -2092,70 +1646,6 @@ def create_app(
         out = await asyncio.to_thread(cloud.reads.admin_series, max(1, min(days, 365)))
         hub = getattr(app.state, "hub", None)
         out["online_devices"] = hub.online_count() if hub is not None else 0
-        out["web"] = await web_info()
-        return out
-
-    async def web_info() -> dict | None:
-        """nanoMuse Web's counts from the gateway next door (WEB_INFO_URL); None when it
-        is not configured or does not answer — the panel then says so."""
-        if not settings.web_info_url:
-            return None
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as c:
-                r = await c.get(settings.web_info_url)
-                r.raise_for_status()
-                data = r.json()
-        except (httpx.HTTPError, ValueError):
-            return None
-        return data if isinstance(data, dict) else None
-
-    async def demo_admin(params: dict) -> dict | None:
-        """The showcase's visitors from its gateway (WEB_ADMIN_URL with WEB_ADMIN_TOKEN):
-        None when not configured or not answering."""
-        if not settings.web_admin_url or not settings.web_admin_token:
-            return None
-        try:
-            async with httpx.AsyncClient(timeout=4.0) as c:
-                r = await c.get(settings.web_admin_url, params=params, headers={"X-Admin-Token": settings.web_admin_token})
-                r.raise_for_status()
-                data = r.json()
-        except (httpx.HTTPError, ValueError):
-            return None
-        return data if isinstance(data, dict) else None
-
-    @app.get("/v1/admin/demo", dependencies=[Depends(admin_dep)])
-    async def admin_demo(days: int = 30) -> dict:
-        """The phone in the browser: who tried it from where and with what, every demo and
-        what it used (the showcase gateway's /api/demo/admin, passed through)."""
-        data = await demo_admin({"days": max(1, min(days, 365))})
-        return with_places({"available": data is not None, **(data or {})})
-
-    @app.get("/v1/admin/traffic", dependencies=[Depends(admin_dep)])
-    async def admin_traffic(days: int = 30) -> dict:
-        return await asyncio.to_thread(cloud.reads.admin_traffic, max(1, min(days, 365)))
-
-    @app.get("/v1/admin/places", dependencies=[Depends(admin_dep)])
-    async def admin_places(days: int = 30) -> dict:
-        """Where people are: accounts by their latest address, and the period's requests,
-        sign-ins and new accounts by address — counted by country and province (ip2region);
-        the showcase's visitors too when its gateway answers. `geo` says whether the
-        database is there at all."""
-        days = max(1, min(days, 365))
-        geo.ensure()
-        counts = await asyncio.to_thread(cloud.reads.db.address_counts, int(time.time()) - days * 86400)
-        out: dict = {"days": days, "geo": geo.status()}
-        for key, rows in counts.items():
-            out[key] = group_places(rows, geo) if geo.ready else []
-        demo = await demo_admin({"days": days})
-        if demo is not None and geo.ready:
-            by_ip: dict[str, int] = {}
-            for v in demo.get("visitors") or []:
-                ip = v.get("last_ip") or v.get("first_ip") or ""
-                if ip:
-                    by_ip[ip] = by_ip.get(ip, 0) + 1
-            out["demo_visitors"] = group_places(list(by_ip.items()), geo)
-        else:
-            out["demo_visitors"] = None
         return out
 
     @app.get("/v1/admin/catalog", dependencies=[Depends(admin_dep)])
@@ -2176,8 +1666,6 @@ def create_app(
         hub = getattr(app.state, "hub", None)
         if hub is not None:
             out["devices"] = hub.devices(account_id)
-        # the showcase's record of this person (the visitor id there is the account id here)
-        out["demo"] = await demo_admin({"account": account_id})
         return with_places(out)
 
     def _kinds(kind: str) -> tuple[str, ...] | None:
@@ -2209,40 +1697,11 @@ def create_app(
 
     @app.get("/v1/admin/address", dependencies=[Depends(admin_dep)])
     async def admin_address(ip: str = "") -> dict:
-        """The accounts seen from one address, and where it is."""
+        """The accounts seen from one address."""
         if not ip.strip():
             raise CloudError(400, "bad_request", "Say which address: ?ip=…")
         out = await asyncio.to_thread(cloud.reads.admin_address, ip)
-        place = geo.place(ip.strip())
-        out["place"] = place.as_dict() if place is not None else None
         return with_places(out)
-
-    @app.get("/v1/admin/invites", dependencies=[Depends(admin_dep)])
-    async def admin_invites(limit: int = 200, per: int = 20) -> dict:
-        """The inviters in order of how many accounts their code brought, with what those
-        accounts did and the newest `per` of them, and the funnel; an account's detail
-        page lists its invitees in full."""
-        return with_places(await asyncio.to_thread(cloud.reads.admin_invites, max(1, min(limit, 1000)), max(0, min(per, 100))))
-
-    @app.post("/v1/admin/invites/abuse", dependencies=[Depends(admin_dep)])
-    async def admin_invite_abuse(request: Request) -> dict:
-        """{account_id, disable?: bool, delete_unused?: bool}: take back the invite credit an
-        inviter farmed (never below what it has spent), disable it when asked, and when asked
-        delete every account it brought that never used the relay. Answers
-        {reclaimed_cny, disabled, deleted, kept}; 404 no_account when unknown."""
-        body = await _json(request)
-        account_id = cloud.admin_resolve(str(body.get("account_id", "")), str(body.get("identifier", "")))
-        disable = bool(body.get("disable", False))
-        hub = getattr(app.state, "hub", None)
-        if disable and hub is not None:
-            await hub.drop_account(account_id)
-        out = cloud.admin_invite_abuse(
-            account_id, disable=disable, delete_unused=bool(body.get("delete_unused", False)), actor=_actor(request)
-        )
-        # the deleted invitees' sockets and live notes go with their rows, as on any deletion
-        for invitee_id in out.pop("deleted_ids", []):
-            await _forget_account_live_state(invitee_id)
-        return out
 
     @app.get("/v1/admin/events", dependencies=[Depends(admin_dep)])
     async def admin_events(limit: int = 200, kind: str = "", before: int = 0) -> dict:
@@ -2474,7 +1933,7 @@ def create_app(
 
     @app.post("/v1/admin/settings", dependencies=[Depends(admin_dep)])
     async def admin_settings_set(request: Request) -> dict:
-        """{allowance_cny?, invite_bonus_cny?, signup_open?}: set (a value) or clear back to
+        """{allowance_cny?, signup_open?}: set (a value) or clear back to
         the environment (null). In force at once, kept across restarts."""
         return cloud.admin_update_settings(await _json(request), actor=_actor(request))
 
@@ -2553,22 +2012,10 @@ def create_app(
             closed = await hub.drop_all("hub_paused")
         return {**cloud.controls.view(cloud.db.account_counts()["total"]), "sockets_closed": closed}
 
-    # -- 0.22: GitHub and the statistics -----------------------------------------------------------
+    # -- 0.22: the statistics -----------------------------------------------------------
 
-    stats = Stats(cloud, sync_store, collector, lambda: getattr(app.state, "hub", None))
+    stats = Stats(cloud, sync_store, lambda: getattr(app.state, "hub", None))
     app.state.stats = stats
-
-    @app.get("/v1/admin/github", dependencies=[Depends(admin_dep)])
-    async def admin_github(days: int = 30) -> dict:
-        """Stars, forks, watchers and release downloads per UTC day with what each day added,
-        the latest figures per platform and per asset, and how the collector's last run went."""
-        return collector.series(max(1, min(days, 365)))
-
-    @app.post("/v1/admin/github/refresh", dependencies=[Depends(admin_dep)])
-    async def admin_github_refresh() -> dict:
-        """Read GitHub now and write today's snapshot (what the daily task does)."""
-        out = await collector.collect()
-        return {**out, "status": collector.status()}
 
     @app.get("/v1/admin/stats", dependencies=[Depends(admin_dep)])
     async def admin_stats(days: int = 30) -> dict:
@@ -2632,19 +2079,6 @@ def create_app(
     @app.get("/v1/admin/analytics/abuse", dependencies=[Depends(admin_dep)])
     async def admin_analytics_abuse(days: int = 30) -> dict:
         return with_places(await asyncio.to_thread(analytics.abuse, max(1, min(days, 365))))
-
-    @app.get("/v1/admin/nudges", dependencies=[Depends(admin_dep)])
-    async def admin_nudges_get() -> dict:
-        """The nudges policy (0.18): what is served, the defaults beside it, whether the page
-        set it and when."""
-        return cloud.admin_nudges()
-
-    @app.put("/v1/admin/nudges", dependencies=[Depends(admin_dep)])
-    async def admin_nudges_put(request: Request) -> dict:
-        """The whole policy (the shape of GET /v1/nudges; unknown keys dropped, values checked,
-        400 with a plain message otherwise); `version` is bumped by the server. `{"reset":
-        true}` goes back to the defaults. In force at once, kept across restarts."""
-        return cloud.admin_put_nudges(await _json(request))
 
     @app.post("/v1/admin/allowance/apply", dependencies=[Depends(admin_dep)])
     async def admin_allowance_apply(request: Request) -> dict:

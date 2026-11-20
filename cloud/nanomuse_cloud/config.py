@@ -249,21 +249,19 @@ def _max_side(size: str) -> int:
     return max(parts) if parts else 0
 
 
-# The hosted menu is deliberately chat-only. The one Qwen model reads image input and
-# serves both the conversation and GUI lanes; image/video generation belongs to providers
-# and API keys configured by the person on their device.
+# The default menu is deliberately chat-only. The one local model reads image input
+# and serves both the conversation and GUI lanes; image/video generation belongs to
+# providers and API keys configured by the person on their device. Prices are zero:
+# the ledger still counts tokens, but a local endpoint bills nothing.
 DEFAULT_MODELS: tuple[ModelSpec, ...] = (
     ModelSpec(
-        id="Qwen/Qwen3.6-27B-FP8",
-        name="Qwen 3.6 27B FP8",
-        upstream="Qwen/Qwen3.6-27B-FP8",
+        id="halogen-qwen3.8-flash-next",
+        name="Halogen Qwen3.8 Flash Next",
+        upstream="halogen-qwen3.8-flash-next",
         input_modalities=("text", "image"),
         for_=("chat", "gui"),
         recommended=True,
         recommended_for=("chat", "gui"),
-        price_in=3.0,
-        price_out=12.0,
-        cached_in_rate=0.2,
     ),
 )
 
@@ -440,12 +438,8 @@ class Settings:
     # What the app should put in the provider's base URL, without /v1.
     public_base: str = field(default_factory=lambda: _env("PUBLIC_BASE", "http://127.0.0.1:8787"))
 
-    upstream_base: str = field(default_factory=lambda: _env("UPSTREAM_BASE", "https://dashscope.aliyuncs.com/compatible-mode/v1"))
+    upstream_base: str = field(default_factory=lambda: _env("UPSTREAM_BASE", "http://10.1.1.52:8000/v1"))
     upstream_key: str = field(default_factory=lambda: _env("UPSTREAM_KEY"))
-    # DashScope's native host, for drawing (its OpenAI-compatible host has no
-    # images endpoint). Empty keeps using UPSTREAM_KEY for backwards compatibility.
-    dashscope_base: str = field(default_factory=lambda: _env("DASHSCOPE_BASE", "https://dashscope.aliyuncs.com/api/v1"))
-    dashscope_key: str = field(default_factory=lambda: _env("DASHSCOPE_KEY"))
     upstream_timeout_s: float = field(default_factory=lambda: float(_env("UPSTREAM_TIMEOUT_S", "180")))
     # Chat requests share one provider account. Keep a bounded number at the provider and
     # queue the rest in the relay; retry only a refusal received before any answer starts.
@@ -478,12 +472,6 @@ class Settings:
     # hourly trim has run, whoever asks.
     media_account_max_mb: int = field(default_factory=lambda: _int("MEDIA_ACCOUNT_MAX_MB", 2048))
     record_uploads_per_minute: int = field(default_factory=lambda: _int("RECORD_UPLOADS_PER_MINUTE", 120))
-    # Pictures: DashScope allows an account only a couple of image tasks at a time and
-    # answers 429 past that, so the relay draws at most IMAGE_CONCURRENCY pictures at once
-    # for everyone together (the rest queue) and, on a 429 or 5xx, tries again up to
-    # IMAGE_RETRIES times with growing pauses before telling the app the provider is busy.
-    image_concurrency: int = field(default_factory=lambda: _int("IMAGE_CONCURRENCY", 2))
-    image_retries: int = field(default_factory=lambda: _int("IMAGE_RETRIES", 4))
     # JSON object merged into every chat request for fields the app did not set.
     # Qwen 3.x models think by default and a one-line answer can cost a
     # thousand reasoning tokens, so the shipped default turns that off; the app
@@ -521,23 +509,17 @@ class Settings:
     # Money (0.5). Every account has one allowance for its lifetime, not a day:
     # ALLOWANCE_CNY yuan of the operator's provider bill (0 = no limit), counted
     # at the list prices above across chat, pictures and clips alike — a clip is
-    # not counted apart, it just costs more. The pool grows by INVITE_BONUS_CNY
-    # for each friend who signs up with the account's code — the friend's pool
-    # grows by the same (0.9) — and by whatever the operator credits. The
-    # members below (ALLOWED_IDENTIFIERS, or flagged by the operator) have no
-    # limit. DAY_OFFSET_H only groups the operator's reports by local day
-    # (8 = Beijing). USD_CNY is for display: the apps show both currencies.
+    # not counted apart, it just costs more. The pool grows by whatever the
+    # operator credits. The members below (ALLOWED_IDENTIFIERS, or flagged by
+    # the operator) have no limit. DAY_OFFSET_H only groups the operator's
+    # reports by local day (8 = Beijing). USD_CNY is for display: the apps show
+    # both currencies.
     #
-    # Since 0.15 the allowance, the invite bonus and SIGNUP_OPEN can also be set
-    # from the operator's page while the relay runs (POST /v1/admin/settings);
-    # a value set there is kept in the database and wins over the environment
-    # until it is cleared — what is here is the starting point.
+    # Since 0.15 the allowance and SIGNUP_OPEN can also be set from the
+    # operator's page while the relay runs (POST /v1/admin/settings); a value
+    # set there is kept in the database and wins over the environment until it
+    # is cleared — what is here is the starting point.
     allowance_cny: float = field(default_factory=lambda: float(_env("ALLOWANCE_CNY", "10")))
-    invite_bonus_cny: float = field(default_factory=lambda: float(_env("INVITE_BONUS_CNY", "5")))
-    # Minimum cumulative successful provider spend (in micro-yuan) by an invited account
-    # before its invite bonus is settled; default 200 micro-yuan refuses single-line
-    # scripted probes while settling normal chat turns.
-    invite_settle_min_spent_uy: int = field(default_factory=lambda: _int("INVITE_SETTLE_MIN_SPENT_UY", 200))
     day_offset_h: int = field(default_factory=lambda: _int("DAY_OFFSET_H", 8))
     # Data controls (0.9): "Help improve nanoMuse's AI models" keeps the text of an
     # account's chat turns — what the person wrote and what the model answered, the
@@ -548,21 +530,12 @@ class Settings:
     # setting either way. State the default in the relay's privacy policy.
     improve_default: bool = field(default_factory=lambda: _env("IMPROVE_DEFAULT", "0") in ("1", "true", "yes"))
     usd_cny: float = field(default_factory=lambda: float(_env("USD_CNY", "7.1")))
-    # INVITE_URL is the link the apps offer to share; the code is appended.
-    # OWN_KEY_DOCS is the guide the apps open when the allowance is used up and
-    # the person wants to bring their own model key.
-    invite_url: str = field(default_factory=lambda: _env("INVITE_URL", "https://nanomuse.cn/web/?invite="))
-    own_key_docs: str = field(default_factory=lambda: _env("OWN_KEY_DOCS", "https://nanomuse.cn/own-key"))
-    # OPENROUTER_URL is where someone outside mainland China gets a key (0.17): Alibaba
-    # Cloud Bailian only signs up accounts from the mainland, so the "ways on" the relay
-    # sends put OpenRouter first for everyone else (service.region).
-    openrouter_url: str = field(default_factory=lambda: _env("OPENROUTER_URL", "https://openrouter.ai/keys"))
     # PRIVACY_URL is the policy the apps link from Data controls and the sign-in
     # pages — the one that states what this relay keeps and its default above.
-    privacy_url: str = field(default_factory=lambda: _env("PRIVACY_URL", "https://nanomuse.cn/privacy/"))
+    privacy_url: str = field(default_factory=lambda: _env("PRIVACY_URL", "https://github.com/knsew/nanoMuse"))
     # REPO_URL is the project's repository, which the apps point to when they ask for a
     # star — at the first sign-in, when the allowance is used up, after the first task.
-    repo_url: str = field(default_factory=lambda: _env("REPO_URL", "https://github.com/nano-muse/nanoMuse"))
+    repo_url: str = field(default_factory=lambda: _env("REPO_URL", "https://github.com/knsew/nanoMuse"))
 
     code_ttl_s: int = field(default_factory=lambda: _int("CODE_TTL_S", 600))
     code_per_identifier_10m: int = field(default_factory=lambda: _int("CODE_PER_IDENTIFIER_10M", 3))
@@ -585,14 +558,6 @@ class Settings:
     # private and only members may sign in at all (the pre-release behaviour).
     allowed_identifiers: str = field(default_factory=lambda: _env("ALLOWED_IDENTIFIERS"))
     signup_open: bool = field(default_factory=lambda: _env("SIGNUP_OPEN", "1") not in ("0", "false", "no"))
-    # A sign-in for an app store's reviewer, who cannot receive our codes: for the
-    # e-mail addresses in REVIEW_ADDRESSES (comma-separated) a code request sends nothing and
-    # answers as if it had, and /v1/auth/verify accepts exactly REVIEW_CODE (six digits) —
-    # within the same code lifetime, attempt and rate limits as anyone's. The account is an
-    # ordinary one, tagged `review` on the operator's page and left out of its sign-up counts.
-    # Either value empty = off, nothing changes.
-    review_addresses: str = field(default_factory=lambda: _env("REVIEW_ADDRESSES"))
-    review_code: str = field(default_factory=lambda: _env("REVIEW_CODE"))
     code_per_ip_hour: int = field(default_factory=lambda: _int("CODE_PER_IP_HOUR", 10))
     code_max_attempts: int = field(default_factory=lambda: _int("CODE_MAX_ATTEMPTS", 5))
     # New accounts per e-mail domain per rolling 24 hours, for domains that are not a well
@@ -608,18 +573,12 @@ class Settings:
     # One phone/e-mail = one grant; a second device signing in with the same
     # identifier shares the account and gets a second key, not a second grant.
 
-    sender: str = field(default_factory=lambda: _env("CODE_SENDER", "log"))  # log | smtp | aliyun | both
+    sender: str = field(default_factory=lambda: _env("CODE_SENDER", "log"))  # log | smtp
     smtp_host: str = field(default_factory=lambda: _env("SMTP_HOST"))
     smtp_port: int = field(default_factory=lambda: _int("SMTP_PORT", 465))
     smtp_user: str = field(default_factory=lambda: _env("SMTP_USER"))
     smtp_password: str = field(default_factory=lambda: _env("SMTP_PASSWORD"))
     smtp_from: str = field(default_factory=lambda: _env("SMTP_FROM"))
-    aliyun_access_key_id: str = field(default_factory=lambda: _env("ALIYUN_ACCESS_KEY_ID"))
-    aliyun_access_key_secret: str = field(default_factory=lambda: _env("ALIYUN_ACCESS_KEY_SECRET"))
-    aliyun_sms_sign: str = field(default_factory=lambda: _env("ALIYUN_SMS_SIGN"))
-    aliyun_sms_template: str = field(default_factory=lambda: _env("ALIYUN_SMS_TEMPLATE"))
-    # dypns = 号码认证服务 SendSmsVerifyCode (default), dysms = 短信服务 SendSms
-    aliyun_sms_api: str = field(default_factory=lambda: _env("ALIYUN_SMS_API", "dypns"))
 
     models: tuple[ModelSpec, ...] = field(default_factory=_models_from_env)
     # Self-hosted relays may deliberately keep the historical native media proxy. The
@@ -644,40 +603,6 @@ class Settings:
     # the answers stand for CLOUD_CATALOG_PROBE_TTL_S. CLOUD_CATALOG_PROBE=0: names only.
     catalog_probe: bool = field(default_factory=lambda: _env("CLOUD_CATALOG_PROBE", "1") not in ("0", "false", "no"))
     catalog_probe_ttl_s: int = field(default_factory=lambda: int(_env("CLOUD_CATALOG_PROBE_TTL_S", str(7 * 86400))))
-    # -- the operator's page, beyond the relay's own numbers ------------------------------
-    # the site's traffic database (demo/showcase/mirror/traffic.py), mounted read-only into
-    # the container; empty = the "visits and downloads" panel says so and shows nothing
-    traffic_db: str = field(default_factory=lambda: _env("TRAFFIC_DB"))
-    # nanoMuse Web's gateway on the same docker network (http://gateway:8000/api/web/info):
-    # how many kept accounts and running sessions; empty = not asked
-    web_info_url: str = field(default_factory=lambda: _env("WEB_INFO_URL"))
-    # the showcase's visitors (demo.nanomuse.dev/api/demo/admin, its SHOWCASE_ADMIN_TOKEN):
-    # who tried the phone in the browser from where and with what, every demo and what it
-    # used — shown on the admin page and in the account drawer; empty = not asked
-    web_admin_url: str = field(default_factory=lambda: _env("WEB_ADMIN_URL"))
-    web_admin_token: str = field(default_factory=lambda: _env("WEB_ADMIN_TOKEN"))
-    # 0.11: where an address is — country, province, city — from ip2region's database
-    # (Apache-2.0), fetched once into the data directory and read in memory; no third party
-    # is asked. CLOUD_GEOIP=0 switches it off; CLOUD_GEOIP_DB names the file (default: next
-    # to the database); CLOUD_GEOIP_URL where to fetch it; CLOUD_GEOIP_V6_URL adds the IPv6
-    # file (37 MB) for relays reached over IPv6 — empty = IPv4 only.
-    geoip_enabled: bool = field(default_factory=lambda: _env("CLOUD_GEOIP", "1") not in ("0", "false", "no"))
-    geoip_db: str = field(default_factory=lambda: _env("CLOUD_GEOIP_DB"))
-    geoip_url: str = field(
-        default_factory=lambda: _env(
-            "CLOUD_GEOIP_URL", "https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region_v4.xdb"
-        )
-    )
-    geoip_v6_url: str = field(default_factory=lambda: _env("CLOUD_GEOIP_V6_URL"))
-    # 0.22: the GitHub collector (github_stats.py) — a reading every six hours (the UTC day's
-    # row keeps the latest), and on demand from the operator's page: stars, forks, watchers
-    # and every release asset's download count. GITHUB_REPO names the repository (owner/name; derived from REPO_URL when
-    # empty); GITHUB_TOKEN is optional (60 requests an hour without one, which is plenty);
-    # GITHUB_COLLECT=0 turns the collector off (tests, a relay with no network).
-    github_repo: str = field(default_factory=lambda: _env("GITHUB_REPO"))
-    github_token: str = field(default_factory=lambda: _env("GITHUB_TOKEN"))
-    github_collect: bool = field(default_factory=lambda: _env("GITHUB_COLLECT", "1") not in ("0", "false", "no"))
-    github_api: str = field(default_factory=lambda: _env("GITHUB_API", "https://api.github.com"))
     # 0.22: where a threshold rule's *notify* goes (controls.py), through the SMTP settings
     # above; empty = the rule writes its audit line and the log says there was nobody to tell.
     admin_email: str = field(default_factory=lambda: _env("ADMIN_EMAIL"))
@@ -702,28 +627,6 @@ class Settings:
         explicit_allow = {x.strip().lower().lstrip("@") for x in self.signup_domain_allow.split(",") if x.strip()}
         given = {x.strip().lower().lstrip("@") for x in self.signup_domain_block.split(",") if x.strip()}
         return (frozenset(DEFAULT_SIGNUP_DOMAIN_BLOCK) | frozenset(given)) - explicit_allow
-
-    @property
-    def github_repo_path(self) -> str:
-        """`owner/name`: GITHUB_REPO, else read off REPO_URL (https://github.com/owner/name)."""
-        if self.github_repo:
-            return self.github_repo.strip().strip("/")
-        m = re.match(r"^https?://github\.com/([^/\s]+)/([^/\s#?]+)", self.repo_url.strip())
-        return f"{m.group(1)}/{m.group(2).removesuffix('.git')}" if m else ""
-
-    @property
-    def geoip_path(self) -> str:
-        """The IPv4 file: CLOUD_GEOIP_DB, else ``ip2region_v4.xdb`` beside the database
-        (nothing for an in-memory database, so tests ask no network)."""
-        if not self.geoip_enabled:
-            return ""
-        if self.geoip_db:
-            return self.geoip_db
-        if self.database == ":memory:" or self.database.startswith("file:"):
-            return ""
-        import os.path
-
-        return os.path.join(os.path.dirname(self.database) or ".", "ip2region_v4.xdb")
 
     def model(self, model_id: str) -> ModelSpec | None:
         for m in self.models:

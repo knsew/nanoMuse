@@ -16,7 +16,7 @@ import pytest
 from test_cloud import APP_UA, PNG_1PX, fake_upstream, sign_up
 
 from nanomuse_cloud.api import create_app
-from nanomuse_cloud.db import Database
+from nanomuse_cloud.db import Database, now
 from nanomuse_cloud.record import BLOB_PREFIX, MediaStore, StreamAssembler, attach_media, detach_media, media_refs
 from nanomuse_cloud.senders import LogSender
 from nanomuse_cloud.service import Cloud
@@ -145,9 +145,10 @@ def test_stream_assembler_rebuilds_the_message():
     assert StreamAssembler().message() == {"role": "assistant", "content": ""}
 
 
-async def test_every_cloud_turn_is_kept_whole_and_read_back_by_the_account(tmp_path):
-    """Whatever the Help-improve switch says, the record holds the turn as it happened: the
-    system prompt, the picture (as a file), the tool's result, the model's whole answer —
+async def test_an_uploaded_turn_is_kept_whole_and_read_back_by_the_account(tmp_path):
+    """The relay no longer records its own turns (R9), but a turn a device puts up
+    through /v1/turns is kept whole whatever the Help-improve switch says: the system
+    prompt, the picture (as a file), the tool's result, the model's whole answer,
     for the account's own devices and the operator, never for another account."""
     app, client, sender, up, cloud = relay(tmp_path)
     data = await sign_up(client, sender, identifier="rec-a@example.com")
@@ -156,37 +157,63 @@ async def test_every_cloud_turn_is_kept_whole_and_read_back_by_the_account(tmp_p
     assert me["contribute"]["on"] is False  # the training switch is off, the record is not a switch
     assert me["contribute"]["record"] == {"on": True, "turns": 0, "own": 0, "files": 0, "media_bytes": 0, "keep_days": 0}
 
+    # a chat through the relay is not recorded any more
     r = await client.post(
         "/v1/chat/completions",
-        headers={**headers, "X-NanoMuse-Device": "pixel-1", "X-NanoMuse-Conversation": "conv-7"},
+        headers={**headers, "X-NanoMuse-Conversation": "conv-7"},
+        json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert r.status_code == 200
+    await settled(app)
+    assert (await client.get("/v1/turns", headers=headers)).json() == {"turns": []}
+
+    # the same turn, put up by the device afterwards
+    now = int(time.time())
+    r = await client.post(
+        "/v1/turns",
+        headers={**headers, "X-NanoMuse-Device": "pixel-1"},
         json={
+            "id": "req-1",
+            "ts": now,
             "model": "qwen3.8-27b",
             "messages": FULL_TURN,
             "temperature": 0.2,
             "tools": [{"type": "function", "function": {"name": "tap"}}],
+            "conversation": "conv-7",
+            "response": {
+                "message": {"role": "assistant", "content": "hi", "finish_reason": "stop"},
+                "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+            },
         },
     )
-    assert r.status_code == 200
-    request_id = r.headers["x-nanomuse-request"]
-    # and a streamed, thinking one in another conversation
-    async with client.stream(
-        "POST",
-        "/v1/chat/completions",
-        headers={**headers, "X-NanoMuse-Conversation": "conv-8"},
-        json={"model": "qwen3.8-27b", "stream": True, "enable_thinking": True, "messages": [{"role": "user", "content": "hi"}]},
-    ) as s:
-        await s.aread()
-    await settled(app)
+    assert r.status_code == 201, r.text
+    request_id = r.json()["id"]
+    # and a thinking one in another conversation, a second later
+    r = await client.post(
+        "/v1/turns",
+        headers=headers,
+        json={
+            "id": "req-2",
+            "ts": now + 1,
+            "model": "qwen3.8-27b",
+            "messages": [{"role": "user", "content": "hi"}],
+            "conversation": "conv-8",
+            "response": {
+                "message": {"role": "assistant", "content": "你好，世界", "reasoning_content": "先想一下"},
+                "usage": {"prompt_tokens": 40, "completion_tokens": 26},
+            },
+        },
+    )
+    assert r.status_code == 201, r.text
 
     turns = (await client.get("/v1/turns", headers=headers)).json()["turns"]
     assert [t["conversation"] for t in turns] == ["conv-8", "conv-7"]  # newest first
     whole = turns[1]
-    assert whole["id"] == request_id and whole["device"] == "pixel-1" and whole["platform"] == "android" and whole["source"] == "cloud"
+    assert whole["id"] == request_id and whole["device"] == "pixel-1" and whole["platform"] == "android" and whole["source"] == "own"
     assert whole["status"] == "ok" and whole["model"] == "qwen3.8-27b"
     req = whole["request"]
     assert req["model"] == "qwen3.8-27b" and req["temperature"] == 0.2 and req["tools"][0]["function"]["name"] == "tap"
     assert "user" not in req and "stream_options" not in req  # the relay's own fields
-    assert req["enable_thinking"] is False  # the relay's default went up with it, and is kept as sent
     assert [m["role"] for m in req["messages"]] == ["system", "user", "assistant", "tool"]
     assert req["messages"][0]["content"].startswith("SOUL and memory")
     assert req["messages"][1]["content"][1] == {"type": "image_url", "image_url": {"url": BLOB_PREFIX + PNG_SHA}}
@@ -217,7 +244,7 @@ async def test_every_cloud_turn_is_kept_whole_and_read_back_by_the_account(tmp_p
     h = await client.head(f"/v1/blobs/{PNG_SHA}", headers=headers)
     assert h.status_code == 200 and h.headers["content-length"] == str(len(PNG_1PX))
     me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["contribute"]["record"] == {"on": True, "turns": 2, "own": 0, "files": 1, "media_bytes": len(PNG_1PX), "keep_days": 0}
+    assert me["contribute"]["record"] == {"on": True, "turns": 2, "own": 2, "files": 1, "media_bytes": len(PNG_1PX), "keep_days": 0}
 
     # another account: not its turn, not its file, even knowing the hash and the id
     other = await sign_up(client, sender, identifier="rec-b@example.com", device="mac")
@@ -240,7 +267,7 @@ async def test_every_cloud_turn_is_kept_whole_and_read_back_by_the_account(tmp_p
     assert view["totals"] == {
         "n": 2,
         "accounts": 1,
-        "own": 0,
+        "own": 2,
         "partial": 0,
         "media": 1,
         "media_bytes": len(PNG_1PX),
@@ -271,19 +298,28 @@ async def test_a_slower_record_cannot_list_an_older_turn_above_a_newer_one(tmp_p
         return real_record(*args, **kwargs)
 
     monkeypatch.setattr(cloud, "record_turn", slow_first_record)
-    for conversation in ("conv-a", "conv-b"):
+    now = int(time.time())
+    for i, conversation in enumerate(("conv-a", "conv-b")):
         r = await client.post(
-            "/v1/chat/completions",
-            headers={**headers, "X-NanoMuse-Conversation": conversation},
-            json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]},
+            "/v1/turns",
+            headers=headers,
+            json={
+                "id": f"t-{conversation}",
+                "ts": now + i,
+                "model": "qwen3.8-27b",
+                "messages": [{"role": "user", "content": "hi"}],
+                "conversation": conversation,
+                "response": {"message": {"role": "assistant", "content": "hi"}, "usage": {"prompt_tokens": 1, "completion_tokens": 1}},
+            },
         )
-        assert r.status_code == 200
-    await settled(app)
+        assert r.status_code == 201, r.text
     turns = (await client.get("/v1/turns", headers=headers)).json()["turns"]
     assert [t["conversation"] for t in turns] == ["conv-b", "conv-a"]  # newest first
 
 
 async def test_a_slow_accounts_record_does_not_delay_another_account(tmp_path, monkeypatch):
+    """Uploads are written off the loop, so one account's slow record must not hold up
+    another account's upload."""
     app, client, sender, up, cloud = relay(tmp_path)
     data_a = await sign_up(client, sender, identifier="slow-record@example.com")
     data_b = await sign_up(client, sender, identifier="other-record@example.com")
@@ -302,55 +338,60 @@ async def test_a_slow_accounts_record_does_not_delay_another_account(tmp_path, m
         return result
 
     monkeypatch.setattr(cloud, "record_turn", record)
+
+    def turn(conversation: str, i: int) -> dict:
+        return {
+            "id": f"t-{conversation}",
+            "ts": int(time.time()) + i,
+            "model": "qwen3.8-27b",
+            "messages": [{"role": "user", "content": "hi"}],
+            "conversation": conversation,
+            "response": {"message": {"role": "assistant", "content": "hi"}, "usage": {"prompt_tokens": 1, "completion_tokens": 1}},
+        }
+
+    async def upload(data: dict, conversation: str, i: int):
+        return await client.post("/v1/turns", headers={"Authorization": f"Bearer {data['api_key']}", **APP_UA}, json=turn(conversation, i))
+
     try:
-        for data, conversation in ((data_a, "slow"), (data_b, "other")):
-            response = await client.post(
-                "/v1/chat/completions",
-                headers={"Authorization": f"Bearer {data['api_key']}", "X-NanoMuse-Conversation": conversation, **APP_UA},
-                json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]},
-            )
-            assert response.status_code == 200
-            if conversation == "slow":
-                assert await asyncio.to_thread(entered.wait, 2)
+        slow_task = asyncio.create_task(upload(data_a, "slow", 0))
+        assert await asyncio.to_thread(entered.wait, 2)
+        r = await upload(data_b, "other", 1)
+        assert r.status_code == 201, r.text
         assert await asyncio.to_thread(other_written.wait, 2), "another account must not wait for the slow account"
     finally:
         release.set()
-        await settled(app)
+    r = await slow_task
+    assert r.status_code == 201, r.text
 
 
 async def test_failed_record_does_not_block_the_accounts_next_turn(tmp_path, monkeypatch):
+    """A record write that fails (the disk is full) fails that upload only: the next
+    turn of the same account still lands."""
     app, client, sender, up, cloud = relay(tmp_path)
     data = await sign_up(client, sender, identifier="failed-record@example.com")
     headers = {"Authorization": f"Bearer {data['api_key']}", **APP_UA}
     real_record = cloud.record_turn
-    entered = threading.Event()
-    release = threading.Event()
-    next_entered = threading.Event()
 
     def record(*args, **kwargs):
         if kwargs.get("conversation") == "failed":
-            entered.set()
-            assert release.wait(5), "test must release the failing record"
             raise OSError("simulated record write failure")
-        next_entered.set()
         return real_record(*args, **kwargs)
 
     monkeypatch.setattr(cloud, "record_turn", record)
-    try:
-        for conversation in ("failed", "next"):
-            response = await client.post(
-                "/v1/chat/completions",
-                headers={**headers, "X-NanoMuse-Conversation": conversation},
-                json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]},
-            )
-            assert response.status_code == 200
-            if conversation == "failed":
-                assert await asyncio.to_thread(entered.wait, 2)
-        assert not next_entered.is_set(), "the next turn of the same account still waits its turn"
-    finally:
-        release.set()
-        await settled(app)
-    assert next_entered.is_set()
+
+    def turn(conversation: str) -> dict:
+        return {
+            "id": f"t-{conversation}",
+            "model": "qwen3.8-27b",
+            "messages": [{"role": "user", "content": "hi"}],
+            "conversation": conversation,
+            "response": {"message": {"role": "assistant", "content": "hi"}, "usage": {"prompt_tokens": 1, "completion_tokens": 1}},
+        }
+
+    with pytest.raises(OSError):
+        await client.post("/v1/turns", headers=headers, json=turn("failed"))
+    r = await client.post("/v1/turns", headers=headers, json=turn("next"))
+    assert r.status_code == 201, r.text
     turns = (await client.get("/v1/turns", headers=headers)).json()["turns"]
     assert [t["conversation"] for t in turns] == ["next"]
 
@@ -432,9 +473,6 @@ async def test_a_turn_on_an_own_key_is_put_up_with_its_files(tmp_path):
     me = (await client.get("/v1/me", headers=headers)).json()
     record = {"on": True, "turns": 2, "own": 2, "files": 1, "media_bytes": len(PNG_1PX), "keep_days": 0}
     assert me["contribute"]["record"] == record
-    # the flip answers the same figures (0.30): an app that redraws Data controls from it keeps them
-    flipped = (await client.post("/v1/me/contribute", headers=headers, json={"on": False})).json()
-    assert flipped["on"] is False and flipped["record"] == record
     assert (await client.get("/v1/admin/record", headers=ADMIN)).json()["totals"]["own"] == 2
     # the record's events never carry words
     events = (await client.get("/v1/me/events", headers=headers)).json()["events"]
@@ -448,11 +486,24 @@ async def test_deleting_the_record_removes_only_the_files_nobody_else_holds(tmp_
     ha = {"Authorization": f"Bearer {a['api_key']}"}
     hb = {"Authorization": f"Bearer {b['api_key']}"}
     other_png = PNG_1PX + b"\0"  # a second picture, only A's
-    for h, pics in ((ha, [PNG_URL, "data:image/png;base64," + base64.b64encode(other_png).decode()]), (hb, [PNG_URL])):
-        msgs = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": p}} for p in pics]}]
-        assert (await client.post("/v1/chat/completions", headers=h, json={"model": "qwen3.8-27b", "messages": msgs})).status_code == 200
-    await settled(app)
     other_sha = hashlib.sha256(other_png).hexdigest()
+    # each account puts its pictures up, then a turn that names them
+    for h, pics in ((ha, [(PNG_SHA, PNG_1PX), (other_sha, other_png)]), (hb, [(PNG_SHA, PNG_1PX)])):
+        for sha, pic in pics:
+            r = await client.put(f"/v1/blobs/{sha}", headers={**h, "Content-Type": "image/png"}, content=pic)
+            assert r.status_code == 200, r.text
+        msgs = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": BLOB_PREFIX + sha}} for sha, _ in pics]}]
+        r = await client.post(
+            "/v1/turns",
+            headers=h,
+            json={
+                "id": "t-del",
+                "model": "qwen3.8-27b",
+                "messages": msgs,
+                "response": {"message": {"role": "assistant", "content": "seen"}, "usage": {"prompt_tokens": 1, "completion_tokens": 1}},
+            },
+        )
+        assert r.status_code == 201, r.text
     assert cloud.media.has(PNG_SHA) and cloud.media.has(other_sha)
     assert (await client.get("/v1/admin/record", headers=ADMIN)).json()["totals"]["store_bytes"] == len(PNG_1PX) + len(other_png)
 
@@ -490,19 +541,37 @@ async def test_retention_and_the_cap_sweep_the_oldest_first(tmp_path):
         },
         [{"sha256": old_sha, "mime": "image/png", "bytes": len(old_png)}],
     )
-    # and three fresh ones with pictures of 600 bytes each: the cap holds one and a bit
+    # and three fresh ones with pictures of 600 bytes each: the cap holds one and a bit.
+    # Written straight to the store: the upload path refuses a file past the cap, while
+    # the sweep is about what is already there.
     shas = []
     for i in range(3):
         pic = b"\x89PNG" + bytes([i]) * 600
-        shas.append(hashlib.sha256(pic).hexdigest())
-        msgs = [
+        sha = hashlib.sha256(pic).hexdigest()
+        shas.append(sha)
+        cloud.media.put(pic)
+        cloud.db.add_turn(
             {
-                "role": "user",
-                "content": [{"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(pic).decode()}}],
-            }
-        ]
-        assert (await client.post("/v1/chat/completions", headers=ha, json={"model": "qwen3.8-27b", "messages": msgs})).status_code == 200
-        await settled(app)
+                "id": f"fresh-{i}",
+                "account_id": a["account"]["id"],
+                "ts": now(),  # real time: Cloud.clock is pinned to October by the suite
+                "model": "qwen3.8-27b",
+                "request": pack(
+                    {
+                        "model": "qwen3.8-27b",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [{"type": "image_url", "image_url": {"url": BLOB_PREFIX + sha}}],
+                            }
+                        ],
+                    }
+                ),
+                "response": pack({"message": {"role": "assistant", "content": "seen"}}),
+                "meta": "{}",
+            },
+            [{"sha256": sha, "mime": "image/png", "bytes": len(pic)}],
+        )
         cloud.db._conn.execute("UPDATE blobs SET last_used_at=last_used_at+? WHERE sha256=?", (i + 1, shas[-1]))  # order the uses
     assert cloud.db.turn_count() == 4 and all(cloud.media.has(s) for s in shas) and cloud.media.has(old_sha)
 

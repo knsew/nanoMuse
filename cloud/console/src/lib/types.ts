@@ -32,9 +32,9 @@ export interface Switch {
   note: string;
 }
 export interface RuntimeSettings {
-  values: { allowance_cny: number; invite_bonus_cny: number; signup_open: boolean };
-  env: { allowance_cny: number; invite_bonus_cny: number; signup_open: boolean };
-  overridden: { allowance_cny: boolean; invite_bonus_cny: boolean; signup_open: boolean };
+  values: { allowance_cny: number; signup_open: boolean };
+  env: { allowance_cny: number; signup_open: boolean };
+  overridden: { allowance_cny: boolean; signup_open: boolean };
   below_allowance: number;
 }
 export interface Price {
@@ -59,14 +59,10 @@ export interface Settings {
   signup_open: boolean;
   allowance_cny: number;
   allowance_usd: number;
-  invite_bonus_cny: number;
-  invitee_bonus_cny: number;
   contribute_bonus_cny: number;
   improve_default: boolean;
   usd_cny: number;
   day_offset_h: number;
-  invite_url: string;
-  own_key_docs: string;
   privacy_url: string;
   contributors: number;
   allowed_identifiers: string[];
@@ -94,14 +90,6 @@ export interface EventRow {
   identifier?: string;
   platform?: string;
 }
-export interface Geo {
-  enabled: boolean;
-  ready: boolean;
-  families: string[];
-  error: string;
-  fetching: boolean;
-  file: string;
-}
 export interface Overview {
   generated_at: number;
   day_start: number;
@@ -116,7 +104,6 @@ export interface Overview {
   settings: Settings;
   online_devices: number;
   version: string;
-  geo: Geo;
 }
 export interface SeriesDay {
   day: number;
@@ -124,7 +111,6 @@ export interface SeriesDay {
   sign_in_failures: number;
   new_accounts: number;
   active_accounts: number;
-  invites_used: number;
   contribute_on: number;
   calls: number;
   budget_refusals: number;
@@ -134,10 +120,8 @@ export interface SeriesDay {
 export interface Series {
   generated_at: number;
   days: SeriesDay[];
-  invites: { with_code: number; inviters: number; invited: number; contribute_bonuses: number };
   contributors: number;
   online_devices: number;
-  web: Record<string, unknown> | null;
 }
 
 // -- live and analytics ---------------------------------------------------------------------
@@ -543,7 +527,6 @@ export interface Account {
   locked: boolean;
   listed: boolean;
   member: boolean;
-  review: boolean;
   spent_today_cny: number;
   spent_cny: number;
   grant_cny: number;
@@ -555,19 +538,6 @@ export interface Account {
 export interface AccountsPage {
   accounts: Account[];
   settings: Settings;
-}
-export interface Invitee {
-  id: string;
-  hint: string;
-  channel: string;
-  created_at: number;
-  disabled: boolean;
-  first_ip: string;
-  last_ip: string;
-  last_seen_at: number | null;
-  requests: number;
-  spent_cny: number;
-  settled: boolean;
 }
 export interface LedgerRow {
   id: number;
@@ -586,10 +556,6 @@ export interface AccountDetail {
   account: Account & {
     failed_logins: number;
     locked_until: number | null;
-    invited: Invitee[];
-    invited_total: number;
-    inviter: { id: string; hint: string; channel?: string } | null;
-    invite_earned_cny: number;
     samples: number;
   };
   addresses: { ip: string; n: number; first_seen: number; last_seen: number; platforms: string[] }[];
@@ -606,12 +572,10 @@ export interface AccountDetail {
   recent: LedgerRow[];
   events: EventRow[];
   calls: { n: number; ok: number; errors: number; refused: number; hands: number; images: number; with_tools: number; avg_ttft_ms: number; avg_total_ms: number; avg_wait_ms: number; last_ts: number };
-  demo: { visitor: DemoVisitor | null; visits: DemoVisit[]; visits_total: number } | null;
 }
 export interface Address {
   ip: string;
   accounts: { id: string; hint: string; channel: string; created_at: number; n: number; last_seen: number }[];
-  place: { country: string; code: string; province: string; city: string; isp: string; local: boolean; text: string } | null;
 }
 export interface Sample {
   id: string;
@@ -627,87 +591,7 @@ export interface Sample {
   hint?: string;
 }
 
-export interface Leader {
-  id: string;
-  hint: string;
-  identifier: string;
-  channel: string;
-  created_at: number;
-  disabled: boolean;
-  first_ip: string;
-  last_ip: string;
-  invites: number;
-  invited: number;
-  invited_active: number;
-  invited_settled: number;
-  invited_pending: number;
-  invited_same_ip: number;
-  invited_spent_cny: number;
-  earned_cny: number;
-  first_invite_at: number;
-  last_invite_at: number;
-  invitees: Invitee[];
-}
-export interface Invites {
-  generated_at: number;
-  funnel: { with_code: number; inviters: number; invited: number; contribute_bonuses: number };
-  leaders: Leader[];
-}
-export interface PlaceCell {
-  country: string;
-  code: string;
-  province: string;
-  n: number;
-  ips: number;
-}
-export interface Places {
-  days: number;
-  geo: Geo;
-  accounts: PlaceCell[];
-  requests: PlaceCell[];
-  signins: PlaceCell[];
-  new_accounts: PlaceCell[];
-  demo_visitors: PlaceCell[] | null;
-}
 
-export interface DemoVisitor {
-  id: string;
-  hint: string;
-  channel: string;
-  created: boolean;
-  signins: number;
-  sessions: number;
-  first_seen: number;
-  last_seen: number;
-  last_ua: string;
-  last_ip: string;
-  first_ip: string;
-}
-export interface DemoVisit {
-  id: string;
-  started: number;
-  ended: number | null;
-  reason: string;
-  visitor: string;
-  account_id?: string;
-  hint?: string;
-  byok: boolean;
-  ua: string;
-  ip: string;
-  requests?: number;
-  tokens?: number;
-  model?: string;
-}
-export interface Demo {
-  available: boolean;
-  signin_required?: boolean;
-  visitors?: DemoVisitor[];
-  visitors_total?: number;
-  visits?: DemoVisit[];
-  visits_total?: number;
-  active?: DemoVisit[];
-  days?: number;
-}
 
 export interface DataView {
   generated_at: number;
@@ -867,44 +751,6 @@ export interface Health {
   problems: string[];
 }
 
-export interface Traffic {
-  available: boolean;
-  since?: string;
-  updated_at?: number;
-  days?: { day: string; requests: number; pages: number; visitors: number; bots: number; downloads: number; bytes: number }[];
-  pages?: { name: string; hits: number }[];
-  referrers?: { name: string; hits: number }[];
-  downloads?: { name: string; hits: number; bytes: number }[];
-  github?: { days: { day: string; stars: number; downloads: number }[]; day?: string; stars?: number; forks?: number; watchers?: number; downloads?: number; assets?: Record<string, number> };
-}
-export interface GitHub {
-  status: { enabled: boolean; repo: string; token: boolean; last_run: number | null; last_ok: number | null; error: string; running: boolean; interval_s: number };
-  days: {
-    day: number;
-    snapshot: boolean;
-    stars: number | null;
-    new_stars: number | null;
-    forks: number | null;
-    new_forks: number | null;
-    watchers: number | null;
-    new_watchers: number | null;
-    issues: number | null;
-    new_issues: number | null;
-    downloads: number | null;
-    new_downloads: number | null;
-  }[];
-  latest: {
-    day: number | null;
-    stars: number | null;
-    forks: number | null;
-    watchers: number | null;
-    issues: number | null;
-    downloads: number | null;
-    platforms: Record<string, number>;
-    assets: { name: string; downloads: number; platform: string }[];
-    releases: { tag: string; downloads: number }[];
-  };
-}
 export interface Catalog {
   enabled: boolean;
   probe: boolean;
@@ -959,22 +805,4 @@ export interface Controls {
   notify_configured: boolean;
   admin_email_set: boolean;
   audit: AuditRow[];
-}
-export interface NudgesPolicy {
-  version: number;
-  star: {
-    enabled: boolean;
-    url: string;
-    moments: { signed_in: boolean; tasks: number[]; new_look: boolean; exhausted: boolean; days_used: number[]; goal_done: boolean };
-    cooldown_days: number;
-    max_asks: number;
-    text: string;
-    text_zh: string;
-  };
-}
-export interface Nudges {
-  nudges: NudgesPolicy;
-  defaults: NudgesPolicy;
-  stored: boolean;
-  updated_at: number | null;
 }

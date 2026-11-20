@@ -215,10 +215,9 @@ CREATE TABLE IF NOT EXISTS sync_cursors (
     account_id    TEXT PRIMARY KEY REFERENCES accounts(id),
     seq           INTEGER NOT NULL DEFAULT 0  -- one counter per account; cursor = its value
 );
--- 0.22: one number per UTC day, metric and key — the GitHub snapshots the collector takes
--- (stars, forks, watchers, downloads per asset), the relay's own daily counters (API calls
--- by group, accounts active by any call, errors by code, sync volume). Counters survive a
--- restart because they live here and nowhere else (stats.py, github_stats.py).
+-- 0.22: one number per UTC day, metric and key — the relay's own daily counters (API
+-- calls by group, accounts active by any call, errors by code, sync volume). Counters
+-- survive a restart because they live here and nowhere else (stats.py).
 CREATE TABLE IF NOT EXISTS daily (
     day           INTEGER NOT NULL,           -- the UNIX time the UTC day starts
     metric        TEXT NOT NULL,              -- gh.stars | gh.downloads | api | active | error | sync …
@@ -750,7 +749,7 @@ class Database:
                     (key, json.dumps(value), now()),
                 )
 
-    # -- 0.22: one number per UTC day, metric and key (stats.py, github_stats.py) ---------------
+    # -- 0.22: one number per UTC day, metric and key (stats.py) ---------------
 
     def daily_add(self, metric: str, key: str, n: int = 1, ts: int | None = None) -> None:
         """Add `n` to the day's counter — an API call, an error, a sync push."""
@@ -1263,9 +1262,9 @@ class Database:
             )
             c.execute("DELETE FROM api_keys WHERE account_id=?", (account_id,))
             # the accounts that signed up with this one's code no longer name it. A settled
-            # one keeps nothing; one whose bonus is still unpaid keeps the mark of having
-            # been invited (settle_invite then credits that side alone, as for any inviter
-            # that is gone). A code is only ever accepted at sign-up, so nothing reopens.
+            # one keeps nothing; one whose bonus was still unpaid keeps the mark of having
+            # been invited (a historical record only: invite settlement is gone, so nothing
+            # is ever paid for it). A code is only ever accepted at sign-up, so nothing reopens.
             c.execute(
                 "UPDATE accounts SET invited_by='' WHERE invited_by=? AND invite_settled_at IS NOT NULL",
                 (account_id,),
@@ -1291,29 +1290,6 @@ class Database:
             )
 
     # -- contributed conversations -------------------------------------------------------------
-
-    def set_contribute(self, account_id: str, on: bool) -> None:
-        with self.tx() as c:
-            c.execute("UPDATE accounts SET contribute=? WHERE id=?", (1 if on else 0, account_id))
-
-    def add_sample(
-        self,
-        account_id: str,
-        model: str,
-        request: str,
-        response: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-        meta: str = "{}",
-    ) -> str:
-        sid = uuid.uuid4().hex
-        with self.tx() as c:
-            c.execute(
-                "INSERT INTO samples(id, account_id, ts, model, request, response, prompt_tokens, completion_tokens, meta) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
-                (sid, account_id, now(), model, request, response, prompt_tokens, completion_tokens, meta),
-            )
-        return sid
 
     def sample_count(self, account_id: str | None = None) -> int:
         with self._lock:
@@ -1976,6 +1952,27 @@ class Database:
         with self._lock:
             return int(self._conn.execute("SELECT COUNT(*) FROM accounts WHERE contribute=1").fetchone()[0])
 
+    def signups_from_domain_since(self, domain: str, since: int) -> int:
+        """How many e-mail accounts whose address ends in ``@domain`` were made since `since`.
+        The hint (``so***@example.com``) carries the domain in clear, so nothing is decrypted."""
+        tail = "@" + domain.lower()
+        with self._lock:
+            r = self._conn.execute(
+                "SELECT COUNT(*) FROM accounts WHERE created_at>=? AND channel='email' AND SUBSTR(hint, -LENGTH(?))=?",
+                (since, tail, tail),
+            ).fetchone()
+        return int(r[0] or 0)
+
+    def add_credit(self, account_id: str, credit_uy: int, note: str = "") -> None:
+        """Credit from the operator — a merged pull request, a good issue, a hand at a bad day."""
+        credit_uy = max(0, int(credit_uy))
+        with self.tx() as c:
+            c.execute("UPDATE accounts SET grant_uy=grant_uy+? WHERE id=?", (credit_uy, account_id))
+            c.execute(
+                "INSERT INTO ledger(account_id, ts, kind, charged, extra) VALUES (?,?,?,?,?)",
+                (account_id, now(), "credit", 0, json.dumps({"credit_uy": credit_uy, "from": "operator", "note": note[:200]})),
+            )
+
     # The Data view's sums are read from `sample_stats` (one short row per kept turn), never
     # from `samples`: a sample row carries the conversation, tens of kilobytes on average, and
     # a SUM over a column stored after it walked every row's overflow pages, which on a file
@@ -2055,265 +2052,6 @@ class Database:
     def set_unlimited(self, account_id: str, unlimited: bool) -> None:
         with self.tx() as c:
             c.execute("UPDATE accounts SET unlimited=? WHERE id=?", (1 if unlimited else 0, account_id))
-
-    # -- invitations and credit -----------------------------------------------------
-
-    def account_by_invite_code(self, code: str) -> sqlite3.Row | None:
-        if not code:
-            return None
-        with self._lock:
-            return self._conn.execute("SELECT * FROM accounts WHERE invite_code=?", (code,)).fetchone()
-
-    def set_invite_code(self, account_id: str, code: str) -> bool:
-        """Give the account its code, once; False when another account already holds that code."""
-        with self.tx() as c:
-            try:
-                cur = c.execute("UPDATE accounts SET invite_code=? WHERE id=? AND invite_code=''", (code, account_id))
-            except sqlite3.IntegrityError:
-                return False
-            return cur.rowcount == 1
-
-    def link_invite(self, inviter_id: str, invitee_id: str) -> None:
-        """A new account signed up with the inviter's code: the link is written and the
-        inviter's counter grows (``invites`` keeps meaning sign-ups). Nothing is credited
-        here; the bonus is paid by ``settle_invite`` at the newcomer's first charged request."""
-        with self.tx() as c:
-            c.execute("UPDATE accounts SET invited_by=? WHERE id=? AND invited_by=''", (inviter_id, invitee_id))
-            c.execute("UPDATE accounts SET invites=invites+1 WHERE id=?", (inviter_id,))
-
-    def invite_pending(self, account_id: str) -> bool:
-        """Whether this account came through a code and its bonus is still unpaid; one lookup
-        by primary key, made after every charged request."""
-        with self._lock:
-            r = self._conn.execute(
-                "SELECT 1 FROM accounts WHERE id=? AND invited_by<>'' AND invite_settled_at IS NULL", (account_id,)
-            ).fetchone()
-        return r is not None
-
-    def settle_invite(
-        self,
-        invitee_id: str,
-        bonus_uy: int,
-        min_spent_uy: int = 0,
-        refuse_same_ip: bool = False,
-    ) -> tuple[bool, str, bool]:
-        """The invitee made its first charged request: both pools grow by the bonus, the
-        inviter's (``from: invite``, with the friend's id) and the invitee's (``from:
-        invited``), and the account is marked settled. A no-op when the account was not
-        invited or was settled already. When the inviter's account is gone, or disabled,
-        the invitee alone is credited and the account is still marked settled, so the
-        question is never asked again. When ``refuse_same_ip`` is true and both accounts
-        share the same non-local ``first_ip``, or when ``min_spent_uy`` is positive and the
-        invitee has not spent at least ``min_spent_uy``, settlement is deferred and
-        ``(False, inviter_id, False)`` is returned. Returns ``(settled, inviter_id,
-        inviter_paid)``."""
-        t = now()
-        bonus_uy = max(0, int(bonus_uy))
-        min_spent_uy = max(0, int(min_spent_uy))
-        with self.tx() as c:
-            row = c.execute(
-                "SELECT invited_by, invite_settled_at, first_ip FROM accounts WHERE id=?",
-                (invitee_id,),
-            ).fetchone()
-            if row is None or not row["invited_by"] or row["invite_settled_at"] is not None:
-                return False, str(row["invited_by"]) if row is not None else "", False
-            inviter_id = str(row["invited_by"])
-            inviter = c.execute("SELECT id, disabled, first_ip FROM accounts WHERE id=?", (inviter_id,)).fetchone()
-            if refuse_same_ip and inviter is not None:
-                invitee_ip = (row["first_ip"] or "").strip()
-                inviter_ip = (inviter["first_ip"] or "").strip()
-                if invitee_ip and invitee_ip == inviter_ip and invitee_ip not in ("127.0.0.1", "::1", "testclient"):
-                    return False, inviter_id, False
-            if min_spent_uy > 0:
-                spent = int(
-                    c.execute(
-                        "SELECT COALESCE(SUM(cost_uy), 0) FROM ledger WHERE account_id=? AND cost_uy>0",
-                        (invitee_id,),
-                    ).fetchone()[0]
-                    or 0
-                )
-                if spent < min_spent_uy:
-                    return False, inviter_id, False
-            inviter_paid = inviter is not None and not inviter["disabled"]
-            if inviter_paid:
-                c.execute("UPDATE accounts SET grant_uy=grant_uy+? WHERE id=?", (bonus_uy, inviter_id))
-                c.execute(
-                    "INSERT INTO ledger(account_id, ts, kind, charged, extra) VALUES (?,?,?,?,?)",
-                    (inviter_id, t, "credit", 0, json.dumps({"credit_uy": bonus_uy, "from": "invite", "friend": invitee_id[:8]})),
-                )
-            c.execute("UPDATE accounts SET grant_uy=grant_uy+?, invite_settled_at=? WHERE id=?", (bonus_uy, t, invitee_id))
-            c.execute(
-                "INSERT INTO ledger(account_id, ts, kind, charged, extra) VALUES (?,?,?,?,?)",
-                (invitee_id, t, "credit", 0, json.dumps({"credit_uy": bonus_uy, "from": "invited", "friend": inviter_id[:8]})),
-            )
-        return True, inviter_id, inviter_paid
-
-    @staticmethod
-    def _invite_net_uy(c: sqlite3.Connection, inviter_id: str) -> int:
-        """The ``from: invite`` lines minus the ``from: clawback`` lines (which are negative)."""
-        r = c.execute(
-            "SELECT COALESCE(SUM(json_extract(extra, '$.credit_uy')), 0) FROM ledger "
-            "WHERE account_id=? AND kind='credit' AND json_extract(extra, '$.from') IN ('invite', 'clawback')",
-            (inviter_id,),
-        ).fetchone()
-        return max(0, int(r[0] or 0))
-
-    def invite_reclaimable_uy(self, inviter_id: str) -> int:
-        """What this account's invites put into its pool and has not been taken back yet."""
-        with self._lock:
-            return self._invite_net_uy(self._conn, inviter_id)
-
-    def clawback_invite(self, inviter_id: str, note: str = "") -> int:
-        """The operator takes the invite credit back (abuse): the pool is lowered by what
-        the invites put in and was not reclaimed before, but never below what the account
-        has spent, so what is left never goes negative. One ledger line of kind ``credit``
-        says so (``from: clawback``, a negative figure). Returns the micro-yuan reclaimed,
-        0 when there is nothing to take or no such account."""
-        t = now()
-        with self.tx() as c:
-            row = c.execute("SELECT grant_uy FROM accounts WHERE id=?", (inviter_id,)).fetchone()
-            if row is None:
-                return 0
-            earned = self._invite_net_uy(c, inviter_id)
-            spent = c.execute("SELECT COALESCE(SUM(cost_uy),0) FROM ledger WHERE account_id=? AND cost_uy>0", (inviter_id,)).fetchone()[0]
-            grant = int(row["grant_uy"] or 0)
-            amount = min(earned, max(0, grant - int(spent or 0)))
-            if amount <= 0:
-                return 0
-            c.execute("UPDATE accounts SET grant_uy=grant_uy-? WHERE id=?", (amount, inviter_id))
-            c.execute(
-                "INSERT INTO ledger(account_id, ts, kind, charged, extra) VALUES (?,?,?,?,?)",
-                (inviter_id, t, "credit", 0, json.dumps({"credit_uy": -amount, "from": "clawback", "note": note[:200]})),
-            )
-        return amount
-
-    def unused_invitee_ids(self, inviter_id: str, limit: int = 500) -> list[str]:
-        """The accounts this one brought that never made a charged request and never spent
-        anything, oldest first, `limit` at a time (the caller loops until none are left)."""
-        with self._lock:
-            rows = self._conn.execute(
-                f"""SELECT id FROM (SELECT i.id, i.created_at, i.rowid AS rid, {USAGE_OF_ACCOUNT} FROM accounts i WHERE i.invited_by=?)
-                    WHERE requests=0 AND spent_uy=0
-                    ORDER BY created_at, rid LIMIT ?""",
-                (inviter_id, max(1, int(limit))),
-            ).fetchall()
-        return [str(r["id"]) for r in rows]
-
-    def invite_velocity(self, since: int, more_than: int = 10) -> list[sqlite3.Row]:
-        """The inviters whose code brought more than `more_than` accounts since `since`
-        (``id``, ``hint``, ``n``), the most first; one aggregate over the sign-ups of the period."""
-        with self._lock:
-            return self._conn.execute(
-                """SELECT a.id, a.hint, x.n FROM (
-                       SELECT invited_by, COUNT(*) AS n FROM accounts WHERE created_at>=? AND invited_by<>''
-                       GROUP BY invited_by HAVING COUNT(*)>?
-                   ) x JOIN accounts a ON a.id=x.invited_by ORDER BY x.n DESC""",
-                (since, int(more_than)),
-            ).fetchall()
-
-    def invite_unused(self, at_least: int = 20, active_share: float = 0.05) -> list[sqlite3.Row]:
-        """The inviters with at least `at_least` invitees of whom `active_share` or fewer ever
-        made a request (``id``, ``hint``, ``n``, ``active``), the most invitees first."""
-        with self._lock:
-            # Probe ledger_account_ts once per invitee. Grouping the whole ledger here made
-            # the ten-minute health check block the relay once the statement grew large.
-            return self._conn.execute(
-                """SELECT a.id, a.hint, x.n, x.active FROM (
-                        SELECT i.invited_by, COUNT(*) AS n,
-                               SUM(CASE WHEN EXISTS (
-                                   SELECT 1 FROM ledger l
-                                   WHERE l.account_id=i.id
-                                     AND l.kind IN ('chat','image','video','realtime')
-                                   LIMIT 1
-                               ) THEN 1 ELSE 0 END) AS active
-                        FROM accounts i
-                        WHERE i.invited_by<>'' GROUP BY i.invited_by
-                    ) x JOIN accounts a ON a.id=x.invited_by
-                    WHERE x.n>=? AND x.active <= x.n * ?
-                    ORDER BY x.n DESC""",
-                (int(at_least), float(active_share)),
-            ).fetchall()
-
-    def signups_from_domain_since(self, domain: str, since: int) -> int:
-        """How many e-mail accounts whose address ends in ``@domain`` were made since `since`.
-        The hint (``so***@example.com``) carries the domain in clear, so nothing is decrypted."""
-        tail = "@" + domain.lower()
-        with self._lock:
-            r = self._conn.execute(
-                "SELECT COUNT(*) FROM accounts WHERE created_at>=? AND channel='email' AND SUBSTR(hint, -LENGTH(?))=?",
-                (since, tail, tail),
-            ).fetchone()
-        return int(r[0] or 0)
-
-    def add_credit(self, account_id: str, credit_uy: int, note: str = "") -> None:
-        """Credit from the operator — a merged pull request, a good issue, a hand at a bad day."""
-        credit_uy = max(0, int(credit_uy))
-        with self.tx() as c:
-            c.execute("UPDATE accounts SET grant_uy=grant_uy+? WHERE id=?", (credit_uy, account_id))
-            c.execute(
-                "INSERT INTO ledger(account_id, ts, kind, charged, extra) VALUES (?,?,?,?,?)",
-                (account_id, now(), "credit", 0, json.dumps({"credit_uy": credit_uy, "from": "operator", "note": note[:200]})),
-            )
-
-    def invite_earned_uy(self, inviter_id: str) -> int:
-        """What invites have put into this account's pool, summed from the ledger lines
-        ``settle_invite`` wrote (``from: invite``), so the figure stays right when the bonus
-        changes between one invite and the next; net of what the operator took back
-        (``from: clawback``)."""
-        return self.invite_reclaimable_uy(inviter_id)
-
-    def invitees(self, inviter_id: str, limit: int = 50) -> list[sqlite3.Row]:
-        """The accounts that signed up with this one's code, newest first, each with when it
-        came, whether it ever made a request and what it spent, where it was seen from and
-        when it was last seen. The person's own view keeps the hint and the date of these;
-        the operator's page shows the rest."""
-        with self._lock:
-            return self._conn.execute(
-                f"""SELECT i.id, i.hint, i.channel, i.created_at, i.disabled, i.first_ip, i.last_ip, i.last_seen_at, i.invite_settled_at,
-                           {USAGE_OF_ACCOUNT}
-                    FROM accounts i
-                    WHERE i.invited_by=? ORDER BY i.created_at DESC, i.rowid DESC LIMIT ?""",
-                (inviter_id, limit),
-            ).fetchall()
-
-    def invitee_count(self, inviter_id: str) -> int:
-        """How many accounts here now signed up with this one's code (the ``invites`` column
-        is the counter as it was recorded; an invitee who deleted their account leaves it)."""
-        with self._lock:
-            r = self._conn.execute("SELECT COUNT(*) FROM accounts WHERE invited_by=?", (inviter_id,)).fetchone()
-        return int(r[0] or 0)
-
-    def invite_leaders(self, limit: int = 200) -> list[sqlite3.Row]:
-        """The accounts whose code brought someone, the ones that brought most first: how
-        many came (``invited``, the accounts here now; ``invites`` is the recorded counter),
-        how many of those ever made a request, how many were paid for and how many are still
-        pending, how many were seen from one of the inviter's own addresses, what they spent,
-        what the inviter's pool got from them, and when the first and the last of them
-        signed up."""
-        with self._lock:
-            return self._conn.execute(
-                f"""SELECT a.id, a.hint, a.channel, a.created_at, a.disabled, a.invites, a.first_ip, a.last_ip, a.identifier_enc,
-                           COUNT(i.id) AS invited,
-                           SUM(CASE WHEN COALESCE(l.requests, 0) > 0 THEN 1 ELSE 0 END) AS invited_active,
-                           SUM(CASE WHEN i.invite_settled_at IS NOT NULL THEN 1 ELSE 0 END) AS invited_settled,
-                           SUM(CASE WHEN i.invite_settled_at IS NULL THEN 1 ELSE 0 END) AS invited_pending,
-                           SUM(CASE WHEN (i.first_ip<>'' AND i.first_ip IN (a.first_ip, a.last_ip))
-                                      OR (i.last_ip<>'' AND i.last_ip IN (a.first_ip, a.last_ip)) THEN 1 ELSE 0 END) AS invited_same_ip,
-                           COALESCE(SUM(l.spent_uy), 0) AS invited_spent_uy,
-                           COALESCE(e.earned_uy, 0) AS earned_uy,
-                           MIN(i.created_at) AS first_invite_at,
-                           MAX(i.created_at) AS last_invite_at
-                    FROM accounts a
-                    JOIN accounts i ON i.invited_by=a.id
-                    LEFT JOIN {USAGE_BY_ACCOUNT} l ON l.account_id=i.id
-                    LEFT JOIN (SELECT account_id, SUM(json_extract(extra, '$.credit_uy')) AS earned_uy
-                               FROM ledger WHERE kind='credit' AND json_extract(extra, '$.from') IN ('invite', 'clawback')
-                               GROUP BY account_id) e ON e.account_id=a.id
-                    GROUP BY a.id
-                    ORDER BY invited DESC, last_invite_at DESC
-                    LIMIT ?""",
-                (limit,),
-            ).fetchall()
 
     # -- passwords -----------------------------------------------------------------
 
@@ -2754,8 +2492,7 @@ class Database:
 
     @staticmethod
     def _not_hashes(exclude_hashes: frozenset[str]) -> tuple[str, list[str]]:
-        """An `AND id_hash NOT IN (...)` clause and its parameters — empty for no set. The
-        reviewer's accounts (service.review_hashes) are left out of the sign-up counts."""
+        """An `AND id_hash NOT IN (...)` clause and its parameters — empty for no set."""
         if not exclude_hashes:
             return "", []
         hashes = sorted(exclude_hashes)
@@ -2799,18 +2536,6 @@ class Database:
     def devices_by_kind_os(self) -> list[sqlite3.Row]:
         with self._lock:
             return self._conn.execute("SELECT kind, os, COUNT(*) AS n FROM devices GROUP BY kind, os ORDER BY n DESC").fetchall()
-
-    def invite_funnel(self) -> dict[str, int]:
-        """Who asked for a code, whose code brought someone, who came through one."""
-        with self._lock:
-            r = self._conn.execute(
-                """SELECT SUM(CASE WHEN invite_code<>'' THEN 1 ELSE 0 END) AS with_code,
-                          SUM(CASE WHEN invites>0 THEN 1 ELSE 0 END) AS inviters,
-                          SUM(CASE WHEN invited_by<>'' THEN 1 ELSE 0 END) AS invited,
-                          SUM(CASE WHEN contribute_bonus_at IS NOT NULL THEN 1 ELSE 0 END) AS contribute_bonuses
-                   FROM accounts"""
-            ).fetchone()
-        return {k: int(r[k] or 0) for k in ("with_code", "inviters", "invited", "contribute_bonuses")}
 
     def account_counts(self) -> dict[str, int]:
         with self._lock:

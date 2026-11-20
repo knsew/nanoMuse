@@ -13,7 +13,7 @@ import pytest
 from conftest import BUSY_HOUR
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from test_cloud import PNG_1PX, fake_upstream, sign_up
+from test_cloud import fake_upstream, sign_up
 
 from nanomuse_cloud.api import create_app
 from nanomuse_cloud.config import ModelSpec, Settings
@@ -39,7 +39,6 @@ def make(**overrides):
         admin_token="admin",
         upstream_base="http://upstream/compat/v1",
         upstream_key="sk-upstream",
-        dashscope_base="http://upstream/ds/api/v1",
         signup_tokens=0,
         daily_cap_tokens=0,
         per_minute_requests=100,
@@ -260,168 +259,10 @@ async def test_no_usage_from_the_provider_is_estimated_the_same_way():
     assert whole["cost_cny"] == stream["cost_cny"] > 0
 
 
-async def test_an_edit_counts_the_picture_sent_in():
-    """A picture drawn from words costs the output price; an edit costs that plus the
-    picture sent in, and is refused up front when the two together do not fit (¥0.19 left:
-    the picture out alone would have fitted, in and out do not)."""
-    app, client, sender, up, cloud = make(allowance_cny=0.37)
-    data = await sign_up(client, sender)
-    auth = {"Authorization": f"Bearer {data['api_key']}"}
-    r = await client.post("/v1/images/generations", headers=auth, json={"model": "qwen-image-3.0", "prompt": "a dragon"})
-    assert r.status_code == 200
-    me = (await client.get("/v1/me", headers=auth)).json()
-    assert me["recent"][0]["cost_cny"] == 0.18 and me["spend"]["left"] == 0.19
-    files = {"image": ("in.png", PNG_1PX, "image/png")}
-    form = {"model": "qwen-image-3.0", "prompt": "make it blue"}
-    r = await client.post("/v1/images/edits", headers=auth, data=form, files=files)
-    assert r.status_code == 429 and r.json()["error"]["code"] == "allowance_exhausted"
-    me = (await client.get("/v1/me", headers=auth)).json()
-    assert me["spend"]["left"] == 0.19 and [r["requests"] for r in me["usage"]["total"]["by_kind"]] == [1]
-    assert not [r for r in up.state.requests if r[0] == "image" and "blue" in json.dumps(r[2])]  # never sent upstream
-
-
-async def test_an_edit_is_charged_in_and_out():
-    """With room for both, the edit's ledger line is the picture out plus the picture in."""
-    app, client, sender, up, cloud = make(allowance_cny=0.41)
-    data = await sign_up(client, sender)
-    auth = {"Authorization": f"Bearer {data['api_key']}"}
-    r = await client.post("/v1/images/generations", headers=auth, json={"model": "qwen-image-3.0", "prompt": "a dragon"})
-    assert r.status_code == 200
-    files = {"image": ("in.png", PNG_1PX, "image/png")}
-    form = {"model": "qwen-image-3.0", "prompt": "make it blue"}
-    r = await client.post("/v1/images/edits", headers=auth, data=form, files=files)
-    assert r.status_code == 200, r.text
-    me = (await client.get("/v1/me", headers=auth)).json()
-    assert me["recent"][0]["cost_cny"] == 0.2 and me["recent"][1]["cost_cny"] == 0.18
-    assert me["spend"]["total"] == 0.38 and me["spend"]["left"] == 0.03
-
-
-async def test_clips_are_priced_by_resolution_and_charged_once():
-    """A clip's price follows the resolution asked for (the apps ask for 480P); it is held
-    against the allowance from submission, charged once when the task is first seen done,
-    and never again however often the task is polled."""
-    app, client, sender, up, cloud = make(allowance_cny=5)
-    data = await sign_up(client, sender)
-    auth = {"Authorization": f"Bearer {data['api_key']}"}
-    path = "/api/v1/services/aigc/video-generation/video-synthesis"
-
-    async def submit(parameters: dict) -> str:
-        body = {"model": "wan2.2-i2v-flash", "input": {"prompt": "wave", "img_url": "oss://x"}, "parameters": parameters}
-        r = await client.post(path, headers=auth, json=body)
-        assert r.status_code == 200, r.text
-        return r.json()["output"]["task_id"]
-
-    t480 = await submit({"resolution": "480P"})
-    t1080 = await submit({"resolution": "1080P"})
-    tsize = await submit({"size": "1280*720"})
-    caller = cloud.authenticate(data["api_key"])
-    held = cloud.db.pending_video_cost(caller.account_id)
-    assert held == round((0.10 + 0.48 + 0.20) * 5 * M)
-    # a fourth at 1080P (¥2.40) no longer fits in what is left of ¥5 beyond the ¥3.90 held
-    r = await client.post(
-        path,
-        headers=auth,
-        json={"model": "wan2.2-i2v-flash", "input": {"prompt": "x", "img_url": "oss://y"}, "parameters": {"resolution": "1080P"}},
-    )
-    assert r.status_code == 429 and r.json()["error"]["code"] == "allowance_exhausted"
-    # polled: running, then done, then done again and again; each charged once, at the
-    # price fixed when it was submitted
-    for n, task_id in enumerate((t480, t1080, tsize), start=1):
-        for _ in range(4):
-            assert (await client.get(f"/api/v1/tasks/{task_id}", headers=auth)).status_code == 200
-        rows = [r for r in (await client.get("/v1/me", headers=auth)).json()["recent"] if r["kind"] == "video"]
-        assert len(rows) == n
-    me = (await client.get("/v1/me", headers=auth)).json()
-    clips = [r["cost_cny"] for r in me["recent"] if r["kind"] == "video"]
-    assert sorted(clips) == [0.5, 1.0, 2.4] and me["spend"]["total"] == 3.9 and me["spend"]["left"] == 1.1
-    assert cloud.db.pending_video_cost(caller.account_id) == 0
-    # with the clips charged the hold is gone; a 1080P clip (¥2.40) still does not fit in ¥1.10, a 480P one (¥0.50) does
-    r = await client.post(
-        path,
-        headers=auth,
-        json={"model": "wan2.2-i2v-flash", "input": {"prompt": "x", "img_url": "oss://y"}, "parameters": {"resolution": "1080P"}},
-    )
-    assert r.status_code == 429
-    assert (await submit({"resolution": "480P"})).startswith("task-")
-
-
-async def test_clips_never_polled_are_settled_by_the_relay():
-    """A clip the app never polls to an end (the app was closed) is still charged: shortly
-    before the hour's hold lapses the relay asks the provider itself, charges a SUCCEEDED
-    clip once, lets a FAILED one go, and asks about a task once more before the row is
-    purged. A poll after the relay settled a task charges nothing more, and the other way
-    round; a handful of tasks per tick."""
-    app, client, sender, up, cloud = make(allowance_cny=5)
-    data = await sign_up(client, sender)
-    auth = {"Authorization": f"Bearer {data['api_key']}"}
-    path = "/api/v1/services/aigc/video-generation/video-synthesis"
-    caller = cloud.authenticate(data["api_key"])
-    settle = app.state.settle_video_tasks
-
-    async def submit() -> str:
-        body = {"model": "wan2.2-i2v-flash", "input": {"prompt": "wave", "img_url": "oss://x"}, "parameters": {"resolution": "480P"}}
-        r = await client.post(path, headers=auth, json=body)
-        assert r.status_code == 200, r.text
-        return r.json()["output"]["task_id"]
-
-    done, failed, running, polled, gone, extra = [await submit() for _ in range(6)]
-    up.state.task_status.update({done: "SUCCEEDED", failed: "FAILED", running: "RUNNING", gone: 404, extra: "SUCCEEDED"})
-    clip = round(0.10 * 5 * M)
-    assert cloud.db.pending_video_cost(caller.account_id) == 6 * clip
-    # the app polled one of them to the end: charged by the poll
-    for _ in range(2):
-        assert (await client.get(f"/api/v1/tasks/{polled}", headers=auth)).status_code == 200
-    assert cloud.db.video_task(polled)["charged"] == 1
-    # too young: the relay asks about nothing yet
-    assert await settle() == 0
-    # 50 minutes on: the five unsettled tasks are due; a tick takes a handful
-    with cloud.db.tx() as c:
-        c.execute("UPDATE video_tasks SET created_at = created_at - 3100")
-    asked_before = len([r for r in up.state.requests if r[0] == "task"])
-    assert await settle(limit=2) == 2
-    assert len([r for r in up.state.requests if r[0] == "task"]) == asked_before + 2
-    assert await settle() == 3
-    assert await settle() == 0  # each asked once; nothing due for a second look yet
-    rows = {t: cloud.db.video_task(t) for t in (done, failed, running, gone, extra, polled)}
-    assert rows[done]["status"] == "SUCCEEDED" and rows[done]["charged"] == 1
-    assert rows[extra]["status"] == "SUCCEEDED" and rows[extra]["charged"] == 1
-    assert rows[failed]["status"] == "FAILED" and rows[failed]["charged"] == 0
-    assert rows[gone]["status"] == "UNKNOWN" and rows[gone]["charged"] == 0
-    assert rows[running]["status"] == "RUNNING" and rows[running]["charged"] == 0 and rows[running]["checks"] == 1
-    assert rows[polled]["checks"] == 0  # settled by the app's poll; never asked about
-    me = (await client.get("/v1/me", headers=auth)).json()
-    clips = [r for r in me["recent"] if r["kind"] == "video"]
-    assert len(clips) == 3 and me["spend"]["total"] == 1.5  # polled, done, extra: ¥0.50 each
-    # only the running one still holds money (and only until the hour is up)
-    assert cloud.db.pending_video_cost(caller.account_id) == clip
-    # the app comes back and polls the settled ones: nothing charged twice
-    for t in (done, extra, failed):
-        assert (await client.get(f"/api/v1/tasks/{t}", headers=auth)).status_code == 200
-    me = (await client.get("/v1/me", headers=auth)).json()
-    assert len([r for r in me["recent"] if r["kind"] == "video"]) == 3 and me["spend"]["total"] == 1.5
-    # the hold has lapsed and the row is about to be purged: one more look, and it finished
-    with cloud.db.tx() as c:
-        c.execute("UPDATE video_tasks SET created_at = created_at - ?", (3 * 86400 - 3600,))
-    up.state.task_status[running] = "SUCCEEDED"
-    assert await settle() == 1  # the running one only; the others were answered for good
-    assert cloud.db.video_task(running)["charged"] == 1 and cloud.db.video_task(running)["checks"] == 2
-    assert await settle() == 0
-    me = (await client.get("/v1/me", headers=auth)).json()
-    assert len([r for r in me["recent"] if r["kind"] == "video"]) == 4 and me["spend"]["total"] == 2.0
-    # a provider that does not answer is not counted as a check; the next tick asks again
-    fresh = await submit()
-    with cloud.db.tx() as c:
-        c.execute("UPDATE video_tasks SET created_at = created_at - 3100 WHERE task_id=?", (fresh,))
-    up.state.task_status[fresh] = 500
-    assert await settle() == 0 and cloud.db.video_task(fresh)["checks"] == 0
-    up.state.task_status[fresh] = "SUCCEEDED"
-    assert await settle() == 1 and cloud.db.video_task(fresh)["charged"] == 1
-
-
-async def test_two_chats_at_the_boundary_do_not_both_pass():
-    """With less than one typical turn left, two chats started together: the first holds a
-    turn's worth, so the second is refused rather than both passing the same check; the
-    ledger has one line, and the overrun is at most the one turn under way."""
+async def test_two_chats_started_together_are_both_charged():
+    """Two chats started together with less than one typical turn left in the pool:
+    nothing refuses (the allowance menu is gone), both go through and both are
+    charged, so the ledger has two lines."""
     turn = (6000 * 3 + 1500 * 12) / M  # the reservation for qwen3.8-27b, ¥0.036
     app, client, sender, up, cloud = make(allowance_cny=round(turn * 0.9, 4))
     data = await sign_up(client, sender)
@@ -440,13 +281,11 @@ async def test_two_chats_at_the_boundary_do_not_both_pass():
     replace_chat(up, slow)
     body = {"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
     rs = await asyncio.gather(*(client.post("/v1/chat/completions", headers=auth, json=body) for _ in range(2)))
-    assert sorted(r.status_code for r in rs) == [200, 429] and seen == 1
-    refused = next(r for r in rs if r.status_code == 429).json()["error"]
-    assert refused["code"] == "allowance_exhausted" and refused["left"] == round(turn * 0.9, 4)
+    assert [r.status_code for r in rs] == [200, 200] and seen == 2
     me = (await client.get("/v1/me", headers=auth)).json()
-    assert len(me["recent"]) == 2 and [r["kind"] for r in me["recent"]] == ["chat", "credit"]
-    assert me["spend"]["total"] == round((100 * 3 + 50 * 12) / M, 4)
-    # once settled, the next chat is let through again (the real charge was far under the hold)
+    assert len(me["recent"]) == 3 and [r["kind"] for r in me["recent"]] == ["chat", "chat", "credit"]
+    assert me["spend"]["total"] == round(2 * (100 * 3 + 50 * 12) / M, 4)
+    # the next chat goes through as well
     assert (await client.post("/v1/chat/completions", headers=auth, json=body)).status_code == 200
 
 
@@ -460,17 +299,14 @@ async def test_me_figures_agree_with_the_ledger():
     messages = [{"role": "user", "content": "hi"}]
     for model in ("deepseek-v4.1-flash", "qwen3.8-27b", "qwen3.8-flash"):
         assert (await client.post("/v1/chat/completions", headers=auth, json={"model": model, "messages": messages})).status_code == 200
-    assert (
-        await client.post("/v1/images/generations", headers=auth, json={"model": "qwen-image-3.0", "prompt": "a cat"})
-    ).status_code == 200
     me = (await client.get("/v1/me", headers=auth)).json()
     sp = me["spend"]
     chat = (100 * 2 + 50 * 8 + 100 * 3 + 50 * 12 + 100 * 0.8 + 50 * 2.7) / M
-    assert sp["currency"] == "CNY" and sp["grant"] == 10 and sp["total"] == round(chat + 0.18, 4)
+    assert sp["currency"] == "CNY" and sp["grant"] == 10 and sp["total"] == round(chat, 4)
     assert sp["left"] == round(10 - sp["total"], 4) and sp["today"] == sp["total"]
     assert sp["left_usd"] == round(sp["left"] / sp["usd_cny"], 4)
     by_kind = {r["kind"]: r["cost_cny"] for r in me["usage"]["total"]["by_kind"]}
-    assert by_kind == {"chat": round(chat, 4), "image": 0.18}
+    assert by_kind == {"chat": round(chat, 4)}
     assert round(sum(by_kind.values()), 4) == sp["total"]
     # the ledger's credit line (the sign-up) is on the statement but not in the spend
     kinds = [r["kind"] for r in me["recent"]]

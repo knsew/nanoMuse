@@ -1105,7 +1105,7 @@ class Analytics:
         cohort: dict[int, dict[str, Any]] = {}
         for a in rows:
             created = int(a["created_at"])
-            if created < first_week or a["id_hash"] in self.cloud.review_hashes:
+            if created < first_week:
                 continue
             w = _week_of(created)
             c = cohort.setdefault(w, {"week": w, "signups": 0, "chat": [0] * 4, "any": [0] * 4})

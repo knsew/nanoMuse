@@ -15,19 +15,15 @@ import { AddressDrawer } from "./pages/AddressDrawer";
 import { Cohorts } from "./pages/Cohorts";
 import { Controls } from "./pages/Controls";
 import { Data } from "./pages/Data";
-import { Demo } from "./pages/Demo";
 import { Hands } from "./pages/Hands";
 import { HealthPage } from "./pages/Health";
-import { Invites } from "./pages/Invites";
 import { LivePage } from "./pages/Live";
 import { Models } from "./pages/Models";
 import { Overview } from "./pages/Overview";
 import { People } from "./pages/People";
-import { Places } from "./pages/Places";
 import { Platforms } from "./pages/Platforms";
 import { Quality } from "./pages/Quality";
 import { SettingsPage } from "./pages/Settings";
-import { Site } from "./pages/Site";
 import { StatsPage } from "./pages/Stats";
 import { Turns } from "./pages/Turns";
 import { Usage } from "./pages/Usage";
@@ -37,7 +33,7 @@ export interface PageProps {
   days: number;
 }
 
-const PERIOD_PAGES = new Set<Page>(["overview", "usage", "platforms", "cohorts", "hands", "quality", "abuse", "places", "activity", "demo", "data", "turns", "site", "stats"]);
+const PERIOD_PAGES = new Set<Page>(["overview", "usage", "platforms", "cohorts", "hands", "quality", "abuse", "activity", "data", "turns", "stats"]);
 const DAY_OPTIONS: number[] = [7, 14, 30, 90, 365];
 
 const PAGE_VIEWS: Record<Page, (p: PageProps) => ReactNode> = {
@@ -50,14 +46,10 @@ const PAGE_VIEWS: Record<Page, (p: PageProps) => ReactNode> = {
   quality: (p) => <Quality {...p} />,
   abuse: (p) => <Abuse {...p} />,
   people: () => <People />,
-  invites: () => <Invites />,
-  places: (p) => <Places {...p} />,
   activity: (p) => <Activity {...p} />,
-  demo: (p) => <Demo {...p} />,
   data: (p) => <Data {...p} />,
   turns: (p) => <Turns {...p} />,
   health: () => <HealthPage />,
-  site: (p) => <Site {...p} />,
   models: () => <Models />,
   stats: (p) => <StatsPage {...p} />,
   controls: () => <Controls />,
@@ -74,14 +66,10 @@ const ICONS: Record<string, string> = {
   quality: "M12 3l2.5 6 6.5.6-5 4.3 1.6 6.4L12 17l-5.6 3.3L8 13.9 3 9.6 9.5 9z",
   abuse: "M12 3 2 21h20zM12 10v5m0 3v.5",
   people: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 19v-1a3 3 0 0 0-2-2.8M4 19v-1a3 3 0 0 1 2-2.8",
-  invites: "M4 8l8 5 8-5M4 8v10h16V8M4 8l8-4 8 4",
-  places: "M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11zM12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
   activity: "M3 12h4l3 7 4-14 3 7h4",
-  demo: "M4 5h16v12H4zM9 21h6M12 17v4",
   data: "M4 6c0-1.5 3.6-3 8-3s8 1.5 8 3-3.6 3-8 3-8-1.5-8-3zm0 0v12c0 1.5 3.6 3 8 3s8-1.5 8-3V6M4 12c0 1.5 3.6 3 8 3s8-1.5 8-3",
   turns: "M5 4h14v10H9l-4 4zM8 8h8M8 11h5",
   health: "M20 12h-3l-2 6-4-12-2 6H4",
-  site: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
   models: "M4 7h16M4 12h16M4 17h10",
   stats: "M4 19h16M6 16V9m4 7V5m4 11v-4m4 4V8",
   controls: "M4 7h10m4 0h2M4 17h4m4 0h8M14 5v4M8 15v4",

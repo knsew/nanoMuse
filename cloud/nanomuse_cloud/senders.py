@@ -1,4 +1,4 @@
-"""How a code reaches the person: the log (development), SMTP, or Aliyun SMS.
+"""How a code reaches the person: the log (development) or SMTP.
 
 `send(identifier, code)` raises `SendError` when the message could not go out
 so the API can say so instead of letting the user wait for nothing.
@@ -6,20 +6,12 @@ so the API can say so instead of letting the user wait for nothing.
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import ipaddress
-import json
 import logging
 import smtplib
-import time
 import urllib.parse
-import uuid
 from email.message import EmailMessage
 from typing import Protocol
-
-import httpx
 
 from .config import Settings
 from .identifiers import Identifier
@@ -35,13 +27,6 @@ class SendError(RuntimeError):
     def __init__(self, message: str, reason: str = "") -> None:
         super().__init__(message)
         self.reason = reason
-
-
-def aliyun_limit_code(code: str) -> bool:
-    """Whether an Aliyun answer code is the carrier's limit for one number, not a fault:
-    `isv.BUSINESS_LIMIT_CONTROL` (one a minute, five an hour, ten a day on dysms),
-    `isv.DAY_LIMIT_CONTROL`, `isv.MONTH_LIMIT_CONTROL`, and `biz.FREQUENCY` on dypns."""
-    return "LIMIT_CONTROL" in code or "FREQUENCY" in code
 
 
 class CodeSender(Protocol):
@@ -79,7 +64,7 @@ class SmtpSender:
     def send(self, ident: Identifier, code: str) -> None:
         if ident.channel != "email":
             raise SendError("this deployment sends codes by e-mail only")
-        # the same rounding as the SMS template: a lifetime under a minute still reads as one
+        # a lifetime under a minute still reads as one
         msg = compose_code_mail(self.s.smtp_from, ident.value, code, max(1, self.s.code_ttl_s // 60))
         smtp_send(self.s, msg)
 
@@ -147,7 +132,7 @@ def compose_code_mail(sender: str, to: str, code: str, minutes: int) -> EmailMes
         "Enter it in the nanoMuse app to sign in. Do not share it with anyone.\n\n"
         "如果这不是你本人的操作，忽略这封邮件即可。\n"
         "If you did not ask for this, you can ignore this message.\n\n"
-        "nanoMuse · https://nanomuse.cn/ · 自动发送，请勿回复 / automated, no reply\n"
+        "nanoMuse · https://github.com/knsew/nanoMuse · 自动发送，请勿回复 / automated, no reply\n"
     )
     spaced = " ".join(code)
     html = f"""<!doctype html>
@@ -161,129 +146,12 @@ def compose_code_mail(sender: str, to: str, code: str, minutes: int) -> EmailMes
 <tr><td style="font-size:14px;line-height:22px;color:#3a3a3c;padding-top:8px">It expires in {minutes} minutes. Enter it in the nanoMuse app to sign in; do not share it with anyone.</td></tr>
 <tr><td style="font-size:12px;line-height:18px;color:#8e8e93;padding-top:22px">如果这不是你本人的操作，忽略这封邮件即可。<br>If you did not ask for this, you can ignore this message.</td></tr>
 </table>
-<div style="font-size:12px;color:#8e8e93;padding-top:16px">nanoMuse · <a href="https://nanomuse.cn/" style="color:#8e8e93">nanomuse.cn</a> · 自动发送，请勿回复 / automated, no reply</div>
+<div style="font-size:12px;color:#8e8e93;padding-top:16px">nanoMuse · <a href="https://github.com/knsew/nanoMuse" style="color:#8e8e93">github.com/knsew/nanoMuse</a> · 自动发送，请勿回复 / automated, no reply</div>
 </td></tr></table>
 </body></html>
 """
     msg.add_alternative(html, subtype="html")
     return msg
-
-
-def _pct(v: str) -> str:
-    return urllib.parse.quote(v, safe="~")
-
-
-def aliyun_common_params(access_key_id: str) -> dict[str, str]:
-    """What every RPC-style Aliyun call (dypnsapi, dysmsapi; API version 2017-05-25) carries."""
-    return {
-        "AccessKeyId": access_key_id,
-        "Format": "JSON",
-        "SignatureMethod": "HMAC-SHA1",
-        "SignatureNonce": uuid.uuid4().hex,
-        "SignatureVersion": "1.0",
-        "Timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "Version": "2017-05-25",
-    }
-
-
-def aliyun_signed_query(access_key_secret: str, params: dict[str, str]) -> str:
-    """The query string of a GET, signed the RPC way: HMAC-SHA1 over the sorted, encoded pairs."""
-    canonical = "&".join(f"{_pct(k)}={_pct(v)}" for k, v in sorted(params.items()))
-    string_to_sign = "GET&%2F&" + _pct(canonical)
-    digest = hmac.new((access_key_secret + "&").encode(), string_to_sign.encode(), hashlib.sha1).digest()
-    signature = base64.b64encode(digest).decode()
-    return canonical + "&Signature=" + _pct(signature)
-
-
-class AliyunSmsSender:
-    """Aliyun SMS, signed the RPC way (HMAC-SHA1), no SDK. Two services:
-
-    - `ALIYUN_SMS_API=dypns` (default): 号码认证服务's `SendSmsVerifyCode`
-      (dypnsapi). Its ready-made templates take `code` and `min`; our own code
-      is passed in `TemplateParam`, so the relay still verifies it locally.
-    - `ALIYUN_SMS_API=dysms`: 短信服务's `SendSms` (dysmsapi) with a template
-      whose one variable is `code`, e.g. 「您的验证码为${code}，10分钟内有效。」.
-
-    Both reach mainland China numbers only, as the sign-in screens say (the
-    README's "plug in another sender" is the way to other countries; an
-    international SMS costs many times a domestic one and is what SMS-pumping
-    fraud dials). The number goes out without its +86.
-    """
-
-    ENDPOINTS = {"dypns": "https://dypnsapi.aliyuncs.com/", "dysms": "https://dysmsapi.aliyuncs.com/"}
-
-    def __init__(self, s: Settings) -> None:
-        if not (s.aliyun_access_key_id and s.aliyun_access_key_secret and s.aliyun_sms_sign and s.aliyun_sms_template):
-            raise ValueError("ALIYUN_ACCESS_KEY_ID/SECRET, ALIYUN_SMS_SIGN and ALIYUN_SMS_TEMPLATE are required for CODE_SENDER=aliyun")
-        if s.aliyun_sms_api not in self.ENDPOINTS:
-            raise ValueError("ALIYUN_SMS_API must be dypns or dysms")
-        self.s = s
-
-    @property
-    def api(self) -> str:
-        return self.s.aliyun_sms_api
-
-    @property
-    def endpoint(self) -> str:
-        return self.ENDPOINTS[self.api]
-
-    def _signed_query(self, params: dict[str, str]) -> str:
-        return aliyun_signed_query(self.s.aliyun_access_key_secret, params)
-
-    def accepts(self, ident: Identifier) -> bool:
-        """Mainland China phones only, whichever of the two services sends."""
-        return ident.channel == "phone" and ident.value.startswith("+86")
-
-    def params(self, ident: Identifier, code: str) -> dict[str, str]:
-        """The request for one code, before signing; the mainland number without its +86."""
-        if ident.channel != "phone":
-            raise SendError("this deployment sends codes by SMS only")
-        if not ident.value.startswith("+86"):
-            raise SendError("this deployment sends codes to mainland numbers only")
-        number = ident.value[3:]
-        minutes = str(max(1, self.s.code_ttl_s // 60))
-        common = {
-            **aliyun_common_params(self.s.aliyun_access_key_id),
-            "SignName": self.s.aliyun_sms_sign,
-            "TemplateCode": self.s.aliyun_sms_template,
-        }
-        if self.api == "dypns":
-            return {
-                **common,
-                "Action": "SendSmsVerifyCode",
-                "PhoneNumber": number,
-                "CountryCode": "86",
-                "TemplateParam": json.dumps({"code": code, "min": minutes}),
-                "ValidTime": str(self.s.code_ttl_s),
-                "ReturnVerifyCode": "false",
-            }
-        return {
-            **common,
-            "Action": "SendSms",
-            "PhoneNumbers": number,
-            "TemplateParam": json.dumps({"code": code}),
-        }
-
-    def send(self, ident: Identifier, code: str) -> None:
-        url = self.endpoint + "?" + self._signed_query(self.params(ident, code))
-        try:
-            r = httpx.get(url, timeout=15)
-            body = r.json()
-        except (httpx.HTTPError, ValueError) as e:
-            # the signed query carries the number and the code; an error that quotes the
-            # URL is cut at the question mark before it reaches the log
-            log.error("aliyun sms request failed: %s: %s", type(e).__name__, str(e).split("?", 1)[0][:160])
-            raise SendError("sms") from e
-        answer = str(body.get("Code") or "")
-        if answer != "OK":
-            # never the number in the log. The carrier's limit for one number is the person's
-            # to wait out (429 code_too_often upstream); MOBILE_NUMBER_ILLEGAL,
-            # FUNCTION_NOT_OPENED and the other isv.* answers are the operator's to read.
-            if aliyun_limit_code(answer):
-                log.warning("aliyun sms (%s) held by the carrier's limit: %s", self.api, answer)
-                raise SendError("sms", reason="too_often")
-            log.error("aliyun sms (%s) rejected: %s %s", self.api, answer, body.get("Message"))
-            raise SendError("sms")
 
 
 def is_private_base(base: str) -> bool:
@@ -305,30 +173,10 @@ def make_sender(s: Settings) -> CodeSender:
             # a relay with a public address and open sign-up that writes the codes to its log:
             # nobody receives a code, and whoever reads the log can sign in as anyone — say so at startup
             log.error(
-                "CODE_SENDER=log with SIGNUP_OPEN at %s: verification codes go to this log and nobody receives them. Set CODE_SENDER=smtp or aliyun.",
+                "CODE_SENDER=log with SIGNUP_OPEN at %s: verification codes go to this log and nobody receives them. Set CODE_SENDER=smtp.",
                 s.public_base,
             )
         return LogSender()
     if s.sender == "smtp":
         return SmtpSender(s)
-    if s.sender == "aliyun":
-        return AliyunSmsSender(s)
-    if s.sender == "both":
-        return BothSender(SmtpSender(s), AliyunSmsSender(s))
     raise ValueError(f"unknown CODE_SENDER {s.sender!r}")
-
-
-class BothSender:
-    """SMS for phones, mail for addresses — the normal production setup."""
-
-    def __init__(self, mail: SmtpSender, sms: AliyunSmsSender) -> None:
-        self.mail, self.sms = mail, sms
-
-    def _for(self, ident: Identifier) -> SmtpSender | AliyunSmsSender:
-        return self.sms if ident.channel == "phone" else self.mail
-
-    def accepts(self, ident: Identifier) -> bool:
-        return self._for(ident).accepts(ident)
-
-    def send(self, ident: Identifier, code: str) -> None:
-        self._for(ident).send(ident, code)

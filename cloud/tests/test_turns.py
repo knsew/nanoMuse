@@ -136,7 +136,6 @@ async def test_the_record_is_read_one_question_at_a_time(tmp_path):
     app, client, sender, up, cloud = relay(tmp_path)
     data = await sign_up(client, sender, identifier="turns-a@example.com")
     headers = {"Authorization": f"Bearer {data['api_key']}", "User-Agent": "nanoMuse-Desktop/1.0.7", "X-NanoMuse-Device": "mac-1"}
-    assert (await client.post("/v1/me/contribute", headers=headers, json={"on": True})).status_code == 200
     r = await client.put(f"/v1/blobs/{PNG_SHA}", headers={**headers, "Content-Type": "image/png"}, content=PNG_1PX)
     assert r.status_code == 200
     # one question, three calls: look (a screenshot comes back), tap, answer
@@ -187,16 +186,6 @@ async def test_the_record_is_read_one_question_at_a_time(tmp_path):
         ("q2-1", 1, "q2-1"),
         ("q3-1", 1, "q3-1"),
     ]
-    # the training view's shape rows say the same, keyed by the record's ids
-    shapes = cloud.db._conn.execute("SELECT turn_id, turn_start, turn_key, conversation, turn_no FROM sample_stats ORDER BY ts").fetchall()
-    assert [(r["turn_id"][-4:], r["turn_start"], r["turn_key"][-4:], r["conversation"], r["turn_no"]) for r in shapes] == [
-        ("q1-1", 1, "q1-1", "conv-1", 1),
-        ("q1-2", 0, "q1-1", "conv-1", 1),
-        ("q1-3", 0, "q1-1", "conv-1", 1),
-        ("q2-1", 1, "q2-1", "conv-1", 2),
-        ("q3-1", 1, "q3-1", "conv-2", 0),
-    ]
-
     # the figures count both ways
     view = (await client.get("/v1/admin/record?days=3650", headers=ADMIN)).json()
     assert view["totals"]["n"] == 5 and view["totals"]["questions"] == 3 and view["period"]["questions"] == 3
@@ -205,9 +194,9 @@ async def test_the_record_is_read_one_question_at_a_time(tmp_path):
     # second question's call repeated the first's screenshot
     assert q["n"] == 3 and q["pending"] == 0 and q["with_media"] == 2 and q["with_hands"] == 1
     assert q["calls_per_question"] == {"1": 2, "2-3": 1, "4-7": 0, "8-15": 0, "16+": 0} and abs(q["calls_mean"] - 5 / 3) < 1e-9
+    # the training view is frozen: no new shape rows are written for uploaded turns
     dv = (await client.get("/v1/admin/data?days=3650", headers=ADMIN)).json()
-    assert dv["totals"]["samples"] == 5 and dv["totals"]["turns"] == 3 and dv["by_source"] == [{"source": "own", "samples": 5, "turns": 3}]
-    assert dv["by_account"][0]["samples"] == 5 and dv["by_account"][0]["turns"] == 3
+    assert dv["totals"]["samples"] == 0 and dv["totals"]["turns"] == 0 and dv["by_source"] == []
 
     # the console's view: newest question first, each laid out as its steps
     got = (await client.get("/v1/admin/record/turns", headers=ADMIN)).json()
@@ -264,10 +253,14 @@ async def test_the_record_is_read_one_question_at_a_time(tmp_path):
 
 
 async def test_the_rows_kept_before_get_their_keys_from_the_backfill(tmp_path):
+    """The record's turns come from uploads now (the relay records no turn of its own);
+    the training view's rows are historical ones, written straight to the tables, as a
+    relay before 0.31 left them. The backfill keys both from the same calls."""
+    from nanomuse_cloud import analytics as an
+
     app, client, sender, up, cloud = relay(tmp_path)
     data = await sign_up(client, sender, identifier="turns-b@example.com")
-    headers = {"Authorization": f"Bearer {data['api_key']}", "User-Agent": "nanoMuse-Android/1.0.8", "X-NanoMuse-Conversation": "c-1"}
-    assert (await client.post("/v1/me/contribute", headers=headers, json={"on": True})).status_code == 200
+    headers = {"Authorization": f"Bearer {data['api_key']}", "User-Agent": "nanoMuse-Android/1.0.8"}
     ask = [{"role": "user", "content": "find the file"}]
     read = {
         "role": "assistant",
@@ -275,20 +268,55 @@ async def test_the_rows_kept_before_get_their_keys_from_the_backfill(tmp_path):
         "tool_calls": [{"id": "r1", "type": "function", "function": {"name": "read", "arguments": "{}"}}],
     }
     after = ask + [read, {"role": "tool", "tool_call_id": "r1", "content": "found"}]
-    for messages in (ask, after, [{"role": "user", "content": "and the next one"}]):
-        assert (
-            await client.post("/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": messages})
-        ).status_code == 200
-    # one pictured turn, so the keyed figures see it
     pictured = [{"role": "user", "content": [{"type": "text", "text": "this"}, {"type": "image_url", "image_url": {"url": PNG_URL}}]}]
-    assert (
-        await client.post(
-            "/v1/chat/completions",
-            headers={**headers, "X-NanoMuse-Conversation": "c-2"},
-            json={"model": "qwen3.8-27b", "messages": pictured},
+    uploads = [
+        ("b-1", "c-1", ask),
+        ("b-2", "c-1", after),
+        ("b-3", "c-1", [{"role": "user", "content": "and the next one"}]),
+        ("b-4", "c-2", pictured),
+    ]
+    turn_ids = []
+    for tid, conversation, messages in uploads:
+        r = await client.post(
+            "/v1/turns",
+            headers=headers,
+            json={
+                "id": tid,
+                "model": "qwen3.8-27b",
+                "messages": messages,
+                "conversation": conversation,
+                "response": {"message": {"role": "assistant", "content": "hi"}, "usage": {"prompt_tokens": 100, "completion_tokens": 50}},
+            },
         )
-    ).status_code == 200
-    await settled(app)
+        assert r.status_code == 201, r.text
+        turn_ids.append(r.json()["id"])
+    # the training view's rows of the same four calls, as they were kept before 0.31
+    aid = data["account"]["id"]
+    with cloud.db.tx() as c:
+        for i, ((_, conversation, messages), turn_id) in enumerate(zip(uploads, turn_ids, strict=True)):
+            sid = f"sample-{i}"
+            meta = json.dumps({"turn_id": turn_id, "conversation": conversation, "source": "own"})
+            c.execute(
+                "INSERT INTO samples(id, account_id, ts, model, request, response, prompt_tokens, completion_tokens, meta) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (sid, aid, cloud.db.turn(turn_id)["ts"], "qwen3.8-27b", json.dumps(messages), "hi", 100, 50, meta),
+            )
+    cloud.db.add_sample_stats(
+        [
+            an.sample_shape(
+                f"sample-{i}",
+                aid,
+                cloud.db.turn(turn_id)["ts"],
+                "qwen3.8-27b",
+                json.dumps(messages),
+                "hi",
+                json.dumps({"turn_id": turn_id, "conversation": conversation, "source": "own"}),
+                100,
+                50,
+            )
+            for i, ((_, conversation, messages), turn_id) in enumerate(zip(uploads, turn_ids, strict=True))
+        ]
+    )
     # the relay before 0.31 left these columns unset: undo what the writes just did
     with cloud.db.tx() as c:
         c.execute("UPDATE turns SET turn_start=-1, turn_key=''")

@@ -1,6 +1,6 @@
 /** One account in full, over any page: identity, pool and actions, usage, addresses,
- *  sessions, devices, the statement and the timeline (paged and filtered), the people it
- *  invited (and the reclaim), its kept turns, its showcase record. */
+ *  sessions, devices, the statement and the timeline (paged and filtered), and its
+ *  kept turns. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorText } from "../App";
@@ -14,11 +14,11 @@ import { hashOf, useRoute } from "../lib/router";
 import type { AccountDetail, EventRow, LedgerRow, Sample } from "../lib/types";
 import { Bars, Legend, modelColor } from "../ui/charts";
 import { Bar, Btn, DataTable, Drawer, Failed, KV, Loading, Note, Panel, Pill, Search, Tabs, useDialog, useToast, type Col } from "../ui/primitives";
-import { Ago, IpChip, PlatformPill, Who, identOf, shortId } from "../ui/who";
+import { Ago, IpChip, PlatformPill, identOf, shortId } from "../ui/who";
 import { KindRanks, ModelRanks } from "./common";
 import { SampleCard } from "./SampleCard";
 
-type Tab = "overview" | "usage" | "addresses" | "sessions" | "devices" | "ledger" | "events" | "invited" | "samples" | "demo";
+type Tab = "overview" | "usage" | "addresses" | "sessions" | "devices" | "ledger" | "events" | "samples";
 
 export function AccountDrawer({ id, days, onClose }: { id: string; days: number; onClose: () => void }) {
   const T = useT();
@@ -36,9 +36,7 @@ export function AccountDrawer({ id, days, onClose }: { id: string; days: number;
     { id: "addresses", label: T.ac.tabs.addresses, n: q.data?.addresses.length },
     { id: "sessions", label: T.ac.tabs.sessions, n: q.data?.sessions.length },
     { id: "devices", label: T.ac.tabs.devices, n: q.data?.devices.length },
-    { id: "invited", label: T.ac.tabs.invited, n: a?.invited_total },
     { id: "samples", label: T.ac.tabs.samples, n: a?.samples },
-    { id: "demo", label: T.ac.tabs.demo, n: q.data?.demo?.visits_total },
   ];
   return (
     <Drawer
@@ -48,7 +46,6 @@ export function AccountDrawer({ id, days, onClose }: { id: string; days: number;
           {a?.member && <Pill tone="violet">{T.pe.tags.member}</Pill>}
           {a?.disabled && <Pill tone="bad">{T.pe.tags.disabled}</Pill>}
           {a?.locked && <Pill tone="warn">{T.pe.tags.locked}</Pill>}
-          {a?.review && <Pill tone="cyan">{T.ac.reviewTag}</Pill>}
         </span>
       }
       sub={
@@ -75,9 +72,7 @@ export function AccountDrawer({ id, days, onClose }: { id: string; days: number;
           {tab === "devices" && <DevicesTab d={q.data} />}
           {tab === "ledger" && <LedgerTab id={id} total={q.data.ledger_total} />}
           {tab === "events" && <EventsTab id={id} total={q.data.events_total} />}
-          {tab === "invited" && <InvitedTab d={q.data} reload={q.reload} />}
           {tab === "samples" && <SamplesTab id={id} total={q.data.account.samples} />}
-          {tab === "demo" && <DemoTab d={q.data} />}
         </div>
       )}
     </Drawer>
@@ -98,7 +93,7 @@ function OverviewTab({ d, reload, onClose }: { d: AccountDetail; reload: () => P
     try {
       await fn();
       toast(done || T.ac.changed, "ok");
-      invalidate("/v1/admin/accounts", "/v1/admin/overview", "/v1/admin/invites");
+      invalidate("/v1/admin/accounts", "/v1/admin/overview");
       await reload();
     } catch (e) {
       toast(e instanceof ApiError ? `${e.code}: ${e.message}` : String(e), "bad");
@@ -143,7 +138,7 @@ function OverviewTab({ d, reload, onClose }: { d: AccountDetail; reload: () => P
     try {
       await post("/v1/admin/delete", { account_id: a.id });
       toast(T.g.done, "ok");
-      invalidate("/v1/admin/accounts", "/v1/admin/overview", "/v1/admin/invites");
+      invalidate("/v1/admin/accounts", "/v1/admin/overview");
       onClose();
     } catch (e) {
       toast(e instanceof ApiError ? `${e.code}: ${e.message}` : String(e), "bad");
@@ -165,9 +160,6 @@ function OverviewTab({ d, reload, onClose }: { d: AccountDetail; reload: () => P
               [T.ac.client, <span>{clientLine(a.last_ua)} <PlatformPill platform={a.last_platform} version={a.last_version} /></span>],
               [T.ac.firstIp, <IpChip ip={a.first_ip} />],
               [T.ac.lastIp, <IpChip ip={a.last_ip} />],
-              [T.ac.inviteCode, <code>{a.invite_code || "·"}</code>],
-              [T.ac.invitedBy, a.inviter ? <Who id={a.inviter.id} hint={a.inviter.hint} /> : a.invited_by ? <code>{a.invited_by}</code> : "·"],
-              [T.ac.invites, `${fmt(a.invited_total || a.invites || 0)} · ${T.ac.inviteEarned(money(a.invite_earned_cny))}`],
               [T.ac.password, a.has_password ? <span>{T.g.yes}{a.locked ? ` · ${T.ac.locked}` : ""}{a.failed_logins ? ` · ${T.ac.failedLogins(a.failed_logins)}` : ""}</span> : T.g.no],
               [T.ac.contribute, <span>{a.contribute ? T.g.on : T.g.off} · {T.ac.samples} {fmt(a.samples)}</span>],
               [T.ac.sync, a.sync_enabled ? T.g.on : T.g.off],
@@ -464,62 +456,6 @@ function EventsTab({ id, total: all }: { id: string; total: number }) {
   );
 }
 
-function InvitedTab({ d, reload }: { d: AccountDetail; reload: () => Promise<void> }) {
-  const T = useT();
-  const dialog = useDialog();
-  const toast = useToast();
-  const a = d.account;
-  const who = identOf(a.id, a.hint, a.identifier);
-  const reclaim = async () => {
-    const r = await dialog({
-      title: T.ac.abuse,
-      body: `${T.ac.abuseHint}\n\n${T.ac.abuseConfirm(who)}`,
-      danger: true,
-      fields: [
-        { id: "disable", label: T.ac.abuseDisable, type: "checkbox", value: false },
-        { id: "delete_unused", label: T.ac.abuseDelete, type: "checkbox", value: false },
-      ],
-    });
-    if (!r) return;
-    try {
-      const out = await post<{ reclaimed_cny: number; disabled: boolean; deleted: number; kept: number }>("/v1/admin/invites/abuse", { account_id: a.id, disable: !!r.disable, delete_unused: !!r.delete_unused });
-      toast(T.ac.abuseResult(money(out.reclaimed_cny), out.disabled, out.deleted, out.kept), "ok");
-      invalidate("/v1/admin/accounts", "/v1/admin/invites");
-      await reload();
-    } catch (e) {
-      toast(e instanceof ApiError ? `${e.code}: ${e.message}` : String(e), "bad");
-    }
-  };
-  return (
-    <Panel
-      title={<span>{T.ac.invitedN(a.invited_total || a.invited.length)} <span className="hint font-normal">· {T.ac.inviteEarned(money(a.invite_earned_cny))}</span></span>}
-      right={
-        a.invited.length > 0 && (
-          <Btn size="sm" variant="danger" onClick={reclaim}>
-            {T.ac.abuse}
-          </Btn>
-        )
-      }
-      pad={false}
-    >
-      <DataTable
-        rows={a.invited}
-        rowKey={(i) => i.id}
-        defaultSort="created_at"
-        columns={[
-          { key: "who", label: T.ac.invCols.who, sortable: false, render: (i) => <Who id={i.id} hint={i.hint} channel={i.channel} disabled={i.disabled} /> },
-          { key: "created_at", label: T.ac.invCols.created, num: true, render: (i) => when(i.created_at) },
-          { key: "last_seen_at", label: T.ac.invCols.last, num: true, render: (i) => <Ago ts={i.last_seen_at} /> },
-          { key: "requests", label: T.ac.invCols.requests, num: true, render: (i) => fmt(i.requests) },
-          { key: "spent_cny", label: T.ac.invCols.spent, num: true, render: (i) => money(i.spent_cny) },
-          { key: "settled", label: T.ac.invCols.settled, render: (i) => (i.settled ? <Pill tone="ok">{T.ac.settled}</Pill> : <Pill>{T.ac.pending}</Pill>) },
-          { key: "ip", label: T.ac.invCols.ip, sortable: false, render: (i) => <span className="inline-flex items-center gap-1"><IpChip ip={i.first_ip} />{i.first_ip === a.first_ip && <Pill tone="warn">= {T.ac.firstIp}</Pill>}</span> },
-        ]}
-      />
-    </Panel>
-  );
-}
-
 function SamplesTab({ id, total }: { id: string; total: number }) {
   const T = useT();
   const toast = useToast();
@@ -586,41 +522,3 @@ function SamplesTab({ id, total }: { id: string; total: number }) {
   );
 }
 
-function DemoTab({ d }: { d: AccountDetail }) {
-  const T = useT();
-  const zh = useZh();
-  const now = useNow(10_000);
-  const demo = d.demo;
-  if (!demo || !demo.visitor) return <Panel><div className="hint py-6 text-center">{T.ac.demoNone}</div></Panel>;
-  const v = demo.visitor;
-  return (
-    <>
-      <Panel title={T.ac.tabs.demo}>
-        <KV
-          rows={[
-            [T.de.cols.signins, fmt(v.signins)],
-            [T.de.cols.sessions, fmt(v.sessions)],
-            [T.de.cols.first, when(v.first_seen)],
-            [T.de.cols.last, <Ago ts={v.last_seen} />],
-            [T.de.cols.client, <span>{clientLine(v.last_ua)} · <IpChip ip={v.last_ip} /></span>],
-          ]}
-        />
-      </Panel>
-      <Panel title={T.ac.demoVisits(demo.visits_total)} pad={false}>
-        <DataTable
-          rows={demo.visits}
-          rowKey={(x) => x.id}
-          defaultSort="started"
-          columns={[
-            { key: "started", label: T.g.time, render: (x) => when(x.started) },
-            { key: "length", label: T.de.length, num: true, value: (x) => (x.ended || now) - x.started, render: (x) => dur((x.ended || now) - x.started, zh) },
-            { key: "reason", label: T.de.why, render: (x) => (x.ended ? nameOf(T.de.reason, x.reason) : <Pill tone="ok">{T.de.running}</Pill>) },
-            { key: "byok", label: T.de.byok, render: (x) => (x.byok ? <Pill tone="violet">{T.de.byok}</Pill> : "·") },
-            { key: "used", label: T.g.requests, num: true, value: (x) => x.requests || 0, render: (x) => T.de.used(x.requests || 0, x.tokens || 0) },
-            { key: "ip", label: T.ac.addrCols.ip, render: (x) => <IpChip ip={x.ip} /> },
-          ]}
-        />
-      </Panel>
-    </>
-  );
-}

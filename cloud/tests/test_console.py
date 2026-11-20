@@ -199,35 +199,11 @@ def test_admin_console_names_every_event_kind_the_relay_writes():
         kinds.update(re.findall(r'if [a-z_]+ else "([a-z_]+\.[a-z_.]+)"', text))
         for a, b in re.findall(r'return "([a-z_]+\.[a-z_.]+)" if .*? else "([a-z_]+\.[a-z_.]+)"', text):
             kinds.update((a, b))
-    assert {"account.created", "budget.refused", "upstream.error", "content.rejected", "invite.clawback", "credit.granted"} <= kinds
+    assert {"account.created", "budget.refused", "upstream.error", "content.rejected", "credit.granted"} <= kinds
     zh, en = _locale_tables()
     for kind in sorted(kinds):
         assert f'"{kind}": ' in zh, f"{kind} has no Chinese name"
         assert f'"{kind}": ' in en, f"{kind} has no English name"
-
-
-def test_admin_console_edits_the_star_card_text_in_both_languages():
-    """The nudges editor (relay 0.22's policy) has the two text inputs, English and 简体中文,
-    named in both locales, and saves the whole policy with its version through PUT."""
-    settings = (ADMIN_SRC / "pages" / "Settings.tsx").read_text(encoding="utf-8")
-    assert "star({ text: e.target.value })" in settings and "star({ text_zh: e.target.value })" in settings
-    assert 'put("/v1/admin/nudges", body)' in settings and "{ reset: true }" in settings
-    zh, en = _locale_tables()
-    assert 'nuText: "英文文案"' in zh and 'nuTextZh: "中文文案"' in zh
-    assert 'nuText: "Text (English)"' in en and 'nuTextZh: "Text (中文)"' in en
-
-
-def test_admin_console_invites_page_reclaims_through_the_relay():
-    """The Invites page lists the inviters with the same-address warning and sends the
-    operator to the drawer's reclaim, which posts to /v1/admin/invites/abuse with both flags
-    after asking."""
-    invites = (ADMIN_SRC / "pages" / "Invites.tsx").read_text(encoding="utf-8")
-    assert '"/v1/admin/invites?' in invites and "invited_same_ip" in invites and "T.in.sameIpWarn" in invites
-    drawer = (ADMIN_SRC / "pages" / "AccountDrawer.tsx").read_text(encoding="utf-8")
-    assert '"/v1/admin/invites/abuse"' in drawer and "delete_unused" in drawer and "disable" in drawer
-    assert "T.ac.abuseConfirm(" in drawer and "T.ac.abuseResult(" in drawer
-    zh, en = _locale_tables()
-    assert 'abuse: "收回邀请奖励"' in zh and 'abuse: "Reclaim invite credit"' in en
 
 
 def test_web_console_prints_the_relays_code_lifetime_and_password_length():
@@ -243,10 +219,10 @@ def test_web_console_prints_the_relays_code_lifetime_and_password_length():
 
 
 def test_admin_console_people_page_searches_and_filters_in_the_address_bar():
-    """The People page: the search reaches the identifier, the addresses, the version, the
-    devices and the inviter and takes several words; the filters and the sort live in the
-    hash so a view can be shared and survives a reload; the drawer's statement and timeline
-    page through the relay with `before`, filtered by kind and text."""
+    """The People page: the search reaches the identifier, the addresses, the version and
+    the devices and takes several words; the filters and the sort live in the hash so a
+    view can be shared and survives a reload; the drawer's statement and timeline page
+    through the relay with `before`, filtered by kind and text."""
     people = (ADMIN_SRC / "pages" / "People.tsx").read_text(encoding="utf-8")
     assert "matches(haystack(a), ts)" in people
     hay = people[people.index("const haystack = ") : people.index("const base = useMemo(")]
@@ -258,11 +234,9 @@ def test_admin_console_people_page_searches_and_filters_in_the_address_bar():
         "a.last_version",
         "d.name",
         "d.llm_model",
-        "a.invite_code",
-        "a.invited_by",
     ):
         assert field in hay, f"the search does not reach {field}"
-    for key in ("country", "province", "channel", "status", "joined", "activity", "spend", "source", "platform", "version", "sort"):
+    for key in ("country", "province", "channel", "status", "joined", "activity", "spend", "platform", "version", "sort"):
         assert f'p.get("{key}")' in people, f"{key} is not a hash parameter"
     drawer = (ADMIN_SRC / "pages" / "AccountDrawer.tsx").read_text(encoding="utf-8")
     assert "/ledger" in drawer and "/events" in drawer and "before" in drawer and "kind" in drawer

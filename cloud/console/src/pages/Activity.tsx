@@ -83,7 +83,7 @@ export function Activity({ days }: PageProps) {
             { title: `${T.at.series.active} · ${T.at.series.new}`, series: [L("active", "active_accounts", "var(--c2)"), L("new", "new_accounts", "var(--c4)")] },
             { title: `${T.at.series.signIns} · ${T.at.series.failures}`, series: [L("signIns", "sign_ins", "var(--c5)"), L("failures", "sign_in_failures", "var(--bad)")] },
             { title: `${T.at.series.refusals} · ${T.at.series.errors} · ${T.at.series.rejected}`, series: [L("refusals", "budget_refusals", "var(--violet)"), L("errors", "upstream_errors", "var(--bad)"), L("rejected", "content_rejected", "var(--c3)")] },
-            { title: `${T.at.series.invites} · ${T.at.series.contribute}`, series: [L("invites", "invites_used", "var(--c6)"), L("contribute", "contribute_on", "var(--c7)")] },
+            { title: T.at.series.contribute, series: [L("contribute", "contribute_on", "var(--c7)")] },
           ];
           return (
             <Panel title={T.at.title(days)} sub={`${T.g.online} ${fmt(d.online_devices)} · ${T.ov.contrib} ${fmt(d.contributors)}`}>
@@ -94,12 +94,6 @@ export function Activity({ days }: PageProps) {
                     <Legend className="mt-1" items={b.series.map((s) => ({ name: s.name, color: s.color }))} />
                   </div>
                 ))}
-                {d.web && (
-                  <div>
-                    <div className="hint mb-1">{T.at.web}</div>
-                    <pre className="m-0 overflow-auto rounded-lg bg-panel-2 p-3 text-[12px]">{JSON.stringify(d.web, null, 1)}</pre>
-                  </div>
-                )}
               </Grid>
             </Panel>
           );

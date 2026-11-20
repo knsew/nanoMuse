@@ -21,7 +21,7 @@ from nanomuse_cloud.service import Cloud
 
 @pytest.fixture
 async def relay(tmp_path):
-    settings = Settings(database=str(tmp_path / "relay.db"), secret="fixture-secret", github_collect=False, geoip_enabled=False)
+    settings = Settings(database=str(tmp_path / "relay.db"), secret="fixture-secret")
     db = Database(settings.database)
     app = create_app(settings, Cloud(settings, db, LogSender()))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://relay.test") as client:

@@ -1,6 +1,6 @@
-"""Relay 0.15: the allowance, the invite bonus and sign-up set from the operator's page while
-the relay runs — in force at once, kept across restarts, applied to older accounts on request;
-and the public figures at /v1/config that the apps print instead of numbers of their own."""
+"""Relay 0.15: the allowance and sign-up set from the operator's page while the relay
+runs — in force at once, kept across restarts, applied to older accounts on request; and
+the public figures at /v1/config that the apps print instead of numbers of their own."""
 
 from __future__ import annotations
 
@@ -20,19 +20,21 @@ ADMIN = {"X-Admin-Token": "admin"}
 
 
 async def test_public_config_needs_no_auth_and_follows_the_settings():
-    app, client, sender, up, cloud, settings = make(allowance_cny=25, invite_bonus_cny=5)
+    app, client, sender, up, cloud, settings = make(allowance_cny=25)
     r = await client.get("/v1/config")
     assert r.status_code == 200 and "max-age" in r.headers.get("cache-control", "")
     cfg = r.json()
-    assert cfg["allowance_cny"] == 25 and cfg["invite_bonus_cny"] == 5 and cfg["invitee_bonus_cny"] == 5
-    assert cfg["signup_open"] is True and cfg["repo_url"].startswith("https://github.com/")
-    assert cfg["privacy_url"] and cfg["own_key_docs"] and cfg["invite_url"] and cfg["version"]
+    assert cfg["allowance_cny"] == 25
+    assert "invite_bonus_cny" not in cfg and "invitee_bonus_cny" not in cfg
+    assert cfg["signup_open"] is True and cfg["repo_url"] == "https://github.com/knsew/nanoMuse"
+    assert cfg["privacy_url"] == "https://github.com/knsew/nanoMuse" and cfg["version"]
+    assert "own_key_docs" not in cfg and "invite_url" not in cfg
     assert "upstream" not in r.text and "secret" not in r.text
 
-    r = await client.post("/v1/admin/settings", headers=ADMIN, json={"allowance_cny": 8, "invite_bonus_cny": 3})
+    r = await client.post("/v1/admin/settings", headers=ADMIN, json={"allowance_cny": 8})
     assert r.status_code == 200, r.text
     cfg = (await client.get("/v1/config")).json()
-    assert cfg["allowance_cny"] == 8 and cfg["invite_bonus_cny"] == 3
+    assert cfg["allowance_cny"] == 8
 
 
 async def test_settings_change_at_once_and_reach_older_accounts_only_when_asked():
@@ -44,7 +46,7 @@ async def test_settings_change_at_once_and_reach_older_accounts_only_when_asked(
     # The page reads what is in force, what the environment says, and what it set itself.
     rt = (await client.get("/v1/admin/settings", headers=ADMIN)).json()
     assert rt["values"]["allowance_cny"] == 25 and rt["env"]["allowance_cny"] == 25
-    assert rt["overridden"] == {"allowance_cny": False, "invite_bonus_cny": False, "signup_open": False}
+    assert rt["overridden"] == {"allowance_cny": False, "signup_open": False}
     assert rt["below_allowance"] == 0
 
     # Lowered: the next sign-up gets the new figure; the first account keeps its pool.
@@ -180,12 +182,12 @@ async def test_settings_survive_a_restart_and_a_bad_row_is_ignored():
     cloud2 = Cloud(settings, db, LogSender())
     app2 = create_app(settings, cloud2)
     c2 = httpx.AsyncClient(transport=httpx.ASGITransport(app=app2), base_url="http://cloud.test", headers=APP_UA)
-    r = await c2.post("/v1/admin/settings", headers=ADMIN, json={"allowance_cny": 12, "invite_bonus_cny": 2, "signup_open": False})
+    r = await c2.post("/v1/admin/settings", headers=ADMIN, json={"allowance_cny": 12, "signup_open": False})
     assert r.status_code == 200
     db.settings_put("allowance_cny", "garbage")  # a hand-edited row: ignored, not fatal
     db.settings_put("not_a_setting", 1)
     cloud3 = Cloud(settings, db, LogSender())
-    assert cloud3.s.allowance_cny == 25 and cloud3.s.invite_bonus_cny == 2 and cloud3.s.signup_open is False
+    assert cloud3.s.allowance_cny == 25 and cloud3.s.signup_open is False
     assert cloud3.env.allowance_cny == 25
 
 

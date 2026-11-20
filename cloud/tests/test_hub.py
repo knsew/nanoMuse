@@ -489,37 +489,6 @@ def test_a_session_key_registers_a_free_identity_but_never_takes_one(client):
         assert ws.receive_json()["code"] == "bad_device"
 
 
-def test_forged_hello_cannot_settle_invite_but_spend_threshold_settles_once(client):
-    """A remembered Hub row is not proof of real use. Only cumulative successful
-    provider cost reaches the threshold, and concurrent/repeated checks pay once."""
-    inviter_key = sign_up(client, "inviter@example.com")
-    invitee_key = sign_up(client, "invitee@example.com")
-    cloud = client.app.state.cloud
-    inviter = cloud.authenticate(inviter_key).account_id
-    invitee = cloud.authenticate(invitee_key).account_id
-    cloud.db.link_invite(inviter, invitee)
-    before_inviter = int(cloud.db.account(inviter)["grant_uy"])
-    before_invitee = int(cloud.db.account(invitee)["grant_uy"])
-
-    cloud.db.charge(invitee, "chat", "test", 0, 0, 0, "tiny", cost_uy=199)
-    assert cloud.settle_invite(invitee) is False
-    with connect(client, invitee_key) as forged:
-        forged.send_json(hello("phone", "forged-phone", "forged"))
-        assert forged.receive_json()["type"] == "welcome"
-    assert cloud.settle_invite(invitee) is False
-
-    cloud.db.charge(invitee, "chat", "test", 0, 0, 0, "enough", cost_uy=1)
-    assert cloud.settle_invite(invitee) is True
-    assert cloud.settle_invite(invitee) is False
-    bonus = cloud.s.cny_to_uy(cloud.s.invite_bonus_cny)
-    assert int(cloud.db.account(inviter)["grant_uy"]) == before_inviter + bonus
-    assert int(cloud.db.account(invitee)["grant_uy"]) == before_invitee + bonus
-    credits = cloud.db._conn.execute(
-        "SELECT COUNT(*) FROM ledger WHERE kind='credit' AND json_extract(extra, '$.from') IN ('invite', 'invited')"
-    ).fetchone()[0]
-    assert credits == 2
-
-
 def test_reconnect_replaces_the_older_socket(client):
     key = sign_up(client, "13800138000")
     with connect(client, key) as first:

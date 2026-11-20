@@ -50,8 +50,6 @@ const statusOk = (a: Account, s: string) =>
                   : s === "own"
                     ? (a.devices || []).some((d) => d.llm_provider)
                     : true);
-const sourceOk = (a: Account, s: string) => !s || (s === "invited" ? !!a.invited_by : s === "organic" ? !a.invited_by : s === "inviter" ? Number(a.invites || 0) > 0 : true);
-
 const SORTS: Record<string, (a: Account) => number | string> = {
   active: (a) => a.last_active_at || a.last_seen_at || 0,
   joined: (a) => a.created_at || 0,
@@ -59,7 +57,6 @@ const SORTS: Record<string, (a: Account) => number | string> = {
   today: (a) => Number(a.spent_today_cny || 0),
   requests: (a) => Number(a.requests || 0),
   left: (a) => (a.left_cny === null || a.left_cny === undefined ? -1 : Number(a.left_cny)),
-  invites: (a) => Number(a.invites || 0),
   devices: (a) => (a.devices || []).length,
 };
 
@@ -81,7 +78,6 @@ export function People() {
     joined: p.get("joined") || "",
     activity: p.get("activity") || "",
     spend: p.get("spend") || "",
-    source: p.get("source") || "",
     platform: p.get("platform") || "",
     version: p.get("version") || "",
     sort: p.get("sort") || "active",
@@ -93,7 +89,7 @@ export function People() {
 
   const list = q.data?.accounts || [];
   const haystack = (a: Account) =>
-    [a.identifier, a.hint, a.id, a.first_ip, a.last_ip, a.last_version, a.last_platform, nameOf(T.platforms, a.last_platform), clientLine(a.last_ua), ...(a.devices || []).map((d) => `${d.name || ""} ${d.kind || ""} ${d.os || ""} ${d.llm_provider || ""} ${d.llm_model || ""}`), placeOf(a.last_ip)?.text || "", a.invited_by || "", a.invite_code]
+    [a.identifier, a.hint, a.id, a.first_ip, a.last_ip, a.last_version, a.last_platform, nameOf(T.platforms, a.last_platform), clientLine(a.last_ua), ...(a.devices || []).map((d) => `${d.name || ""} ${d.kind || ""} ${d.os || ""} ${d.llm_provider || ""} ${d.llm_model || ""}`), placeOf(a.last_ip)?.text || ""]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -108,11 +104,10 @@ export function People() {
         (!f.spend || spendBucket(a) === f.spend) &&
         (!f.platform || (a.last_platform || "") === f.platform) &&
         (!f.joined || joinedOf(a) === f.joined) &&
-        sourceOk(a, f.source) &&
         (!f.version || (a.last_version || "") === f.version),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list, qd, f.channel, f.status, f.activity, f.spend, f.platform, f.joined, f.source, f.version, T]);
+  }, [list, qd, f.channel, f.status, f.activity, f.spend, f.platform, f.joined, f.version, T]);
   const shown = useMemo(() => {
     const rows = f.country || f.province ? base.filter((a) => { const pl = placeOf(a.last_ip); return (!f.country || regionKey(pl) === f.country) && (!f.province || (pl?.province || "") === f.province); }) : [...base];
     const key = SORTS[f.sort] || SORTS.active;
@@ -133,7 +128,7 @@ export function People() {
   const countries = count(base, (a) => regionKey(placeOf(a.last_ip)));
   const provinces = f.country ? count(base.filter((a) => regionKey(placeOf(a.last_ip)) === f.country), (a) => placeOf(a.last_ip)?.province || "").filter(([k]) => k) : [];
   const versions = count(base.filter((a) => a.last_version), (a) => a.last_version).sort((x, y) => y[0].localeCompare(x[0], undefined, { numeric: true }));
-  const activeFilters = ["country", "province", "channel", "status", "joined", "activity", "spend", "source", "platform", "version"].filter((k) => f[k as keyof typeof f]).length + (f.q ? 1 : 0);
+  const activeFilters = ["country", "province", "channel", "status", "joined", "activity", "spend", "platform", "version"].filter((k) => f[k as keyof typeof f]).length + (f.q ? 1 : 0);
 
   const batch = async (rows: Account[], all: boolean) => {
     const limited = rows.filter((a) => !a.member);
@@ -179,7 +174,6 @@ export function People() {
               {a.member && <Pill tone="violet">{T.pe.tags.member}</Pill>}
               {a.disabled && <Pill tone="bad">{T.pe.tags.disabled}</Pill>}
               {a.locked && <Pill tone="warn">{T.pe.tags.locked}</Pill>}
-              {a.review && <Pill tone="cyan">{T.pe.tags.review}</Pill>}
               {a.contribute && <Pill tone="ok">{T.pe.tags.contribute}</Pill>}
               {(a.devices || []).some((d) => d.llm_provider) && <Pill tone="accent">{T.pe.tags.own}</Pill>}
             </>
@@ -208,7 +202,6 @@ export function People() {
     { key: "spent_cny", label: T.pe.spent, num: true, render: (a) => <span title={`${T.g.today} ${money(a.spent_today_cny)}`}>{money(a.spent_cny)}</span> },
     { key: "requests", label: T.pe.requests, num: true, render: (a) => fmt(a.requests) },
     { key: "devices", label: T.pe.devices, num: true, value: (a) => (a.devices || []).length, render: (a) => <span>{(a.devices || []).length}{(a.devices || []).some((d) => d.online) && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-ok align-middle" />}</span> },
-    { key: "invites", label: T.in.title, num: true, hideSm: true, render: (a) => (a.invites ? fmt(a.invites) : "·") },
   ];
   const csvCols: Col<Account>[] = [
     { key: "identifier", label: "identifier", csv: (a) => a.identifier || "" },
@@ -229,8 +222,6 @@ export function People() {
     { key: "client", label: "client", csv: (a) => a.last_platform || "" },
     { key: "version", label: "version", csv: (a) => a.last_version || "" },
     { key: "devices", label: "devices", csv: (a) => (a.devices || []).length },
-    { key: "invited_by", label: "invited_by", csv: (a) => a.invited_by || "" },
-    { key: "invites", label: "invites", csv: (a) => a.invites || 0 },
   ];
 
   const Select = ({ label, value, options, onChange }: { label: string; value: string; options: [string, string, number?][]; onChange: (v: string) => void }) => (
@@ -285,12 +276,11 @@ export function People() {
               <Select label={T.pe.fJoined} value={f.joined} options={Object.entries(T.pe.joined)} onChange={(v) => set({ joined: v })} />
               <Select label={T.pe.fActivity} value={f.activity} options={Object.entries(T.pe.activity)} onChange={(v) => set({ activity: v })} />
               <Select label={T.pe.fSpend} value={f.spend} options={Object.entries(T.pe.spend)} onChange={(v) => set({ spend: v })} />
-              <Select label={T.pe.fSource} value={f.source} options={Object.entries(T.pe.source)} onChange={(v) => set({ source: v })} />
               <Select label={T.pe.fClient} value={f.platform} options={Object.entries(T.platforms)} onChange={(v) => set({ platform: v })} />
               {(versions.length > 0 || f.version) && <Select label={T.pe.fVersion} value={f.version} options={versions.map(([k, n]) => [k, `v${k}`, n])} onChange={(v) => set({ version: v })} />}
               <Select label={T.pe.sortBy} value={f.sort} options={Object.entries(T.pe.sorts)} onChange={(v) => set({ sort: v || null })} />
               {activeFilters > 0 && (
-                <button type="button" className="chip" onClick={() => route.set(Object.fromEntries(["q", "country", "province", "channel", "status", "joined", "activity", "spend", "source", "platform", "version"].map((k) => [k, null])), true)}>
+                <button type="button" className="chip" onClick={() => route.set(Object.fromEntries(["q", "country", "province", "channel", "status", "joined", "activity", "spend", "platform", "version"].map((k) => [k, null])), true)}>
                   {T.pe.fClear} ({activeFilters})
                 </button>
               )}

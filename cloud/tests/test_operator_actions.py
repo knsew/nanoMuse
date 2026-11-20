@@ -105,15 +105,11 @@ async def test_every_operator_action_writes_the_audit_log_and_the_timeline():
 
 
 async def test_a_figure_that_is_not_a_number_is_a_400_not_a_500():
-    """`tokens` on the grant route and `n` on the image route were cast with a bare `int()`;
-    a string that is not a number raised ValueError and the person saw a 500."""
+    """`tokens` on the grant route was cast with a bare `int()`; a string that is not
+    a number raised ValueError and the person saw a 500."""
     app, client, sender, up, cloud, settings = make()
     me = await sign_up(client, sender)
     r = await client.post("/v1/admin/grant", headers=ADMIN, json={"account_id": me["account"]["id"], "tokens": "many"})
-    assert r.status_code == 400 and r.json()["error"]["code"] == "bad_request", r.text
-    r = await client.post(
-        "/v1/images/generations", headers=auth(me["api_key"]), json={"model": "qwen-image-3.0", "prompt": "a cat", "n": "two"}
-    )
     assert r.status_code == 400 and r.json()["error"]["code"] == "bad_request", r.text
     assert cloud.db.account(me["account"]["id"])["granted"] == 0
 
@@ -140,27 +136,6 @@ async def test_the_operator_deleting_an_account_forgets_its_live_state_and_count
     # the Stats page counts the deletion (the column read 0 while no event was written)
     rows = (await client.get("/v1/admin/stats/accounts_daily?days=2", headers=ADMIN)).json()["rows"]
     assert sum(r["deleted"] for r in rows) == 1
-
-
-async def test_invite_abuse_deletions_forget_the_live_state_too():
-    app, client, sender, up, cloud, settings = make(signup_tokens=1000, invite_bonus_cny=1)
-    inviter = await sign_up(client, sender)
-    code = (await client.get("/v1/me/invite", headers=auth(inviter["api_key"]))).json()["code"]
-    invitee = await sign_up(client, sender, identifier="13900001111", device="p2", invite=code)
-    invitee_id = invitee["account"]["id"]
-    app.state.sync.presence.set(invitee_id, "cid-2", "p2", "Phone", True)
-    r = await client.post(
-        "/v1/admin/invites/abuse",
-        headers=ADMIN,
-        json={"account_id": inviter["account"]["id"], "disable": True, "delete_unused": True},
-    )
-    assert r.status_code == 200, r.text
-    out = r.json()
-    assert out["deleted"] == 1 and "deleted_ids" not in out
-    assert app.state.sync.presence.working(invitee_id) == []
-    kinds = {(r["kind"], r["detail"]) for r in cloud.db.events_recent(50)}
-    assert ("account.deleted", f"{invitee_id[:8]} by ops@console (invite abuse)") in kinds
-    assert ("account.disabled", "by ops@console (invite abuse)") in kinds
 
 
 async def test_public_config_carries_the_code_lifetime_and_the_password_length():

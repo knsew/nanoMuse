@@ -26,25 +26,6 @@ APP_UA = {"User-Agent": "nanoMuse/0.0 (tests)"}
 PNG_1PX = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
 
 
-# the catalogue's facts the two 0.17 key ways carry since 0.21 (providers.py; additive fields)
-WAY_FACTS = {
-    "bailian": {
-        "name": "Alibaba Cloud Bailian",
-        "name_zh": "阿里云百炼",
-        "key_url": "https://bailian.console.aliyun.com/?apiKey=1",
-        "covers": ["chat", "vision", "image", "video"],
-        "auth": ["key"],
-    },
-    "openrouter": {
-        "name": "OpenRouter",
-        "name_zh": "OpenRouter",
-        "key_url": "https://openrouter.ai/keys",
-        "covers": ["chat", "vision", "image"],
-        "auth": ["key", "oauth-openrouter"],
-    },
-}
-
-
 def fake_upstream() -> FastAPI:
     up = FastAPI()
     up.state.requests = []
@@ -243,8 +224,6 @@ def stack():
         admin_token="admin",
         upstream_base="http://upstream/compat/v1",
         upstream_key="sk-upstream",
-        dashscope_base="http://upstream/ds/api/v1",
-        dashscope_key="sk-dashscope",
         signup_tokens=1000,
         daily_cap_tokens=100_000,
         per_minute_requests=100,
@@ -292,10 +271,10 @@ async def test_hosted_default_is_one_multimodal_chat_model_and_retires_media(mon
         upstream_key="sk-upstream",
         public_base="http://cloud.test",
     )
-    assert [m.id for m in settings.models] == ["Qwen/Qwen3.6-27B-FP8"]
+    assert [m.id for m in settings.models] == ["halogen-qwen3.8-flash-next"]
     assert settings.models[0].input_modalities == ("text", "image")
     assert settings.models[0].recommended_lanes == ("chat", "gui")
-    assert settings.models[0].price_in == 3.0 and settings.models[0].price_out == 12.0
+    assert settings.models[0].price_in == 0.0 and settings.models[0].price_out == 0.0
     up = fake_upstream()
     sender = LogSender()
     cloud = Cloud(settings, Database(":memory:"), sender)
@@ -304,7 +283,7 @@ async def test_hosted_default_is_one_multimodal_chat_model_and_retires_media(mon
         me = await sign_up(client, sender)
         headers = {"Authorization": f"Bearer {me['api_key']}"}
         listed = (await client.get("/v1/models", headers=headers)).json()["data"]
-        assert [m["id"] for m in listed] == ["Qwen/Qwen3.6-27B-FP8"]
+        assert [m["id"] for m in listed] == ["halogen-qwen3.8-flash-next"]
         caller = cloud.authenticate(me["api_key"])
         cloud.db.insert_video_task("old-task", caller.account_id, "wan2.2-i2v-flash", cost_uy=500_000, probe=False)
         before = list(up.state.requests)
@@ -337,12 +316,10 @@ async def test_hosted_default_is_one_multimodal_chat_model_and_retires_media(mon
             await client.get("/api/v1/tasks/old-task", headers=headers),
         )
         for response in responses:
-            assert response.status_code == 410
-            assert response.json()["error"]["code"] == "hosted_media_retired"
-            assert response.json()["error"]["action"] == "configure_own_provider"
+            assert response.status_code == 404  # the media routes are gone entirely
         estimate = await client.get("/v1/estimate?images=1&clips=1", headers=headers)
         assert estimate.status_code == 410
-        assert await app.state.settle_video_tasks() == 0
+        assert estimate.json()["error"]["code"] == "hosted_media_retired"
         assert up.state.requests == before
         assert (await client.get("/v1/me", headers=headers)).json()["usage"] == usage_before
 
@@ -622,132 +599,6 @@ async def test_out_of_tokens_and_bad_keys(stack):
     assert r.status_code == 401 and r.json()["error"]["code"] == "bad_key"
 
 
-async def test_a_rate_limited_picture_is_tried_again_behind_the_gate(stack, monkeypatch):
-    """DashScope allows an account a couple of image tasks at a time and says 429 past that.
-    The relay waits it out (with growing pauses) instead of handing the app a 502 that
-    quotes the provider; only when it never clears does the app hear `provider_busy`."""
-    app, client, sender, up, cloud = stack
-    data = await sign_up(client, sender)
-    headers = {"Authorization": f"Bearer {data['api_key']}"}
-    accounts = (await client.get("/v1/admin/accounts", headers={"X-Admin-Token": "admin"})).json()["accounts"]
-    await client.post("/v1/admin/grant", headers={"X-Admin-Token": "admin"}, json={"account_id": accounts[0]["id"], "tokens": 1_000_000})
-    naps: list[float] = []
-
-    async def no_sleep(seconds: float) -> None:
-        naps.append(seconds)
-
-    monkeypatch.setattr("nanomuse_cloud.api.asyncio.sleep", no_sleep)
-
-    up.state.image_429s = 2
-    r = await client.post("/v1/images/generations", headers=headers, json={"model": "qwen-image-3.0", "prompt": "a dragon"})
-    assert r.status_code == 200, r.text
-    assert naps == [2.0, 4.0]
-    assert sum(1 for k, _, _ in up.state.requests if k == "image") == 3
-    assert r.headers["x-nanomuse-charged"] == "30000"
-
-    # never clears: a 429 of the relay's own, a stable code, no charge
-    naps.clear()
-    up.state.image_429s = 99
-    before = (await client.get("/v1/me", headers=headers)).json()
-    r = await client.post("/v1/images/generations", headers=headers, json={"model": "qwen-image-3.0", "prompt": "a dragon"})
-    assert r.status_code == 429
-    assert r.json()["error"]["code"] == "provider_busy"
-    assert r.json()["error"]["retry_after"] == 20
-    assert len(naps) == 4  # IMAGE_RETRIES
-    after = (await client.get("/v1/me", headers=headers)).json()
-    assert after["usage"] == before["usage"]
-    up.state.image_429s = 0
-
-
-async def test_pictures_are_drawn_a_couple_at_a_time(stack):
-    """Six at once from six devices: the gate lets two through at a time, the rest queue,
-    all six come back — the provider never sees more than two in flight."""
-    app, client, sender, up, cloud = stack
-    data = await sign_up(client, sender)
-    headers = {"Authorization": f"Bearer {data['api_key']}"}
-    accounts = (await client.get("/v1/admin/accounts", headers={"X-Admin-Token": "admin"})).json()["accounts"]
-    await client.post("/v1/admin/grant", headers={"X-Admin-Token": "admin"}, json={"account_id": accounts[0]["id"], "tokens": 1_000_000})
-    in_flight = {"now": 0, "peak": 0}
-    # the provider answers nobody until the test says so: the four admitted requests cannot
-    # settle and free a slot before the two refused ones have been counted, however slow
-    # the runner (a timed sleep here let a sixth request in after the first had finished)
-    release = asyncio.Event()
-
-    async def slow(request: Request):
-        in_flight["now"] += 1
-        in_flight["peak"] = max(in_flight["peak"], in_flight["now"])
-        await release.wait()
-        in_flight["now"] -= 1
-        return {"output": {"choices": [{"message": {"content": [{"image": "http://upstream/pic.png"}]}}]}}
-
-    # the slow handler takes the place of the fake's usual one
-    up.router.routes[:] = [
-        rt for rt in up.router.routes if getattr(rt, "path", "") != "/ds/api/v1/services/aigc/multimodal-generation/generation"
-    ]
-    up.add_api_route("/ds/api/v1/services/aigc/multimodal-generation/generation", slow, methods=["POST"])
-
-    tasks = [
-        asyncio.ensure_future(
-            client.post("/v1/images/generations", headers=headers, json={"model": "qwen-image-3.0", "prompt": f"dragon {i}"})
-        )
-        for i in range(6)
-    ]
-    # the two turned away at the door are the only ones that can finish before the release
-    for _ in range(500):
-        if sum(t.done() for t in tasks) >= 2:
-            break
-        await asyncio.sleep(0.01)
-    release.set()
-    rs = await asyncio.gather(*tasks)
-    # four of one account's requests may be under way at once (MAX_IN_FLIGHT); the two
-    # over that are told so rather than queued
-    assert sorted(r.status_code for r in rs) == [200] * 4 + [429] * 2
-    assert {r.json()["error"]["code"] for r in rs if r.status_code == 429} == {"too_many_in_flight"}
-    assert in_flight["peak"] <= 2
-    # once they are done, the account's slots are free again
-    assert cloud.in_flight.count(cloud.authenticate(data["api_key"]).account_id) == 0
-
-
-async def test_images_go_through_dashscope_native(stack):
-    app, client, sender, up, cloud = stack
-    data = await sign_up(client, sender)
-    headers = {"Authorization": f"Bearer {data['api_key']}"}
-    # 30 000 per picture is more than the 1 000 grant: refused first.
-    r = await client.post(
-        "/v1/images/generations", headers=headers, json={"model": "qwen-image-3.0", "prompt": "a small dragon", "size": "1024x1024"}
-    )
-    assert r.status_code == 402
-    accounts = (await client.get("/v1/admin/accounts", headers={"X-Admin-Token": "admin"})).json()["accounts"]
-    await client.post("/v1/admin/grant", headers={"X-Admin-Token": "admin"}, json={"account_id": accounts[0]["id"], "tokens": 100_000})
-
-    r = await client.post(
-        "/v1/images/generations",
-        headers=headers,
-        json={"model": "qwen-image-3.0", "prompt": "a small dragon", "size": "1024x1024", "response_format": "b64_json"},
-    )
-    assert r.status_code == 200, r.text
-    assert base64.b64decode(r.json()["data"][0]["b64_json"]) == PNG_1PX
-    kind, up_headers, up_body = up.state.requests[-1]
-    assert kind == "image" and up_body["model"] == "qwen-image-3.0"
-    assert up_headers["authorization"] == "Bearer sk-dashscope"
-    assert up_body["parameters"] == {"size": "1024*1024", "watermark": False, "prompt_extend": False}
-    assert up_body["input"]["messages"][0]["content"] == [{"text": "a small dragon"}]
-    assert r.headers["x-nanomuse-charged"] == "30000"
-
-    r = await client.post(
-        "/v1/images/edits",
-        headers=headers,
-        data={"model": "qwen-image-3.0", "prompt": "same dragon, waving", "n": "1", "size": "1024x1024"},
-        files={"image": ("image0.png", PNG_1PX, "image/png")},
-    )
-    assert r.status_code == 200, r.text
-    kind, up_headers, up_body = up.state.requests[-1]
-    content = up_body["input"]["messages"][0]["content"]
-    assert content[0]["image"].startswith("data:image/png;base64,") and content[1] == {"text": "same dragon, waving"}
-    me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["tokens"]["used"] == 60_000
-
-
 async def test_unconfigured_upstream_answers_503(stack):
     app, client, sender, up, cloud = stack
     object.__setattr__(app.state.settings, "upstream_key", "")
@@ -760,23 +611,16 @@ async def test_unconfigured_upstream_answers_503(stack):
 
 
 async def test_unconfigured_upstream_holds_nothing(stack):
-    # Before 0.23.1 the chat and video routes reserved the turn's price and only then found
+    # Before 0.23.1 the chat route reserved the turn's price and only then found
     # there was no key, so the hold was never settled: after max_in_flight such turns the
     # account was refused with too_many_in_flight until the holds timed out.
     app, client, sender, up, cloud = stack
     object.__setattr__(app.state.settings, "upstream_key", "")
-    object.__setattr__(app.state.settings, "dashscope_key", "")
     data = await sign_up(client, sender)
     headers = {"Authorization": f"Bearer {data['api_key']}"}
     account_id = cloud.authenticate(data["api_key"]).account_id
     for _ in range(cloud.s.max_in_flight + 1):
         r = await client.post("/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": []})
-        assert r.status_code == 503 and r.json()["error"]["code"] == "upstream_unconfigured"
-        r = await client.post(
-            "/api/v1/services/aigc/video-generation/video-synthesis",
-            headers=headers,
-            json={"model": "wan2.2-i2v-flash", "input": {"prompt": "a wave"}, "parameters": {"duration": 5}},
-        )
         assert r.status_code == 503 and r.json()["error"]["code"] == "upstream_unconfigured"
     assert cloud.in_flight.count(account_id) == 0
     health = (await client.get("/v1/admin/health", headers={"X-Admin-Token": "admin"})).json()
@@ -791,7 +635,6 @@ def make_stack(**overrides):
         admin_token="admin",
         upstream_base="http://upstream/compat/v1",
         upstream_key="sk-upstream",
-        dashscope_base="http://upstream/ds/api/v1",
         public_base="http://cloud.test",
     )
     kwargs.update(overrides)
@@ -819,14 +662,14 @@ async def test_private_relay_only_lets_listed_identifiers_in():
 async def test_open_signup_members_unlimited_everyone_else_has_one_allowance():
     # The released relay: anyone may sign in; the listed people have no limit,
     # the rest have one pool for good (¥10 in production) at the provider's
-    # list prices — chat, pictures and clips alike.
+    # list prices. The pool is only a meter now: nothing is refused for lack
+    # of it, the ledger just goes negative (the allowance menu was removed).
     app, client, sender, up, cloud = make_stack(
         allowed_identifiers="Me@Example.com",
         signup_tokens=0,
         daily_cap_tokens=0,
         per_minute_requests=0,
         allowance_cny=0.002,
-        invite_bonus_cny=5,
         usd_cny=7.0,
     )
     admin = {"X-Admin-Token": "admin"}
@@ -846,21 +689,9 @@ async def test_open_signup_members_unlimited_everyone_else_has_one_allowance():
         "today": 0,
         "today_usd": 0,
         "allowance_cny": 0.002,
-        "invite_bonus_cny": 5,
-        "invitee_bonus_cny": 5,
         # the 0.5 co-creation bonus is gone; the names stay for the apps of the time
         "contribute_bonus_cny": 0,
         "contribute_bonus_available": False,
-        "own_key_docs": "https://nanomuse.cn/own-key",
-        "openrouter_url": "https://openrouter.ai/keys",
-        # 0.17: a mainland phone account is pointed to Bailian first, then OpenRouter, then an invite;
-        # 0.21 adds the catalogue's facts to the two key ways (additive) and the whole card as `guidance`
-        "ways": [
-            {"id": "bailian", "url": "https://nanomuse.cn/own-key", "mainland_only": True, **WAY_FACTS["bailian"]},
-            {"id": "openrouter", "url": "https://openrouter.ai/keys", "mainland_only": False, **WAY_FACTS["openrouter"]},
-            {"id": "invite", "url": guest["invite"]["url"], "bonus_cny": 5},
-        ],
-        "guidance": guest["spend"]["guidance"],
         # what a 0.4 app still reads: the pool as the "cap", no midnight
         "daily_cap": 0.002,
         "daily_cap_usd": 0.0003,
@@ -870,6 +701,21 @@ async def test_open_signup_members_unlimited_everyone_else_has_one_allowance():
         "left_today": 0.002,
     }
     assert guest["region"] == "cn"
+    assert guest["invite"] == {
+        "code": "",
+        "url": "",
+        "invites": 0,
+        "bonus_cny": 0,
+        "invitee_bonus_cny": 0,
+        "bonus_when": "first_use",
+        "settled": 0,
+        "pending": 0,
+        "earned_cny": 0,
+        "credit_cny": 0,
+        "credit_left_cny": 0,
+        "clips_per_invite": 0,
+        "friends": [],
+    }
     assert guest["clips"]["unlimited"] is True
     # the allowance is the first line of the statement
     assert guest["recent"][0]["kind"] == "credit" and guest["recent"][0]["detail"] == {"credit_uy": 2000, "from": "signup"}
@@ -887,10 +733,9 @@ async def test_open_signup_members_unlimited_everyone_else_has_one_allowance():
     assert me["spend"]["today"] == 0.0009 and me["spend"]["total"] == 0.0009 and me["spend"]["left"] == 0.0011
     assert me["spend"]["warn"] is False
     assert me["recent"][0]["cost_cny"] == 0.0009
-    # Chats are priced after the fact, so one starts as long as anything is left:
-    # the second and third go through (¥0.0027), the fourth does not — and the
-    # refusal says what is left and where the two ways on lead.
-    for _ in range(2):
+    # Chats are priced after the fact, and nothing refuses for lack of pool:
+    # the next three go through too (¥0.0036 in all) and the pool runs out.
+    for _ in range(3):
         assert (
             await client.post(
                 "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
@@ -898,41 +743,23 @@ async def test_open_signup_members_unlimited_everyone_else_has_one_allowance():
         ).status_code == 200
     me = (await client.get("/v1/me", headers=headers)).json()
     assert me["spend"]["left"] == 0 and me["spend"]["warn"] is True
-    r = await client.post(
-        "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
-    )
-    assert r.status_code == 429
-    err = r.json()["error"]
-    assert err["code"] == "allowance_exhausted" and "¥0.002" in err["message"] and "keep working" in err["message"]
-    assert err["left"] == 0 and err["grant"] == 0.002 and err["own_key_docs"] == "https://nanomuse.cn/own-key"
-    assert (
-        err["invite_url"].startswith("https://nanomuse.cn/web/?invite=")
-        and len(err["invite_url"]) == len("https://nanomuse.cn/web/?invite=") + 8
-    )
-    assert "co-creation" not in err["message"] and "invite a friend" in err["message"] and "own model key" in err["message"]
-    assert err["invite_bonus_cny"] == 5 and err["invitee_bonus_cny"] == 5
-    assert err["contribute_bonus_available"] is False and err["contribute_bonus_cny"] == 0
-    # A picture that would go over is refused before it is drawn.
+    # The media routes are gone: a picture request is a plain 404.
     r = await client.post("/v1/images/generations", headers=headers, json={"model": "qwen-image-3.0", "prompt": "a dragon"})
-    assert r.status_code == 429 and not any(k == "image" for k, _, _ in up.state.requests)
-    # The data switch earns nothing (there is no co-creation bonus any more) …
+    assert r.status_code == 404 and not any(k == "image" for k, _, _ in up.state.requests)
+    # The data switch is gone too: the endpoint answers 404 and /v1/me always says off.
     r = await client.post("/v1/me/contribute", headers=headers, json={"on": True})
-    assert r.status_code == 200 and r.json()["bonus_granted"] is False and r.json()["bonus_available"] is False
+    assert r.status_code == 404
     me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["spend"]["grant"] == 0.002 and me["spend"]["left"] == 0 and me["contribute"]["on"] is True
-    # … the operator's credit does (¥10): the chat goes through again.
+    assert me["spend"]["grant"] == 0.002 and me["spend"]["left"] == 0 and me["contribute"]["on"] is False
+    # … the operator's credit does add to the pool (¥10): the chat goes through again.
     r = await client.post("/v1/admin/credit", headers=admin, json={"identifier": "13800138000", "cny": 10, "note": "thanks"})
     assert r.status_code == 200
     me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["spend"]["grant"] == 10.002 and me["spend"]["left"] == round(10.002 - 0.0027, 4) and me["spend"]["warn"] is False
+    assert me["spend"]["grant"] == 10.002 and me["spend"]["left"] == round(10.002 - 0.0036, 4) and me["spend"]["warn"] is False
     r = await client.post(
         "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
     )
     assert r.status_code == 200
-    await client.post("/v1/me/contribute", headers=headers, json={"on": False})
-    r = await client.post("/v1/me/contribute", headers=headers, json={"on": True})
-    assert r.json()["bonus_granted"] is False
-    assert (await client.get("/v1/me", headers=headers)).json()["spend"]["grant"] == 10.002
 
     # The listed person has no limit and sees none.
     member = await sign_up(client, sender, identifier="me@example.com", device="desk")
@@ -945,26 +772,24 @@ async def test_open_signup_members_unlimited_everyone_else_has_one_allowance():
                 "/v1/chat/completions", headers=mh, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
             )
         ).status_code == 200
-    r = await client.post("/v1/images/generations", headers=mh, json={"model": "qwen-image-3.0", "prompt": "a dragon"})
-    assert r.status_code == 200
     me = (await client.get("/v1/me", headers=mh)).json()
-    assert me["spend"]["today"] == round(4 * 0.0009 + 0.18, 4)
+    assert me["spend"]["today"] == round(4 * 0.0009, 4)
 
     # The operator's view carries money next to tokens, and can make a guest a member.
     listing = (await client.get("/v1/admin/accounts", headers=admin)).json()
     s = listing["settings"]
     assert s["signup_open"] is True and s["allowance_cny"] == 0.002 and s["usd_cny"] == 7.0
-    assert s["invite_bonus_cny"] == 5 and s["invitee_bonus_cny"] == 5 and s["contributors"] == 1 and s["improve_default"] is False
+    assert s["contributors"] == 0 and s["improve_default"] is False
     assert "daily_cap_cny" not in s and "video_clips_free" not in s
     assert s["prices"]["qwen-image-3.0"]["per_image"] == 0.18
     by_id = {a["identifier"]: a for a in listing["accounts"]}
     g, m = by_id["+8613800138000"], by_id["me@example.com"]
-    assert g["member"] is False and g["spent_today_cny"] == 0.0036 and g["spent_cny"] == 0.0036
-    assert g["grant_cny"] == 10.002 and g["left_cny"] == round(10.002 - 0.0036, 4) and g["contribute_bonus_at"] is None
+    assert g["member"] is False and g["spent_today_cny"] == 0.0045 and g["spent_cny"] == 0.0045
+    assert g["grant_cny"] == 10.002 and g["left_cny"] == round(10.002 - 0.0045, 4) and g["contribute_bonus_at"] is None
     assert "credit_uy" not in g and "grant_uy" not in g and "clips_bonus" not in g
     assert m["member"] is True and m["listed"] is True and m["unlimited"] is False and m["left_cny"] is None
     usage = (await client.get("/v1/admin/usage", headers=admin)).json()["days"]
-    assert {(u["kind"], u["cost_cny"]) for u in usage} == {("chat", round(8 * 0.0009, 4)), ("image", 0.18)}
+    assert {(u["kind"], u["cost_cny"]) for u in usage} == {("chat", round(9 * 0.0009, 4))}
 
     r = await client.post("/v1/admin/unlimited", headers=admin, json={"identifier": "138 0013 8000"})
     assert r.status_code == 204
@@ -1002,65 +827,6 @@ def test_prices_and_day_boundary():
     assert s.cny_to_usd(25) == round(25 / 7.1, 4) and s.uy_to_cny(1234) == 0.0012
 
 
-async def test_video_is_relayed_under_dashscope_paths(stack):
-    app, client, sender, up, cloud = stack
-    data = await sign_up(client, sender)
-    headers = {"Authorization": f"Bearer {data['api_key']}"}
-    await client.post("/v1/admin/grant", headers={"X-Admin-Token": "admin"}, json={"identifier": "13800138000", "tokens": 1_000_000})
-
-    # The app's probe: an unknown name is 404, an offered one answers 400 on an empty body (nothing charged).
-    r = await client.post(
-        "/api/v1/services/aigc/video-generation/video-synthesis",
-        headers=headers,
-        json={"model": "wan2.6-i2v", "input": {}, "parameters": {}},
-    )
-    assert r.status_code == 404
-    r = await client.post(
-        "/api/v1/services/aigc/video-generation/video-synthesis",
-        headers=headers,
-        json={"model": "wan2.2-i2v-flash", "input": {}, "parameters": {}},
-    )
-    assert r.status_code == 400 and r.json()["message"] == "prompt is required"
-    assert (await client.get("/v1/me", headers=headers)).json()["tokens"]["used"] == 0
-
-    # Upload policy, then the task itself, with the operator's key and the OSS header passed on.
-    r = await client.get("/api/v1/uploads", params={"action": "getPolicy", "model": "wan2.2-i2v-flash"}, headers=headers)
-    assert r.status_code == 200 and r.json()["data"]["upload_dir"] == "tmp/x"
-    kind, up_headers, q = up.state.requests[-1]
-    assert kind == "uploads" and up_headers["authorization"] == "Bearer sk-dashscope" and q["model"] == "wan2.2-i2v-flash"
-    r = await client.post(
-        "/api/v1/services/aigc/video-generation/video-synthesis",
-        headers={**headers, "X-DashScope-OssResourceResolve": "enable"},
-        json={"model": "wan2.2-i2v-flash", "input": {"prompt": "a dragon waves"}, "parameters": {"duration": 4}},
-    )
-    assert r.status_code == 200 and r.json()["output"]["task_id"] == "task-42"
-    kind, up_headers, up_body = up.state.requests[-1]
-    assert kind == "video" and up_headers["x-dashscope-async"] == "enable" and up_headers["x-dashscope-ossresourceresolve"] == "enable"
-    assert up_headers["authorization"] == "Bearer sk-dashscope" and up_body["model"] == "wan2.2-i2v-flash"
-    assert (await client.get("/v1/me", headers=headers)).json()["tokens"]["used"] == 0  # nothing until the clip exists
-
-    # Polling: still running, then done — charged once, however often it is asked again.
-    r = await client.get("/api/v1/tasks/task-42", headers=headers)
-    assert r.status_code == 200 and r.json()["output"]["task_status"] == "RUNNING"
-    assert (await client.get("/v1/me", headers=headers)).json()["tokens"]["used"] == 0
-    for _ in range(2):
-        r = await client.get("/api/v1/tasks/task-42", headers=headers)
-        assert r.status_code == 200 and r.json()["output"]["video_url"].endswith("clip.mp4")
-    me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["tokens"]["used"] == 200_000 and me["recent"][0]["kind"] == "video"
-    # The owner sees the task, another account does not.
-    other = await sign_up(client, sender, identifier="13900001111", device="other")
-    r = await client.get("/api/v1/tasks/task-42", headers={"Authorization": f"Bearer {other['api_key']}"})
-    assert r.status_code == 404
-    # Too little grant left for a clip: refused before the provider is asked.
-    r = await client.post(
-        "/api/v1/services/aigc/video-generation/video-synthesis",
-        headers={"Authorization": f"Bearer {other['api_key']}"},
-        json={"model": "wan2.2-i2v-flash", "input": {"prompt": "x"}, "parameters": {}},
-    )
-    assert r.status_code == 402
-
-
 async def test_unlimited_relay_meters_but_never_refuses():
     up = fake_upstream()
     settings = Settings(
@@ -1069,7 +835,6 @@ async def test_unlimited_relay_meters_but_never_refuses():
         admin_token="admin",
         upstream_base="http://upstream/compat/v1",
         upstream_key="sk-upstream",
-        dashscope_base="http://upstream/ds/api/v1",
         public_base="http://cloud.test",
         signup_tokens=0,
         daily_cap_tokens=0,
@@ -1088,13 +853,11 @@ async def test_unlimited_relay_meters_but_never_refuses():
             "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
         )
         assert r.status_code == 200
-    r = await client.post("/v1/images/generations", headers=headers, json={"model": "qwen-image-3.0", "prompt": "a dragon"})
-    assert r.status_code == 200
     me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["tokens"] == {"unlimited": True, "granted": 0, "used": 450 + 30_000, "remaining": 0, "used_today": 30_450, "daily_cap": 0}
+    assert me["tokens"] == {"unlimited": True, "granted": 0, "used": 450, "remaining": 0, "used_today": 450, "daily_cap": 0}
     accounts = (await client.get("/v1/admin/accounts", headers={"X-Admin-Token": "admin"})).json()
     assert accounts["settings"]["unlimited"] is True
-    assert accounts["accounts"][0]["used_today"] == 30_450 and accounts["accounts"][0]["requests"] == 4
+    assert accounts["accounts"][0]["used_today"] == 450 and accounts["accounts"][0]["requests"] == 3
 
 
 async def test_admin_sees_identifiers_and_people_can_leave(stack):
@@ -1223,22 +986,6 @@ async def test_the_operator_sees_addresses_clients_and_every_line(stack):
     listing = (await client.get("/v1/admin/accounts", headers=admin)).json()["accounts"]
     assert listing[0]["last_ip"] == "198.51.100.2" and listing[0]["last_platform"] == "linux"
 
-    # with "help improve" on, the kept turn carries the address for the operator — and the
-    # training export leaves it out
-    r = await client.post("/v1/me/contribute", headers=headers, json={"on": True})
-    assert r.status_code == 200
-    r = await client.post(
-        "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "kept"}]}
-    )
-    assert r.status_code == 200
-    kept = (await client.get("/v1/admin/samples", headers=admin)).json()["samples"]
-    assert kept[0]["meta"]["ip"] == "203.0.113.7" and kept[0]["platform"] == "android"
-    exported = (await client.get(f"/v1/admin/samples/export?account_id={data['account']['id']}", headers=admin)).text
-    line = json.loads(exported.strip())
-    assert "ip" not in line["meta"] and "account_id" not in line and line["response"] == "hi"
-    view = (await client.get("/v1/admin/data", headers=admin)).json()
-    assert [(x["hint"], x["samples"]) for x in view["by_account"]] == [("138****8000", 1)]
-
 
 async def test_the_statement_and_the_timeline_filter_across_pages(stack):
     """0.26: the account page's statement and timeline take `kind` (a comma list) and `q`
@@ -1295,58 +1042,6 @@ async def test_the_statement_and_the_timeline_filter_across_pages(stack):
         before = page[-1]["id"]
     whole = (await client.get("/v1/admin/events", params={"limit": 1000}, headers=admin)).json()["events"]
     assert [e["id"] for e in seen] == [e["id"] for e in whole] and len(seen) == len({e["id"] for e in seen}) >= 3
-
-
-async def test_the_showcase_visitors_reach_the_admin_page(monkeypatch):
-    """0.10: with WEB_ADMIN_URL + WEB_ADMIN_TOKEN the relay passes the gateway's visitors view
-    through (/v1/admin/demo) and puts one account's demos in its drawer; without them the
-    panel is told so and the drawer carries None."""
-    app, client, sender, up, cloud = make_stack(web_admin_url="http://gateway/api/demo/admin", web_admin_token="shh")
-    seen: list[httpx.Request] = []
-
-    def gateway(request: httpx.Request) -> httpx.Response:
-        seen.append(request)
-        if request.headers.get("x-admin-token") != "shh":
-            return httpx.Response(403, json={"error": "forbidden"})
-        account = request.url.params.get("account", "")
-        if account:
-            return httpx.Response(
-                200,
-                json={
-                    "visitor": {"id": account, "hint": "so…", "signins": 2, "sessions": 1, "first_ip": "1.2.3.4", "last_ip": "5.6.7.8"},
-                    "visits": [{"id": "abc", "ip": "5.6.7.8"}],
-                    "visits_total": 1,
-                },
-            )
-        return httpx.Response(
-            200,
-            json={
-                "signin_required": True,
-                "visitors": [{"id": "x", "hint": "so…"}],
-                "visitors_total": 1,
-                "visits": [],
-                "visits_total": 0,
-                "days": int(request.url.params.get("days", 0)),
-                "active": [],
-            },
-        )
-
-    real = httpx.AsyncClient
-    monkeypatch.setattr("nanomuse_cloud.api.httpx.AsyncClient", lambda *a, **kw: real(transport=httpx.MockTransport(gateway)))
-    admin = {"X-Admin-Token": "admin"}
-    view = (await client.get("/v1/admin/demo?days=7", headers=admin)).json()
-    assert view["available"] is True and view["visitors_total"] == 1 and view["days"] == 7
-    data = await sign_up(client, sender)
-    acc = (await client.get(f"/v1/admin/accounts/{data['account']['id']}", headers=admin)).json()
-    assert acc["demo"]["visitor"]["first_ip"] == "1.2.3.4" and acc["demo"]["visits_total"] == 1
-    assert seen[-1].url.params["account"] == data["account"]["id"]
-
-    # not configured: the panel says so, the drawer has nothing to show
-    monkeypatch.undo()
-    app2, client2, sender2, up2, cloud2 = make_stack()
-    assert (await client2.get("/v1/admin/demo", headers=admin)).json() == {"available": False, "places": {}}
-    data2 = await sign_up(client2, sender2)
-    assert (await client2.get(f"/v1/admin/accounts/{data2['account']['id']}", headers=admin)).json()["demo"] is None
 
 
 async def test_members_see_the_models_under_the_key_and_pick():
@@ -1672,120 +1367,6 @@ async def test_a_content_check_refusal_is_counted_apart_from_upstream_errors(sta
     assert health["ok"] is False and health["problems"] == ["20 upstream errors in the last hour"]
 
 
-def tiny_xdb(ranges: list[tuple[str, str, str]]) -> bytes:
-    """A real xdb (structure 3, IPv4) with just these ranges — the format geo.py reads:
-    header, 256×256 vector index, the segment index, the region strings."""
-    import ipaddress
-    import struct
-
-    HEADER, CELLS = 256, 256 * 256
-    segs = sorted((int(ipaddress.ip_address(a)), int(ipaddress.ip_address(b)), r.encode()) for a, b, r in ranges)
-    index_start = HEADER + CELLS * 8
-    index_len = 14 * len(segs)
-    data_start = index_start + index_len
-    data, ptrs, p = b"", [], data_start
-    for _, _, region in segs:
-        ptrs.append((p, len(region)))
-        data += region
-        p += len(region)
-    index = b"".join(struct.pack("<IIHI", s, e, ln, ptr) for (s, e, _), (ptr, ln) in zip(segs, ptrs, strict=True))
-    vector = bytearray(CELLS * 8)
-    # each (first, second octet) cell gets the byte range of the entries that can hold it
-    by_cell: dict[int, list[int]] = {}
-    for i, (s, e, _) in enumerate(segs):
-        for cell in range(s >> 16, (e >> 16) + 1):
-            by_cell.setdefault(cell, []).append(i)
-    for cell, rows in by_cell.items():
-        struct.pack_into("<II", vector, cell * 8, index_start + 14 * rows[0], index_start + 14 * (rows[-1] + 1))
-    header = bytearray(HEADER)
-    struct.pack_into("<HHIII", header, 0, 3, 1, 0, index_start, data_start)
-    struct.pack_into("<HH", header, 16, 4, 4)
-    return bytes(header) + bytes(vector) + index + data
-
-
-async def test_addresses_come_with_where_they_are(tmp_path):
-    """0.11: the admin page's answers carry `places` — country, province, city — for the
-    addresses they show, read from ip2region's file in the data directory (nothing is sent
-    anywhere); private addresses are "本地网络"; an address the file does not know is left
-    out; a missing file means places stay unknown and the page is told."""
-    from nanomuse_cloud.geo import Geo, Xdb, collect_ips, group_places, parse_region
-
-    db = tmp_path / "ip2region_v4.xdb"
-    db.write_bytes(
-        tiny_xdb(
-            [
-                ("1.2.3.0", "1.2.3.255", "中国|浙江省|杭州市|阿里|CN"),
-                ("8.8.8.0", "8.8.8.255", "United States|California|0|Google LLC|US"),
-                ("1.2.4.0", "1.2.4.255", "中国|北京市|北京市|联通|CN"),
-            ]
-        )
-    )
-    x = Xdb.load(db)
-    import ipaddress
-
-    assert x.search(ipaddress.ip_address("1.2.3.4").packed) == "中国|浙江省|杭州市|阿里|CN"
-    assert x.search(ipaddress.ip_address("1.2.4.200").packed).startswith("中国|北京市")
-    assert x.search(ipaddress.ip_address("1.2.5.1").packed) == "" and x.search(ipaddress.ip_address("9.9.9.9").packed) == ""
-    p = parse_region("中国|浙江省|杭州市|阿里|CN")
-    assert (p.country, p.province, p.city, p.isp, p.code, p.text) == ("中国", "浙江省", "杭州市", "阿里", "CN", "中国 · 浙江省 · 杭州市")
-    assert parse_region("中国|北京市|北京市|联通|CN").text == "中国 · 北京市"
-    assert parse_region("United States|California|0|Google LLC|US").text == "United States · California"
-    assert parse_region("中国|华东|浙江省|杭州市|阿里").province == "浙江省"  # the older layout
-    assert parse_region("0|0|0|0|0").country == ""
-
-    geo = Geo(str(db))
-    assert geo.ready and geo.status()["families"] == [4]
-    assert geo.place("1.2.3.4").text == "中国 · 浙江省 · 杭州市" and geo.place("::ffff:8.8.8.8").code == "US"
-    assert geo.place("10.0.0.1").local and geo.place("127.0.0.1").text == "本地网络"
-    assert geo.place("9.9.9.9") is None and geo.place("not an ip") is None and geo.place("") is None
-    assert geo.place("2400:3200::1") is None  # no IPv6 file
-    assert collect_ips({"a": [{"ip": "1.2.3.4", "x": {"last_ip": "8.8.8.8", "first_ip": ""}}], "ip": "10.0.0.1"}) == {
-        "1.2.3.4",
-        "8.8.8.8",
-        "10.0.0.1",
-    }
-    grouped = group_places([("1.2.3.4", 5), ("1.2.3.9", 1), ("8.8.8.8", 2), ("9.9.9.9", 7), ("10.0.0.1", 1)], geo)
-    assert [(g["country"], g["province"], g["n"], g["ips"]) for g in grouped] == [
-        ("", "", 7, 1),
-        ("中国", "浙江省", 6, 2),
-        ("United States", "California", 2, 1),
-        ("本地网络", "", 1, 1),
-    ]
-
-    # through the relay: a sign-in from Hangzhou, and the page's answers say so
-    app, client, sender, up, cloud = make_stack(geoip_db=str(db), catalog_probe=False)
-    assert app.state.geo.ready
-    data = await sign_up(client, sender, identifier="13800138000", device="pixel", headers={"X-Forwarded-For": "1.2.3.4"})
-    headers = {"Authorization": f"Bearer {data['api_key']}", "X-Forwarded-For": "1.2.3.4"}
-    r = await client.post(
-        "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
-    )
-    assert r.status_code == 200
-    admin = {"X-Admin-Token": "admin"}
-    listing = (await client.get("/v1/admin/accounts", headers=admin)).json()
-    assert listing["accounts"][0]["last_ip"] == "1.2.3.4" and listing["places"]["1.2.3.4"]["text"] == "中国 · 浙江省 · 杭州市"
-    account_id = data["account"]["id"]
-    detail = (await client.get(f"/v1/admin/accounts/{account_id}", headers=admin)).json()
-    assert detail["places"]["1.2.3.4"]["city"] == "杭州市"
-    addr = (await client.get("/v1/admin/address", headers=admin, params={"ip": "1.2.3.4"})).json()
-    assert addr["place"]["province"] == "浙江省" and addr["accounts"][0]["id"] == account_id
-    unknown = (await client.get("/v1/admin/address", headers=admin, params={"ip": "9.9.9.9"})).json()
-    assert unknown["place"] is None
-    overview = (await client.get("/v1/admin/overview", headers=admin)).json()
-    assert overview["geo"]["ready"] is True
-    places = (await client.get("/v1/admin/places", headers=admin, params={"days": 7})).json()
-    assert places["geo"]["ready"] and places["demo_visitors"] is None  # no showcase gateway configured
-    assert places["accounts"] == [{"country": "中国", "code": "CN", "province": "浙江省", "n": 1, "ips": 1}]
-    assert places["requests"][0]["n"] == 1 and places["signins"][0]["country"] == "中国" and places["new_accounts"][0]["n"] == 1
-
-    # no file, no fetch (an in-memory database has no directory): places stay unknown, honestly
-    app2, client2, *_ = make_stack(catalog_probe=False)
-    assert not app2.state.geo.enabled
-    overview2 = (await client2.get("/v1/admin/overview", headers=admin)).json()
-    assert overview2["geo"] == {"enabled": False, "ready": False, "families": [], "error": "", "fetching": False, "file": ""}
-    assert overview2["places"] == {}
-
-
 def test_code_mail_has_text_and_html_in_both_languages():
     from nanomuse_cloud.senders import compose_code_mail
 
@@ -1799,20 +1380,6 @@ def test_code_mail_has_text_and_html_in_both_languages():
     assert "<script" not in parts["text/html"]
 
 
-def test_provider_picture_urls_are_only_fetched_from_the_provider():
-    from nanomuse_cloud.api import _provider_url_ok
-
-    own = ("dashscope.aliyuncs.com",)
-    assert _provider_url_ok("https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/x/y.png", own)
-    assert _provider_url_ok("https://dashscope.aliyuncs.com/api/v1/files/1", own)
-    assert _provider_url_ok("http://upstream/pic.png", ("upstream",))
-    assert not _provider_url_ok("http://dashscope-result.oss-cn-beijing.aliyuncs.com/x.png", own)  # plain http, not our host
-    assert not _provider_url_ok("https://169.254.169.254/latest/meta-data/", own)
-    assert not _provider_url_ok("https://evil.example.com/aliyuncs.com/x.png", own)
-    assert not _provider_url_ok("file:///etc/passwd", own)
-    assert not _provider_url_ok("", own)
-
-
 def test_a_video_task_seen_twice_stays_charged():
     db = Database(":memory:")
     db.create_account("h", "phone", "138****8000", 0, account_id="a1")
@@ -1824,205 +1391,37 @@ def test_a_video_task_seen_twice_stays_charged():
     assert row is not None and row["charged"] == 1
 
 
-async def test_data_controls_keep_the_training_view_only_and_are_deletable(stack):
-    """With IMPROVE_DEFAULT unset the switch starts off: nothing about a chat turn is kept.
-    On: what the person wrote and what the model answered (its tool calls with it) land in
-    ``samples`` — never the system prompt, a tool's result or a picture — for the operator,
-    exported without the account id; a delete removes them, and the switch earns nothing."""
+async def test_no_new_samples_are_kept_and_the_switch_is_gone(stack):
+    """The training-sample collection was removed: chats keep nothing, the switch
+    endpoint is gone, and /v1/me always says the switch is off. The read side
+    stays: the admin list is empty and the delete tap answers with zeros."""
     app, client, sender, up, cloud = stack
     data = await sign_up(client, sender, identifier="dev-a@example.com")
     headers = {"Authorization": f"Bearer {data['api_key']}"}
     admin = {"X-Admin-Token": "admin"}
-    msgs = [{"role": "user", "content": "hi"}]
-    r = await client.post("/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": msgs})
+    r = await client.post(
+        "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
+    )
     assert r.status_code == 200
     me = (await client.get("/v1/me", headers=headers)).json()
     assert me["contribute"]["on"] is False and me["contribute"]["samples"] == 0 and me["contribute"]["default_on"] is False
-    assert me["contribute"]["privacy_url"] == "https://nanomuse.cn/privacy/" and "what you wrote" in me["contribute"]["keeps"]["kept"]
+    assert me["contribute"]["privacy_url"] == "https://github.com/knsew/nanoMuse"
     assert me["contribute"]["bonus_cny"] == 0 and me["contribute"]["bonus_available"] is False
     assert (await client.get("/v1/admin/samples", headers=admin)).json() == {"samples": [], "total": 0, "places": {}}
-
-    r = await client.post("/v1/me/contribute", headers=headers, json={"on": True})
-    assert r.status_code == 200
-    assert r.json()["on"] is True and r.json()["samples"] == 0 and r.json()["bonus_granted"] is False
-    # a full agent turn: system prompt, a picture, a tool call and its result
-    turn = [
-        {"role": "system", "content": "SOUL and memory: the person's name is Ada"},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "what is this"},
-                {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
-            ],
-        },
-        {
-            "role": "assistant",
-            "content": "",
-            "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "read", "arguments": "{}"}}],
-        },
-        {"role": "tool", "tool_call_id": "c1", "content": "SECRET FILE CONTENTS"},
-    ]
-    r = await client.post(
-        "/v1/chat/completions",
-        headers={**headers, "User-Agent": "nanoMuse-Android/0.1.27", "Accept-Language": "zh-CN"},
-        json={"model": "qwen3.8-27b", "messages": turn},
-    )
-    assert r.status_code == 200
-    # and a streamed one
-    async with client.stream(
-        "POST", "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "stream": True, "messages": msgs}
-    ) as r:
-        await r.aread()
-    me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["contribute"]["on"] is True and me["contribute"]["samples"] == 2
-    got = (await client.get("/v1/admin/samples", headers=admin)).json()
-    assert got["total"] == 2 and [s["response"] for s in got["samples"]] == ["你好，世界", "hi"]
-    first = got["samples"][1]
-    assert [m["role"] for m in first["request"]] == ["user", "assistant", "tool"]
-    assert first["request"][0]["content"] == [{"type": "text", "text": "what is this"}, {"type": "image_url", "omitted": True}]
-    assert first["request"][1]["tool_calls"][0]["function"]["name"] == "read"
-    assert first["request"][2] == {"role": "tool", "tool_call_id": "c1", "content": "", "omitted": True}
-    dumped = json.dumps(first)
-    assert "AAAA" not in dumped and "Ada" not in dumped and "SECRET" not in dumped
-    # 0.10: the address goes with the turn for the operator (the test client has none);
-    # 0.31: the kept turn says where it came from — the relay's model (`cloud`), the record's
-    # id for it, the script of what the person wrote — and nothing of who started it when
-    # the app did not say (no X-NanoMuse-Run header here)
-    assert first["meta"] == {
-        "ua": "nanoMuse-Android/0.1.27",
-        "lang": "zh-CN",
-        "ip": first["meta"]["ip"],
-        "source": "cloud",
-        "turn_id": first["meta"]["turn_id"],
-        "script": "latin",
-    }
-    assert len(first["meta"]["turn_id"]) == 16 and "run" not in first["meta"]
-    assert first["platform"] == "android"
-    assert first["prompt_tokens"] == 100 and first["completion_tokens"] == 50
-    account = (await client.get(f"/v1/admin/accounts/{data['account']['id']}", headers=admin)).json()["account"]
-    assert account["contribute"] is True and account["samples"] == 2
-    overview = (await client.get("/v1/admin/overview", headers=admin)).json()
-    assert overview["contributions"] == {"accounts": 1, "samples": 2}
-    # the operator's data view: who has it on, what came in, by day / model / app, the newest turns
-    dv = (await client.get("/v1/admin/data?days=7", headers=admin)).json()
-    assert dv["default_on"] is False and dv["accounts"]["on"] == 1 and dv["accounts"]["total"] == 1 and dv["accounts"]["share"] == 1.0
-    assert dv["totals"]["samples"] == 2 and dv["period"]["samples"] == 2 and dv["period"]["accounts"] == 1
-    assert len(dv["days"]) == 7 and dv["days"][-1]["samples"] == 2 and dv["days"][-1]["turned_on"] == 1 and dv["days"][-1]["accounts"] == 1
-    assert len(dv["by_model"]) == 1 and dv["by_model"][0]["model"] == "qwen3.8-27b" and dv["by_model"][0]["samples"] == 2
-    assert dv["by_model"][0]["tokens"] == dv["period"]["prompt_tokens"] + dv["period"]["completion_tokens"] > 0
-    # each split counts the calls and the questions among them (0.31): the Android call came
-    # after a tool's result, so it continued a question; the streamed one opened its own
-    assert sorted(dv["by_platform"], key=lambda x: x["platform"]) == [
-        {"platform": "android", "samples": 1, "turns": 0},
-        {"platform": "runtime", "samples": 1, "turns": 1},
-    ]
-    assert dv["totals"]["turns"] == 1 and dv["period"]["turns"] == 1 and dv["totals"]["turns_pending"] == 0
-    assert [s["response"] for s in dv["recent"]] == ["你好，世界", "hi"] and dv["recent"][0]["hint"] == data["account"]["hint"]
-    # the export has no account ids
-    r = await client.get("/v1/admin/samples/export", headers=admin)
-    assert r.status_code == 200 and r.headers["content-type"].startswith("application/x-ndjson")
-    lines = [json.loads(ln) for ln in r.text.splitlines() if ln]
-    assert len(lines) == 2 and all("account_id" not in ln for ln in lines)
-    assert {ln["response"] for ln in lines} == {"hi", "你好，世界"}
-    # off again: nothing more is kept, but what was kept stays counted until the person deletes it
-    r = await client.post("/v1/me/contribute", headers=headers, json={"on": False})
-    assert r.json()["on"] is False and r.json()["samples"] == 2 and r.json()["bonus_granted"] is False
-    r = await client.post("/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": msgs})
-    assert (await client.get("/v1/admin/samples", headers=admin)).json()["total"] == 2
-    assert (await client.get("/v1/me", headers=headers)).json()["contribute"]["samples"] == 2
-    # 0.29: the same tap deletes the record — every turn (the four made here, whatever the
-    # switch said) and the one picture only this account referenced
-    await asyncio.gather(*app.state.record_tasks)
-    me = (await client.get("/v1/me", headers=headers)).json()
-    assert me["contribute"]["record"] == {"on": True, "turns": 4, "own": 0, "files": 1, "media_bytes": 3, "keep_days": 0}
+    assert (await client.post("/v1/me/contribute", headers=headers, json={"on": True})).status_code == 404
+    assert (await client.get("/v1/me/invite", headers=headers)).status_code == 404
     r = await client.delete("/v1/me/samples", headers=headers)
-    assert r.json() == {"deleted": 2, "turns": 4, "files": 1}
-    assert (await client.get("/v1/me", headers=headers)).json()["contribute"]["samples"] == 0
-    assert (await client.get("/v1/me", headers=headers)).json()["contribute"]["record"]["turns"] == 0
-    kinds = [e["kind"] for e in (await client.get("/v1/me/events", headers=headers)).json()["events"]]
-    assert {"contribute.on", "contribute.off", "contribute.deleted"} <= set(kinds) and "contribute.default" not in kinds
-    dv = (await client.get("/v1/admin/data?days=1", headers=admin)).json()
-    assert (
-        dv["accounts"]["on"] == 0
-        and dv["accounts"]["turned_off_ever"] == 1
-        and dv["days"][0]["turned_off"] == 1
-        and dv["days"][0]["deleted"] == 1
-    )
-    # deleting the account takes any samples with it
-    await client.post("/v1/me/contribute", headers=headers, json={"on": True})
-    await client.post("/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": msgs})
-    assert cloud.db.sample_count() == 1
-    assert (await client.post("/v1/auth/delete", headers=headers)).status_code == 204
-    assert cloud.db.sample_count() == 0
+    assert r.json() == {"deleted": 0, "turns": 0, "files": 0}
 
 
-async def test_improve_default_applies_to_new_accounts_only():
-    """IMPROVE_DEFAULT=1: an account made from now on starts with the switch on, said on its
-    timeline as the relay's default (not as a choice), and may turn it off; an account from
-    before keeps what it had. The invite bonus goes to both sides either way."""
-    app, client, sender, up, cloud = make_stack(allowance_cny=10, invite_bonus_cny=5)
-    before = await sign_up(client, sender, identifier="dev-a@example.com")
-    assert before["contribute"]["on"] is False
-    cloud.s = dataclasses.replace(cloud.s, improve_default=True)  # the operator sets IMPROVE_DEFAULT=1 and restarts
-    me = (await client.get("/v1/me", headers={"Authorization": f"Bearer {before['api_key']}"})).json()
-    assert me["contribute"]["on"] is False and me["contribute"]["default_on"] is True
-    code = (await client.get("/v1/me/invite", headers={"Authorization": f"Bearer {before['api_key']}"})).json()["code"]
-
-    after = await sign_up(client, sender, identifier="dev-b@example.com", invite=code)
-    assert after["contribute"]["on"] is True and after["contribute"]["samples"] == 0 and after["contribute"]["default_on"] is True
-    headers = {"Authorization": f"Bearer {after['api_key']}"}
-    kinds = [e["kind"] for e in (await client.get("/v1/me/events", headers=headers)).json()["events"]]
-    assert "contribute.default" in kinds and "contribute.on" not in kinds
-    r = await client.post(
-        "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
-    )
-    assert r.status_code == 200 and cloud.db.sample_count() == 1
-    # +¥5 for each of them at the newcomer's first request (the one just made): the
-    # newcomer's pool is ¥15, the inviter's too; at sign-up it was the allowance alone
-    assert after["spend"]["grant"] == 10 and after["invite"]["invitee_bonus_cny"] == 5
-    me_after = (await client.get("/v1/me", headers=headers)).json()
-    assert me_after["spend"]["grant"] == 15
-    credits = [r_["detail"] for r_ in me_after["recent"] if r_["kind"] == "credit"]
-    assert {"credit_uy": 5_000_000, "from": "invited", "friend": before["account"]["id"][:8]} in credits
-    me = (await client.get("/v1/me", headers={"Authorization": f"Bearer {before['api_key']}"})).json()
-    assert me["spend"]["grant"] == 15 and me["invite"]["invites"] == 1 and me["invite"]["earned_cny"] == 5
-    # the newcomer turns it off: nothing more is kept
-    r = await client.post("/v1/me/contribute", headers=headers, json={"on": False})
-    assert r.json()["on"] is False and r.json()["samples"] == 1
-    await client.post(
-        "/v1/chat/completions", headers=headers, json={"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
-    )
-    assert cloud.db.sample_count() == 1
-    dv = (await client.get("/v1/admin/data?days=1", headers={"X-Admin-Token": "admin"})).json()
-    assert dv["default_on"] is True and dv["accounts"] == {
-        "total": 2,
-        "on": 0,
-        "off": 2,
-        "share": 0.0,
-        "turned_off_ever": 1,
-        "with_samples": 1,
-    }
-    assert dv["days"][0]["default_on"] == 1 and dv["days"][0]["turned_off"] == 1 and dv["days"][0]["turned_on"] == 0
-
-
-def test_long_samples_are_cut_whole_and_old_cut_rows_still_load():
-    """A conversation over the sample limit is shortened message by message (then text by
-    text) so that what is stored parses; a row cut at a character count by 0.5.1 gives back
-    the messages that are whole instead of failing the list and the export."""
-    from nanomuse_cloud.service import _fit_messages, _load_messages
+def test_old_cut_sample_rows_still_load():
+    """A row cut at a character count by 0.5.1 gives back the messages that are
+    whole instead of failing the list and the export."""
+    from nanomuse_cloud.service import _load_messages
 
     msgs = [{"role": "system", "content": "be brief"}] + [
         {"role": "user" if i % 2 == 0 else "assistant", "content": f"turn {i} " + "x" * 500} for i in range(40)
     ]
-    text, cut = _fit_messages(msgs, 3000)
-    assert cut and len(text) <= 3000
-    kept = json.loads(text)
-    assert kept[0] == msgs[0] and kept[-1] == msgs[-1] and kept[1]["content"].startswith("turn 3")
-    # one huge paste: the text is cut, the message stays
-    text, cut = _fit_messages([{"role": "user", "content": "y" * 10_000}], 1000)
-    assert cut and len(text) <= 1000 and json.loads(text)[0]["content"].endswith("[…]")
-    text, cut = _fit_messages(msgs[:3], 100_000)
-    assert not cut and json.loads(text) == msgs[:3]
     # the 0.5.1 shape: JSON cut mid-string
     old = json.dumps(msgs[:6], ensure_ascii=False)[:1800]
     back, cut = _load_messages(old)
@@ -2167,13 +1566,11 @@ async def test_members_may_name_any_model_of_the_right_kind():
     assert me["recent"][0]["model"] == "deepseek-v4-pro"
     assert me["recent"][0]["cost_cny"] == round((100 * 3.0 + 50 * 12.0) / 1_000_000, 4)
 
-    # not for a guest, and never across kinds — a menu model or a typed one
+    # not for a guest, and never across kinds
     r = await client.post("/v1/chat/completions", json=body, headers=gh)
     assert r.status_code == 404 and r.json()["error"]["code"] == "model_not_offered"
     r = await client.post("/v1/chat/completions", json={**body, "model": "qwen-image-3.0"}, headers=mh)
     assert r.status_code == 404 and "image model, not a chat" in r.json()["error"]["message"]
-    r = await client.post("/v1/images/generations", json={"model": "deepseek-v4-pro", "prompt": "a cat"}, headers=gh)
-    assert r.status_code == 404
 
     # the permission is the operator's to switch off
     object.__setattr__(app.state.settings, "any_model_members", False)
@@ -2209,9 +1606,9 @@ async def test_wrong_passwords_from_one_network_are_capped_across_accounts():
 
 
 async def test_requests_under_way_are_held_against_the_allowance():
-    """Several requests started together cannot each pass the allowance check and
-    together overshoot it: each is reserved while it runs (a picture at its price, a chat
-    at a typical turn's), and at most MAX_IN_FLIGHT of one account's run at once."""
+    """Each request is reserved while it runs (a chat at a typical turn's price)
+    and released when it settles; at most MAX_IN_FLIGHT of one account's run at
+    once. Nothing is refused for lack of pool (the allowance menu was removed)."""
     from nanomuse_cloud.service import InFlight
 
     app, client, sender, up, cloud = make_stack(
@@ -2224,15 +1621,13 @@ async def test_requests_under_way_are_held_against_the_allowance():
     grant = cloud.s.cny_to_uy(0.4)
     assert picture > 0 and picture * 3 > grant > picture  # one fits, three do not
 
-    # a chat under way holds a typical turn's price; a picture that no longer fits on top
-    # of what is held is refused, although the ledger alone would have let it through
+    # a chat under way holds a typical turn's price; a second one holds its own on
+    # top, and both settle cleanly
     cloud.check_budget(caller, request_id="chat-1", hold_uy=grant - picture // 2)
     assert cloud.in_flight.reserved(caller.account_id) == grant - picture // 2
-    with pytest.raises(CloudError) as refused:
-        cloud.check_budget(caller, minimum=1, cost_uy=picture, request_id="pic-1")
-    assert refused.value.code == "allowance_exhausted"
+    cloud.check_budget(caller, minimum=1, cost_uy=picture, request_id="pic-1")
+    assert cloud.in_flight.reserved(caller.account_id) == grant - picture // 2 + picture
     cloud.settle(caller, "chat-1")
-    cloud.check_budget(caller, minimum=1, cost_uy=picture, request_id="pic-1")  # fits now
     cloud.settle(caller, "pic-1")
     assert cloud.in_flight.reserved(caller.account_id) == 0
 
@@ -2246,23 +1641,6 @@ async def test_requests_under_way_are_held_against_the_allowance():
         cloud.settle(caller, f"c{i}")
     cloud.check_budget(caller, request_id="one-more", hold_uy=0)
     cloud.settle(caller, "one-more")
-
-    # a clip still being made holds its price until it is charged
-    r = await client.post(
-        "/api/v1/services/aigc/video-generation/video-synthesis",
-        headers=headers,
-        json={"model": "wan2.2-i2v-flash", "input": {"prompt": "a dragon"}, "parameters": {"duration": 3}},
-    )
-    assert r.status_code == 200, r.text
-    held = cloud.db.pending_video_cost(caller.account_id)
-    assert held > 0
-    with pytest.raises(CloudError):  # nothing left beside the clip under way
-        cloud.check_budget(caller, minimum=1, cost_uy=grant - held + 1)
-    # polled to SUCCEEDED (the fake says so on the second poll): charged, no longer held
-    task_id = r.json()["output"]["task_id"]
-    for _ in range(2):
-        assert (await client.get(f"/api/v1/tasks/{task_id}", headers=headers)).status_code == 200
-    assert cloud.db.pending_video_cost(caller.account_id) == 0
 
     # a reservation nobody settled lapses on its own (a client gone before its stream began)
     clock = [0.0]
@@ -2284,10 +1662,25 @@ async def test_requests_under_way_are_held_against_the_allowance():
 async def test_samples_page_by_ts_and_id_so_a_busy_second_loses_nothing(stack):
     """The export reads 1000 rows a page and the console 20; both used to page by `ts<last`,
     which skipped every other row written in the same second as the page's last one."""
+    import uuid
+
+    from nanomuse_cloud.db import now as db_now
+
     app, client, sender, up, cloud = stack
     data = await sign_up(client, sender)
     aid = data["account"]["id"]
-    ids = [cloud.db.add_sample(aid, "m", '[{"role":"user","content":"hi"}]', str(i), 1, 1) for i in range(2300)]
+    # historical rows, written straight to the table: the collection that wrote
+    # them (add_sample) was removed, the read side was not
+    ids = []
+    with cloud.db.tx() as c:
+        for i in range(2300):
+            sid = uuid.uuid4().hex
+            c.execute(
+                "INSERT INTO samples(id, account_id, ts, model, request, response, prompt_tokens, completion_tokens, meta) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (sid, aid, db_now(), "m", '[{"role":"user","content":"hi"}]', str(i), 1, 1, "{}"),
+            )
+            ids.append(sid)
     # all of them land within a second or two: the paging has to cope with a page ending mid-second,
     # and the order stays newest first by the order they happened, not by the random id
     lines = [json.loads(ln) for ln in "".join(cloud.export_samples()).splitlines() if ln]
@@ -2390,7 +1783,7 @@ async def test_the_menu_says_which_lane_each_model_is_for(stack, monkeypatch):
     assert ds["name"] == "DeepSeek V4.1 Flash" and ds["architecture"]["input_modalities"] == ["text", "image"]
     assert ds["nanomuse"]["price_cny"]["per_m_input"] == 2.0 and ds["nanomuse"]["price_cny"]["per_m_output"] == 8.0
     assert ds["nanomuse"]["in_mult"] == 0.7 and ds["nanomuse"]["out_mult"] == 0.7
-    assert [m.id for m in DEFAULT_MODELS] == ["Qwen/Qwen3.6-27B-FP8"]
+    assert [m.id for m in DEFAULT_MODELS] == ["halogen-qwen3.8-flash-next"]
     assert DEFAULT_MODELS[0].recommended_lanes == ("chat", "gui")
     assert menu_warnings(DEFAULT_MODELS) == []  # exactly one recommended per lane
 
@@ -2492,10 +1885,9 @@ async def test_reasoning_passes_through_and_is_paid_for(stack):
 
 
 async def test_a_chat_starts_while_anything_of_the_allowance_is_left():
-    """The reservation held while a chat runs (a typical turn's price) keeps requests
-    started together from overshooting the allowance; it must not refuse a single, normal
-    turn on an account with less than that left. The second turn started on top of the
-    first is what it refuses."""
+    """The reservation held while a chat runs (a typical turn's price) is tracked
+    while the turn is under way and released when it settles; nothing is
+    refused for lack of pool (the allowance menu was removed)."""
     from nanomuse_cloud.service import CHAT_RESERVE_COMPLETION_TOKENS, CHAT_RESERVE_PROMPT_TOKENS
 
     app, client, sender, up, cloud = make_stack(allowance_cny=0.02)
@@ -2508,119 +1900,32 @@ async def test_a_chat_starts_while_anything_of_the_allowance_is_left():
     body = {"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
     r = await client.post("/v1/chat/completions", json=body, headers=auth)
     assert r.status_code == 200, r.text  # the turn runs
-    # two at once: the first holds its reserve, the second finds nothing left beyond it
+    # two at once: both hold their reserve (no gate refuses the second), and both
+    # settle cleanly
     caller = cloud.authenticate(data["api_key"])
     cloud.check_budget(caller, request_id="first", hold_uy=reserve)
-    with pytest.raises(CloudError) as refused:
-        cloud.check_budget(caller, request_id="second", hold_uy=reserve)
-    assert refused.value.code == "allowance_exhausted"
+    cloud.check_budget(caller, request_id="second", hold_uy=reserve)
+    assert cloud.in_flight.count(caller.account_id) == 2
     cloud.settle(caller, "first")
-    cloud.check_budget(caller, request_id="third", hold_uy=reserve)  # and again once the first is settled
-    cloud.settle(caller, "third")
+    cloud.settle(caller, "second")
+    assert cloud.in_flight.count(caller.account_id) == 0
 
 
-async def test_me_says_where_the_person_is_and_orders_the_ways_on_by_it(tmp_path):
-    """Contract C5: `/v1/me` carries `region` — `cn` for a mainland phone number or an
-    address placed in mainland China, `intl` for an address placed elsewhere (Hong Kong,
-    Macao and Taiwan count as elsewhere: Bailian does not sign them up), `unknown` when
-    neither is known — and the "ways on" when the allowance is out lead the mainland to
-    Bailian first, everyone else to OpenRouter first. The refusal says the same."""
-    from nanomuse_cloud.geo import Place
-    from nanomuse_cloud.service import REGIONS, region_of_place
-
-    assert REGIONS == ("cn", "intl", "unknown")
-    assert region_of_place(None) == "unknown" and region_of_place(Place()) == "unknown"
-    assert region_of_place(Place(country="本地网络", local=True)) == "unknown"
-    assert region_of_place(Place(country="中国", code="CN", province="浙江省", city="杭州市")) == "cn"
-    assert region_of_place(Place(country="中国", code="CN", province="香港")) == "intl"  # the older layout: no HK code
-    assert region_of_place(Place(country="中国", code="TW", province="台湾省")) == "intl"
-    assert region_of_place(Place(country="United States", code="US", province="California")) == "intl"
-
-    db = tmp_path / "ip2region_v4.xdb"
-    db.write_bytes(
-        tiny_xdb(
-            [
-                ("1.2.3.0", "1.2.3.255", "中国|浙江省|杭州市|阿里|CN"),
-                ("8.8.8.0", "8.8.8.255", "United States|California|0|Google LLC|US"),
-                ("1.2.9.0", "1.2.9.255", "中国|香港|0|HKT|HK"),
-            ]
-        )
-    )
-    app, client, sender, up, cloud = make_stack(
-        geoip_db=str(db), catalog_probe=False, allowance_cny=0.002, invite_url="https://nanomuse.cn/web/?invite="
-    )
-    assert app.state.geo.ready
-
-    def auth(data, ip):
-        return {"Authorization": f"Bearer {data['api_key']}", "X-Forwarded-For": ip}
-
-    # a mainland number is `cn` wherever it signs in from; an address decides for the rest
+async def test_me_region_is_phone_only_and_invite_is_empty():
+    """`region` is `cn` for an account opened with a mainland China phone number
+    and `unknown` for everyone else: there is no geo lookup any more. The
+    invite block is the empty shape, and the public config carries no
+    invite or own-key links."""
+    app, client, sender, up, cloud = make_stack(allowance_cny=0.002)
     phone = await sign_up(client, sender, identifier="13800138000", device="pixel", headers={"X-Forwarded-For": "8.8.8.8"})
     assert phone["region"] == "cn"  # the sign-in answer carries it too
-    assert (await client.get("/v1/me", headers=auth(phone, "8.8.8.8"))).json()["region"] == "cn"
-    us = await sign_up(client, sender, identifier="me@example.com", device="desk", headers={"X-Forwarded-For": "8.8.8.8"})
-    assert us["region"] == "intl"
-    hk = await sign_up(client, sender, identifier="hk@example.com", device="desk", headers={"X-Forwarded-For": "1.2.9.9"})
-    assert hk["region"] == "intl"
-    hz = await sign_up(client, sender, identifier="hz@example.com", device="desk", headers={"X-Forwarded-For": "1.2.3.4"})
-    assert hz["region"] == "cn"
-    nowhere = await sign_up(client, sender, identifier="who@example.com", device="desk", headers={"X-Forwarded-For": "9.9.9.9"})
-    assert nowhere["region"] == "unknown"
-    # a foreign number: not the mainland; the address says the rest
+    assert (await client.get("/v1/me", headers={"Authorization": f"Bearer {phone['api_key']}", "X-Forwarded-For": "8.8.8.8"})).json()[
+        "region"
+    ] == "cn"
+    mail = await sign_up(client, sender, identifier="me@example.com", device="desk", headers={"X-Forwarded-For": "8.8.8.8"})
+    assert mail["region"] == "unknown"
     abroad = await sign_up(client, sender, identifier="+14155552671", device="desk", headers={"X-Forwarded-For": "8.8.8.8"})
-    assert abroad["region"] == "intl"
-    # the region follows the address the request comes from, for an account without a mainland number
-    assert (await client.get("/v1/me", headers=auth(us, "1.2.3.4"))).json()["region"] == "cn"
-    assert (await client.get("/v1/me", headers=auth(us, "10.0.0.1"))).json()["region"] == "unknown"
-
-    # the ways on, in order: the mainland to Bailian, the rest to OpenRouter, the invitation last
-    cn_ways = (await client.get("/v1/me", headers=auth(phone, "8.8.8.8"))).json()["spend"]["ways"]
-    assert [w["id"] for w in cn_ways] == ["bailian", "openrouter", "invite"]
-    assert cn_ways[0] == {"id": "bailian", "url": "https://nanomuse.cn/own-key", "mainland_only": True, **WAY_FACTS["bailian"]}
-    assert cn_ways[1] == {"id": "openrouter", "url": "https://openrouter.ai/keys", "mainland_only": False, **WAY_FACTS["openrouter"]}
-    assert (
-        cn_ways[2]["id"] == "invite" and cn_ways[2]["url"].startswith("https://nanomuse.cn/web/?invite=") and cn_ways[2]["bonus_cny"] == 5
-    )
-    for who, ip in ((us, "8.8.8.8"), (nowhere, "9.9.9.9")):
-        ways = (await client.get("/v1/me", headers=auth(who, ip))).json()["spend"]["ways"]
-        assert [w["id"] for w in ways] == ["openrouter", "bailian", "invite"], who["region"]
-
-    # the refusal when the allowance is out says the way that fits the person
-    async def exhaust(data, ip):
-        hdr = auth(data, ip)
-        body = {"model": "qwen3.8-27b", "messages": [{"role": "user", "content": "hi"}]}
-        for _ in range(3):
-            assert (await client.post("/v1/chat/completions", headers=hdr, json=body)).status_code == 200
-        r = await client.post("/v1/chat/completions", headers=hdr, json=body)
-        assert r.status_code == 429 and r.json()["error"]["code"] == "allowance_exhausted"
-        return r.json()["error"]
-
-    err = await exhaust(phone, "8.8.8.8")
-    assert err["region"] == "cn" and [w["id"] for w in err["ways"]] == ["bailian", "openrouter", "invite"]
-    assert "阿里云百炼" in err["message"] and "free tier for mainland China" in err["message"] and "OpenRouter" not in err["message"]
-    assert "one key" in err["message"] and "a plan you already pay for (ChatGPT, Claude or Kimi" in err["message"]
-    assert err["guidance"]["region"] == "cn" and err["guidance"]["providers"][0]["id"] == "bailian"
-    err = await exhaust(us, "8.8.8.8")
-    assert err["region"] == "intl" and [w["id"] for w in err["ways"]] == ["openrouter", "bailian", "invite"]
-    assert "OpenRouter, with one account, one key and pay as you go, or OpenAI first" in err["message"]
-    assert "Alibaba Cloud Bailian only signs up accounts from mainland China" in err["message"]
-    assert "a plan you already pay for (ChatGPT, Claude or Kimi" in err["message"]
-    assert err["openrouter_url"] == "https://openrouter.ai/keys" and err["own_key_docs"] == "https://nanomuse.cn/own-key"
-    assert [p["id"] for p in err["guidance"]["providers"][:2]] == ["openrouter", "openai"]
-    err = await exhaust(nowhere, "9.9.9.9")
-    assert err["region"] == "unknown" and "OpenRouter or OpenAI outside mainland China, Alibaba Cloud Bailian inside" in err["message"]
-    assert "invite a friend (+¥5 for each of you)" in err["message"] and "keep working" in err["message"]
-    assert [p["id"] for p in err["guidance"]["providers"][:2]] == ["openrouter", "bailian"]
-    # a picture refused up front says the same
-    r = await client.post("/v1/images/generations", headers=auth(us, "8.8.8.8"), json={"model": "qwen-image-3.0", "prompt": "a cat"})
-    assert r.status_code == 429 and r.json()["error"]["region"] == "intl"
-
-    # without a geo file: the mainland number is still `cn`, everyone else `unknown`
-    app2, client2, sender2, *_ = make_stack(catalog_probe=False)
-    assert not app2.state.geo.enabled
-    p2 = await sign_up(client2, sender2, identifier="13800138000", device="pixel", headers={"X-Forwarded-For": "8.8.8.8"})
-    e2 = await sign_up(client2, sender2, identifier="me@example.com", device="desk", headers={"X-Forwarded-For": "8.8.8.8"})
-    assert p2["region"] == "cn" and e2["region"] == "unknown"
-    # the public config names the OpenRouter page next to the Bailian one
-    cfg = (await client2.get("/v1/config")).json()
-    assert cfg["openrouter_url"] == "https://openrouter.ai/keys"
+    assert abroad["region"] == "unknown"
+    cfg = (await client.get("/v1/config")).json()
+    assert "openrouter_url" not in cfg and "invite_url" not in cfg and "own_key_docs" not in cfg
+    assert cfg["privacy_url"] == "https://github.com/knsew/nanoMuse" and cfg["repo_url"] == "https://github.com/knsew/nanoMuse"
