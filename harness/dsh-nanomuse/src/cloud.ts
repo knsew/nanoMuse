@@ -27,7 +27,7 @@
  */
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { ApprovalDesk, appLabel, appOf, type ApprovalScope, isOwnApp, checkForUpdate, compareVersions, DEVICE_GRANT_PREFIX, grantCovers, HoldDesk, modelFor, pickChatModel, pickHandsModel, REMOTE_CONTROL_GRANT_ID, scheduleRunIds, sharedConnectors, standingGrants, takesImages, UPDATE_RETRY_MS, updateCacheFresh, withGrant, type Grant, type Hold, type HoldTool, type PendingApproval, type StandingGrant, type UpdateInfo } from './desk.ts'
+import { ApprovalDesk, appLabel, appOf, type ApprovalScope, isOwnApp, DEVICE_GRANT_PREFIX, grantCovers, HoldDesk, modelFor, pickChatModel, pickHandsModel, REMOTE_CONTROL_GRANT_ID, scheduleRunIds, sharedConnectors, standingGrants, takesImages, withGrant, type Grant, type Hold, type HoldTool, type PendingApproval, type StandingGrant } from './desk.ts'
 import { arch, homedir, hostname, release, type, userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto'
@@ -60,10 +60,8 @@ import { describeCall } from './steps.ts'
 import { clearedDescendants, forAccount, migrate, RemoteStore, SyncEngine, SyncRelay, type RemoteLine, type SessionInfo, type SessionLine, type SyncState } from './sync.ts'
 import { AvatarMotion, ANIMATED, type MotionMood, type MotionView } from './motion.ts'
 import { OwnClip, isOwnClipMood, type OwnClipMood, type OwnClipView } from './own-clip.ts'
-import { OwnTurns } from './record.ts'
 import { Provenance } from './provenance.ts'
 import { RelayProxy } from './relay-proxy.ts'
-import { ClientEvents } from './events.ts'
 import { DEFAULT_VIDEO_MODEL, hostOf, KNOWN_DASHSCOPE_MODELS, looksLikeVideoModel, probe as probeVideoModel, speaksDashScope, type VideoEndpoint } from './video.ts'
 import { PHONE_CARD_SECONDS, PhoneApprovals, type CardStatus } from './phone-approvals.ts'
 import { editImage as ownEditImage, generateImage as ownGenerateImage, imageShapeOf, type ImageEndpoint } from './images.ts'
@@ -104,19 +102,7 @@ export const STOCK_DEFAULT_MODEL = { provider: 'deepseek-official', model: 'deep
 export const IMAGE_BUDGET = { maxRequestImageBytes: 2 * 1024 * 1024, requestImagePixelBudget: 2 * 1024 * 1024 } as const
 /** Where the browser half talks to us. */
 export const API_PREFIX = '/nanomuse/cloud'
-/** The public relay no longer offers account-funded image or video generation. */
-export const OFFICIAL_CLOUD_ORIGIN = 'https://cloud.nanomuse.cn'
-
-/** Self-hosted relays may still advertise media routes; the public service never does. */
-export function relayMediaEnabled(baseURL: string): boolean {
-  try {
-    return new URL(baseURL).origin !== OFFICIAL_CLOUD_ORIGIN
-  } catch {
-    return false
-  }
-}
-
-/** The bundle's version alone, `0.1.41`: what the update check compares with the latest release. */
+/** The bundle's version alone, `0.1.41`. */
 export const BUNDLE_VERSION = process.env.NANOMUSE_VERSION ?? '0.0.0'
 /** What this device reports as its software. */
 export const VERSION = `dsh-nanomuse ${BUNDLE_VERSION}`
@@ -135,7 +121,7 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
-  baseURL: z.string().default('https://cloud.nanomuse.cn').description('The nanoMuse Cloud relay.'),
+  baseURL: z.string().min(1).description('The nanoMuse Cloud relay. Required; set NANOMUSE_CLOUD_URL, the plugin has no default relay.'),
   deviceName: z.string().default('').description('This device in the account\'s device list; empty means the host name.'),
   statePath: z.string().default('').description('Account snapshot file; empty means $DSH_HOME/nanomuse/cloud.json.'),
 })
@@ -306,8 +292,6 @@ export interface LiveState {
   chatTasks: Record<string, string[]>
   /** The model the hands see the screen with (`[gui]` of the bundled runtime); empty when the account has none. */
   handsModel: string
-  /** The last update check, when one ran. */
-  update: UpdateInfo | null
   /** The face's clips: which exist (with a cache key) and how the drawing goes (desk-b). */
   motion: MotionView
   /** The person's own clip as the face (#324): its size, cache key and whether a first frame was kept; null for none. Absent on an older host. */
@@ -435,8 +419,6 @@ interface State {
   handsProvider?: string
   /** "Always allow" given on the stage, per app. */
   grants?: Grant[]
-  /** The last update check and when it ran, so the badge survives a restart and the check runs once a day. */
-  update?: UpdateInfo
   /** Settings → Media (desk-b): the video model and whether a new face is animated. */
   media?: MediaState
   /** Own-key providers written by the plugin (C11), by provider row id; the keys are in the credential store. */
@@ -488,21 +470,6 @@ export interface MediaView {
   video: { source: 'cloud' | 'provider' | 'none'; label: string; model: string; models: { id: string; name: string }[]; off: boolean; reason: string }
   animate: boolean
   motion: MotionView
-}
-
-/**
- * A cached check, read against the bundle that runs now. The state file outlives an
- * update: right after 1.0.2 was installed over 1.0.1, the check 1.0.1 made within the day
- * still said `{ current: '1.0.1', latest: '1.0.2', newer: true }`, and the sidebar offered
- * "Update to 1.0.2" to the 1.0.2 that was running until the next daily check (#341). So
- * `current` becomes this bundle's version and `newer` is compared again against the cached
- * `latest`; the time of the check is kept, so no extra request is made. A cache made by
- * this very version is returned as it is.
- */
-export function updateForThisVersion(cached: UpdateInfo, current: string = BUNDLE_VERSION): UpdateInfo {
-  if (cached.current === current) return cached
-  const latest = typeof cached.latest === 'string' ? cached.latest : ''
-  return { ...cached, current, latest, newer: Boolean(latest) && compareVersions(latest, current) > 0 }
 }
 
 /** Tool names whose calls the capsule follows. */
@@ -711,8 +678,6 @@ export default class NanomuseCloud extends Service {
   readonly relayDoor: RelayProxy
   /** The provider row pointed at this start's door (or found pointing there already); settled after the loader is through. */
   doorPointed: Promise<void> = Promise.resolve()
-  /** What happened around turns, told to the record as codes (relay 0.31, `POST /v1/events`). */
-  readonly events: ClientEvents
   /** How the question about each tool call of a session was settled, by call id (else the tool's name), until its result is seen. */
   private readonly decided = new Map<string, { decision: 'allow' | 'deny'; by: string; waitedMs: number }>()
   /** The name behind each tool call id of a session, from `tool/call` until `tool/result`. */
@@ -722,16 +687,11 @@ export default class NanomuseCloud extends Service {
   private readonly holdDesk = new HoldDesk(() => this.deskMoved())
   /** Sessions the other devices were last told are waiting on a card or a hold here (0.31). */
   private waitingSessions = new Set<string>()
-  private updateCheck: Promise<UpdateInfo> | undefined
-  /** The hourly retry after a check that read nothing; one at a time, dropped at shutdown. */
-  private updateRetry: ReturnType<typeof setTimeout> | undefined
   private lastSharedConnectors = ''
   /** The face's clips (desk-b). */
   readonly motion: AvatarMotion
   /** The person's own clip as the face (#324), this computer's alone. */
   readonly ownClip: OwnClip
-  /** Turns run on a key of the person's own, sent up to the account's record afterwards (relay 0.29). */
-  readonly ownTurns: OwnTurns
   private blackScreenAt = 0
   private handsMount: HandsMount = { at: 0, ok: true, reason: '' }
   /** The own-key catalogue (C11), from `assets/providers.json`. */
@@ -743,6 +703,7 @@ export default class NanomuseCloud extends Service {
 
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'nanomuseCloud')
+    if (!config.baseURL) throw new Error('nanoMuse Cloud needs a relay URL: set NANOMUSE_CLOUD_URL, the plugin has no default relay')
     this.relay = new Relay(config.baseURL)
     this.chatgpt = new ChatGptDesk({
       command: async () => {
@@ -769,44 +730,12 @@ export default class NanomuseCloud extends Service {
       dir: join(this.dir(), 'avatar'),
       onChange: () => this.broadcast(),
     })
-    this.ownTurns = new OwnTurns({
-      enabled: () => this.recordOwnTurns(),
-      readImage: (ref) => this.ctx.attachments.readImage(ref),
-      hasBlob: async (sha256) => this.relay.hasBlob((await this.token()) ?? '', sha256),
-      putBlob: async (file) => this.relay.putBlob((await this.token()) ?? '', file.sha256, file.mime, file.data),
-      postTurn: async (turn) => {
-        const token = await this.token()
-        if (!token) return
-        try {
-          await this.relay.postTurn(token, turn as unknown as Record<string, unknown>, this.state.deviceId ?? '')
-        } catch (error: unknown) {
-          // a relay that keeps no record (RECORD_TURNS=0, or an older one): stop sending until the account is read again
-          if (error instanceof RelayError && error.status === 404) this.recordOff = true
-          throw error
-        }
-      },
-      providerName: (route) => this.state.providers?.[route]?.provider ?? route,
-      provenance: (request) => this.provenance.fields(request.sessionId === undefined ? undefined : String(request.sessionId), request.purpose),
-      onSent: (request, turn) => {
-        if (request.sessionId !== undefined) this.provenance.noteTurn(String(request.sessionId), turn.id, 'own')
-      },
-      log: (level, text) => this.ctx.logger[level](text),
-    })
     this.relayDoor = new RelayProxy({
       origin: () => this.relay.origin,
       token: () => this.token(),
       device: () => this.state.deviceId ?? '',
       claim: (body) => this.provenance.claim(body),
       noteTurn: (sessionId, requestId) => this.provenance.noteTurn(sessionId, requestId, 'cloud'),
-      log: (level, text) => this.ctx.logger[level](text),
-    })
-    this.events = new ClientEvents({
-      enabled: () => this.signedInCache && !!this.state.account,
-      post: async (events) => {
-        const token = await this.token()
-        if (!token) return
-        await this.relay.postEvents(token, events as unknown as Record<string, unknown>[], this.state.deviceId ?? '')
-      },
       log: (level, text) => this.ctx.logger[level](text),
     })
     this.hub = new HubClient({
@@ -961,11 +890,6 @@ export default class NanomuseCloud extends Service {
         approvalSettled: (sessionId, toolName, callId, status, waitedMs) => {
           if (status === 'cancelled') return
           this.decided.set(`${sessionId}\n${callId || toolName}`, { decision: status === 'approved' ? 'allow' : 'deny', by: status === 'expired' ? 'timeout' : 'other_device', waitedMs })
-          this.events.add(
-            'approval.result',
-            { tool: toolName, allow: status === 'approved', by: status === 'expired' ? 'timeout' : 'other_device', waited_s: Math.round(waitedMs / 100) / 10 },
-            { turn: this.provenance.lastTurn(sessionId), conversation: sessionId },
-          )
         },
       })
       this.tasks = runner
@@ -1128,12 +1052,10 @@ export default class NanomuseCloud extends Service {
           const reason = handOverOf(exec.arguments) ?? ''
           this.began(exec.callId, exec.name, exec.arguments, sessionId)
           this.acted({ kind: 'hold', label: reason, text: reason, x: -1, y: -1, x2: -1, y2: -1, dy: 0, at: Date.now() }, sessionId, exec.callId)
-          const startedAt = Date.now()
           try {
             const hold = this.holdDesk.begin(sessionId, 'computer', 'agent', reason)
             const how = await this.holdDesk.wait(sessionId)
             if (how !== 'done') this.holdDesk.done(hold.id)
-            this.noteHandsStep(sessionId, 'hand_over', how === 'done' ? 'handed_over' : 'stopped', Date.now() - startedAt)
             const text = how === 'done' ? 'The person finished and handed the screen back.' : how === 'timeout' ? 'Nobody came back within ten minutes; the screen is yours again.' : 'The hand-over was cancelled.'
             return { isError: false, value: text, content: [{ type: 'text', text }] } as Awaited<ReturnType<typeof next>>
           } finally {
@@ -1145,21 +1067,17 @@ export default class NanomuseCloud extends Service {
         this.began(exec.callId, exec.name, exec.arguments, sessionId)
         if (exec.name === 'mcp__nanomuse__computer_act') this.acted(stageAction(exec.arguments), sessionId, exec.callId)
         else if (exec.name === 'mcp__nanomuse__computer_screen') this.acted({ kind: 'look', label: '', text: '', x: -1, y: -1, x2: -1, y2: -1, dy: 0, at: Date.now() }, sessionId, exec.callId)
-        const startedAt = Date.now()
         try {
           let result = await next()
-          let outcome: 'ok' | 'failed' | 'refused' = result.isError ? 'failed' : 'ok'
           if (exec.name === 'mcp__nanomuse__computer_act' && result.isError) {
             const refused = refusalOf(result)
             if (refused) {
               result = await this.confirmStep(ctx, exec, refused, next)
-              outcome = result.isError ? 'refused' : 'ok'
             }
           }
           if (exec.name.startsWith('mcp__nanomuse__computer_') && !result.isError) this.frameFromMcp(result.value, sessionId, exec.callId)
           // A black capture (macOS: Screen Recording missing for the app, or granted after it started) puts a relaunch notice up.
           if (exec.name.startsWith('mcp__nanomuse__computer_') && result.isError && isBlack(errorText(result))) this.sawBlackScreen()
-          if (exec.name.startsWith('mcp__nanomuse__computer_')) this.noteHandsStep(sessionId, exec.name === 'mcp__nanomuse__computer_screen' ? 'look' : stageAction(exec.arguments).kind, outcome, Date.now() - startedAt)
           return result
         } finally {
           this.ended(exec.callId)
@@ -1221,9 +1139,8 @@ export default class NanomuseCloud extends Service {
     const cloud = this
     this.ctx.inject(['llm'], (ctx) => {
       ctx.on('llm/stream', function (options, next) {
-        // a key of the person's own: the turn is let through as it is and, when the account is signed
-        // in and the relay keeps a record, sent up afterwards so the record is whole (docs/cloud.md)
-        if (options.provider !== PROVIDER_ID) return cloud.recordOwnTurns() ? cloud.ownTurns.watch(options, next()) : next()
+        // a key of the person's own: the turn is let through as it is
+        if (options.provider !== PROVIDER_ID) return next()
         if (!cloud.cloudModels() && !(options.sessionId && cloud.cloudOnce.has(String(options.sessionId)))) {
           const own = options.purpose ? cloud.ownChatChoice() : undefined
           if (own) {
@@ -1242,8 +1159,6 @@ export default class NanomuseCloud extends Service {
       this.hub.stop('shutting down')
       this.coding.close()
       this.chatgpt.stop()
-      if (this.updateRetry) clearTimeout(this.updateRetry)
-      this.updateRetry = undefined
       for (const res of this.streams) res.end()
       this.streams.clear()
     }, 'nanomuse cloud: hub')
@@ -1265,52 +1180,6 @@ export default class NanomuseCloud extends Service {
         this.ctx.logger.warn('nanomuse cloud: could not refresh the account: %s', message(error))
       })
     }
-    // Once a day, quietly: a newer release puts a badge on Settings and a row in the ••• menu.
-    // A check that read nothing (the network down at start) counts for an hour, not a day.
-    if (!updateCacheFresh(this.state.update, BUNDLE_VERSION)) {
-      setTimeout(() => void this.update(false).catch(() => undefined), 15_000).unref?.()
-    }
-  }
-
-  // ---- the update check (B5) -------------------------------------------------------
-
-  /**
-   * The newest release against what runs here; cached a day unless `force`, an hour when
-   * the last check read nothing. The About row's own button is `force`: a failed check in
-   * the cache never stands in its way.
-   */
-  update(force: boolean): Promise<UpdateInfo> {
-    const cached = this.state.update
-    // a cache made by another version of this bundle (the one that ran before an update was
-    // installed) compared the wrong `current`; it is not an answer for this one (#341)
-    if (!force && cached && updateCacheFresh(cached, BUNDLE_VERSION)) return Promise.resolve(cached)
-    if (this.updateCheck) return this.updateCheck
-    // the bare number: 0.1.40 compared the labelled `VERSION` ("dsh-nanomuse 0.1.40"), which
-    // parsed as 0, so every release read as newer and the installed one was offered again
-    this.updateCheck = checkForUpdate(BUNDLE_VERSION)
-      .then(async (info) => {
-        this.state = { ...this.state, update: info }
-        await this.writeState().catch(() => undefined)
-        this.broadcast()
-        this.scheduleUpdateRetry(info)
-        return info
-      })
-      .finally(() => {
-        this.updateCheck = undefined
-      })
-    return this.updateCheck
-  }
-
-  /** After a check that read neither source: one quiet try an hour later, replacing any retry still waiting. */
-  private scheduleUpdateRetry(info: UpdateInfo): void {
-    if (this.updateRetry) clearTimeout(this.updateRetry)
-    this.updateRetry = undefined
-    if (info.source !== 'none') return
-    this.updateRetry = setTimeout(() => {
-      this.updateRetry = undefined
-      void this.update(false).catch(() => undefined)
-    }, UPDATE_RETRY_MS)
-    this.updateRetry.unref?.()
   }
 
   // ---- the relay's refusals in the chat (C12) ---------------------------------------
@@ -1358,19 +1227,6 @@ export default class NanomuseCloud extends Service {
   /** The account's model calls still without a first token, by a number of their own (0.31). */
   private readonly waits = new Map<number, { since: number; session: string }>()
   private waitSeq = 0
-
-  /** Set when the relay answered that it keeps no record; cleared when the account is read again. */
-  private recordOff = false
-
-  /**
-   * Whether a turn run on a key of the person's own goes up to the account's record: signed in,
-   * the relay said it keeps one (`contribute.record.on`, relay 0.29), and it has not refused
-   * since. Nothing of the kind on an older relay or when signed out.
-   */
-  recordOwnTurns(): boolean {
-    if (!this.signedInCache || !this.state.account || this.recordOff) return false
-    return this.state.account.contribute?.record?.on === true
-  }
 
   /**
    * Whether nanoMuse Cloud is one of the model sources: signed in and not switched off under
@@ -1444,7 +1300,6 @@ export default class NanomuseCloud extends Service {
       if (!token || !this.state.account) return
       const account = await this.relay.me(token)
       this.state = { ...this.state, account }
-      this.recordOff = false
       await this.writeState()
     }).then(() => this.broadcast()).catch((error: unknown) => this.ctx.logger.debug('nanomuse cloud: allowance not re-read: %s', message(error)))
   }
@@ -1828,7 +1683,7 @@ export default class NanomuseCloud extends Service {
   // ---- the work a protected exit ends (src/work.ts) ------------------------------------
 
   /**
-   * The work a real quit (later, a restart-update) would end, over every source there is:
+   * The work a real quit or restart would end, over every source there is:
    * the turns of all sessions, the hands' calls, the tasks other devices asked for and the
    * approvals waiting on this screen, one line per kind (src/work.ts's aggregateWork).
    */
@@ -1925,17 +1780,15 @@ export default class NanomuseCloud extends Service {
     return regionOf(this.state.account?.region, lang)
   }
 
-  /** What the account can do, as the relay's model list says. Public Cloud media is retired. */
+  /** What the account can do, as the relay's model list says. */
   private cloudCapabilities(): Capability[] {
     if (!this.cloudModels()) return []
     const models = this.state.models ?? []
     const out: Capability[] = []
     if (models.some((m) => modelFor(m).includes('chat'))) out.push('chat')
     if (models.some((m) => modelFor(m).includes('gui'))) out.push('vision')
-    if (relayMediaEnabled(this.relay.origin)) {
-      if (models.some((m) => m.kind === 'image')) out.push('image')
-      if (models.some((m) => m.kind === 'video')) out.push('video')
-    }
+    if (models.some((m) => m.kind === 'image')) out.push('image')
+    if (models.some((m) => m.kind === 'video')) out.push('video')
     return out
   }
 
@@ -2730,7 +2583,6 @@ export default class NanomuseCloud extends Service {
       goneSchedules: this.goneSchedules,
       chatTasks: this.chatTasks,
       handsModel: this.handsModel(),
-      update: this.state.update ?? null,
       motion: this.motion.view(),
       ownClip: this.ownClip.view(),
       ownClips: this.ownClip.moods(),
@@ -2976,17 +2828,16 @@ export default class NanomuseCloud extends Service {
 
   // ---- the avatar studio: the pictures through the relay, the face onto the account ------
 
-  /** The relay's image model when a self-hosted relay explicitly lists one. */
+  /** The relay's image model when the relay explicitly lists one. */
   private imageModel(): string {
-    if (!relayMediaEnabled(this.relay.origin)) return ''
     const models = (this.state.models ?? []).filter((m) => m.kind === 'image')
     const pick = models.find((m) => m.recommended) ?? models[0]
     return pick ? pick.id : ''
   }
 
-  /** A self-hosted relay's image models, for the picker (recommended first). */
+  /** The relay's image models, for the picker (recommended first). */
   private cloudImageOptions(): ModelOption[] {
-    if (!this.cloudModels() || !relayMediaEnabled(this.relay.origin)) return []
+    if (!this.cloudModels()) return []
     const models = (this.state.models ?? []).filter((m) => m.kind === 'image')
     const pick = this.imageModel()
     return models.map((m) => ({ provider: PROVIDER_ID, providerLabel: 'nanoMuse Cloud', id: m.id, name: m.name || m.id, ...(m.id === pick ? { recommended: true } : {}) })).sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)))
@@ -3114,7 +2965,7 @@ export default class NanomuseCloud extends Service {
   private async studioEndpoint(viaCloud = false): Promise<ImageEndpoint> {
     const ep = await this.imageEndpoint({ cloud: viaCloud })
     if (ep) return ep
-    if (relayMediaEnabled(this.relay.origin) && (!this.signedInCache || !this.state.account)) {
+    if (!this.signedInCache || !this.state.account) {
       throw new RelayError(401, 'signed_out', 'Sign in to use this relay')
     }
     throw new RelayError(409, 'no_image_model', 'Nothing configured has an image model to draw with')
@@ -3214,9 +3065,8 @@ export default class NanomuseCloud extends Service {
     }
   }
 
-  /** A self-hosted relay's video models. Public Cloud media is retired. */
+  /** The relay's video models. */
   private cloudVideoModels(): RelayModel[] {
-    if (!relayMediaEnabled(this.relay.origin)) return []
     return (this.state.models ?? []).filter((m) => m.kind === 'video')
   }
 
@@ -3478,7 +3328,6 @@ export default class NanomuseCloud extends Service {
         if (!sameModels(models, this.state.models ?? []) || !this.providerPresent() || !this.providerBudgetCurrent() || !this.providerDoorCurrent()) await this.writeProvider(models)
         await this.adoptDefaultModel(models)
         this.state = { ...this.state, account, models }
-        this.recordOff = false
         await this.writeState()
         await this.writeHands().catch((error: unknown) => this.ctx.logger.warn('nanomuse cloud: hands model not written: %s', message(error)))
         await this.profile.pull(token).catch((error: unknown) => this.ctx.logger.warn('nanomuse: profile pull failed: %s', message(error)))
@@ -3491,20 +3340,6 @@ export default class NanomuseCloud extends Service {
         throw error
       }
       this.broadcast()
-      return this.status()
-    })
-  }
-
-  /** Data controls: flip the switch on the relay and keep the account row current. */
-  setContribute(on: boolean): Promise<CloudStatus> {
-    return this.serialize(async () => {
-      const token = await this.token()
-      if (!token || !this.state.account) return this.status()
-      const contribute = await this.relay.setContribute(token, on)
-      // a relay before 0.30 answers the flip without the record's figures: the ones read with the account stay
-      const record = contribute.record ?? this.state.account.contribute?.record
-      this.state = { ...this.state, account: { ...this.state.account, contribute: { ...contribute, ...(record ? { record } : {}) } } }
-      await this.writeState()
       return this.status()
     })
   }
@@ -3732,7 +3567,6 @@ export default class NanomuseCloud extends Service {
       ...(media ? { media } : {}),
       ...(handsProvider && handsModel ? { handsProvider, handsModel } : {}),
     }
-    this.events.forget()
     this.lastSharedConnectors = ''
     // the account's route is gone from the model layer: a chat slot left on it would fail every turn with NO_ADAPTER
     await this.releaseChatRoute(PROVIDER_ID)
@@ -4014,7 +3848,6 @@ export default class NanomuseCloud extends Service {
         ...(typeof raw.handsModel === 'string' && raw.handsModel ? { handsModel: raw.handsModel } : {}),
         // a grant 0.1.37 kept for the "app" "Done. Screen now:" (the mis-read head line) names nothing — dropped
         ...(Array.isArray(raw.grants) ? { grants: (raw.grants as Grant[]).filter((g) => g && typeof g.id === 'string' && typeof g.target === 'string' && !MISREAD_GRANT.test(g.target) && !isOwnApp(g.target.slice('computer_app:'.length))).map((g) => ({ id: g.id, target: g.target, at: Number(g.at) || 0, ...(typeof g.sessionId === 'string' && g.sessionId ? { sessionId: g.sessionId, sessionTitle: String(g.sessionTitle ?? '') } : {}), ...(typeof g.sessionId === 'string' && g.sessionId && typeof g.scheduleId === 'string' && g.scheduleId ? { scheduleId: g.scheduleId, scheduleTitle: String(g.scheduleTitle ?? '') } : {}) })) } : {}),
-        ...(raw.update && typeof raw.update === 'object' && typeof (raw.update as UpdateInfo).checkedAt === 'number' ? { update: updateForThisVersion(raw.update as UpdateInfo) } : {}),
         ...(raw.remoteControl === true ? { remoteControl: true } : {}),
         ...(raw.trusted && typeof raw.trusted === 'object' ? { trusted: trustedOf(raw.trusted) } : {}),
         ...(raw.taskSessions && typeof raw.taskSessions === 'object' ? { taskSessions: raw.taskSessions } : {}),
@@ -4210,24 +4043,10 @@ export default class NanomuseCloud extends Service {
     }
   }
 
-  /**
-   * A card went up or came down (an approval the stage may answer, a hold of the hands):
-   * the stage re-reads, and the account's other devices hear that the run is waiting for
-   * the person, or working again (0.31).
-   */
-  // -- what happened around a turn, as codes (relay 0.31) ---------------------------------------
-
   /** An approval settled on this computer: the card, the stage, a standing grant, or nobody. */
   private approvalSettled(sessionId: string, toolName: string, callId: string, outcome: ApprovalOutcome, by: 'grant' | 'person' | 'cancelled', waitedMs: number): void {
     if (by === 'cancelled') return
-    const allow = outcome === 'allowed-once'
-    this.decided.set(`${sessionId}\n${callId || toolName}`, { decision: allow ? 'allow' : 'deny', by, waitedMs })
-    if (by === 'grant') return
-    this.events.add(
-      'approval.result',
-      { tool: toolName, allow, by: 'person', waited_s: Math.round(waitedMs / 100) / 10 },
-      { turn: this.provenance.lastTurn(sessionId), conversation: sessionId },
-    )
+    this.decided.set(`${sessionId}\n${callId || toolName}`, { decision: outcome === 'allowed-once' ? 'allow' : 'deny', by, waitedMs })
   }
 
   /** A tool call's result closes its decision; a turn the person stopped is noted as such. */
@@ -4239,75 +4058,40 @@ export default class NanomuseCloud extends Service {
       const callId = String(event.data.message.toolCallId)
       const name = this.calling.get(`${sessionId}\n${callId}`) ?? ''
       this.calling.delete(`${sessionId}\n${callId}`)
-      const asked = this.decided.get(`${sessionId}\n${callId}`) ?? this.decided.get(`${sessionId}\n${name}`)
       this.decided.delete(`${sessionId}\n${callId}`)
       this.decided.delete(`${sessionId}\n${name}`)
-      if (!name) return
-      this.events.add(
-        'sentinel.decision',
-        {
-          tool: name,
-          policy: asked ? 'ask' : 'allow',
-          decision: asked?.decision ?? 'allow',
-          by: asked?.by ?? 'policy',
-          ok: !event.data.message.isError,
-        },
-        { turn: this.provenance.lastTurn(sessionId), conversation: sessionId },
-      )
     } else if (event.type === 'turn/start') {
       if (this.stops.delete(sessionId)) this.broadcast()
     } else if (event.type === 'turn/end') {
-      const where = { turn: this.provenance.lastTurn(sessionId), conversation: sessionId }
       const reason = event.data.reason
       const stopped = reason.kind === 'aborted' && reason.reason.kind === 'user'
       if (stopped) {
-        this.events.add('turn.ended', { ended: 'aborted', turn_no: event.data.turn }, where)
         // the question above the composer, while an account is signed in to take the answer
         if (this.signedInCache && this.state.account) {
           this.stops.set(sessionId, { turn: event.data.turn, at: Date.now() })
           this.broadcast()
         }
-      } else if (reason.kind === 'error') this.events.add('turn.ended', { ended: 'error', turn_no: event.data.turn }, where)
-      // the hands' run of the turn closes with it (the trajectory is told right after this)
-      const hands = this.handsOf(sessionId)
-      if (hands) this.events.add('hands.step', { trajectory: hands.id, step: hands.step, action: 'end', outcome: stopped ? 'stopped' : reason.kind === 'error' ? 'failed' : 'done' }, where)
+      }
     }
   }
 
-  /** The hands' run of a session that is on right now (its id and the number of the step shown), for the provenance headers and the step notes. */
+  /** The hands' run of a session that is on right now (its id and the number of the step shown), for the provenance headers. */
   private handsOf(sessionId: string): { id: string; step: number } | undefined {
     const run = this.trajectory.view(sessionId).runs.findLast((r) => !r.endedAt)
     return run ? { id: `${run.id}.${run.startedAt.toString(36)}`, step: run.dropped + run.steps.length } : undefined
   }
 
-  /** One step of the hands on this computer's screen, as a code: the action's kind, how it went, how long it took. */
-  private noteHandsStep(sessionId: string, action: string, outcome: 'ok' | 'failed' | 'refused' | 'stopped' | 'handed_over', latencyMs: number): void {
-    const hands = this.handsOf(sessionId)
-    if (!hands) return
-    this.events.add(
-      'hands.step',
-      { trajectory: hands.id, step: hands.step, action: action.slice(0, 32), outcome, latency_ms: Math.max(0, Math.round(latencyMs)) },
-      { turn: this.provenance.lastTurn(sessionId), conversation: sessionId },
-    )
-  }
-
   /**
-   * The browser half's thumb on a reply, or the reason for a stop (docs/desktop.md). `turn_no`
-   * names the turn the reply closed when the page could count it; the note then carries the
-   * record's id of that turn's last call, else the session's latest.
+   * The browser half's thumb on a reply, or the reason for a stop (docs/desktop.md).
+   * Validated and, for a stop, the question above the composer is answered; nothing
+   * of it leaves this computer.
    */
   feedback(body: Record<string, unknown>): boolean {
     const sessionId = String(body.session ?? '').slice(0, 80)
     if (!sessionId) return false
-    const current = this.provenance.turnOf(sessionId)
-    const given = typeof body.turn_no === 'number' && Number.isInteger(body.turn_no) && body.turn_no > 0 ? body.turn_no : 0
-    const turnNo = given || current
-    const turn = given && given !== current ? this.provenance.turnAt(sessionId, given) : this.provenance.lastTurn(sessionId)
-    const where = { ...(turn ? { turn } : {}), conversation: sessionId }
     const stop = String(body.stop_reason ?? '')
     if (stop) {
       if (!['wrong', 'slow', 'changed_mind', 'done', 'other', 'skipped'].includes(stop)) return false
-      this.events.add('turn.stopped', { reason: stop, turn_no: turnNo }, where)
       if (this.stops.delete(sessionId)) this.broadcast()
       return true
     }
@@ -4315,10 +4099,14 @@ export default class NanomuseCloud extends Service {
     if (!['up', 'down', ''].includes(vote)) return false
     const reason = String(body.reason ?? '')
     if (reason && !['wrong', 'unhelpful', 'unsafe', 'slow', 'other'].includes(reason)) return false
-    this.events.add('turn.feedback', { vote: vote || 'none', ...(reason ? { reason } : {}), turn_no: turnNo }, where)
     return true
   }
 
+  /**
+   * A card went up or came down (an approval the stage may answer, a hold of the hands):
+   * the stage re-reads, and the account's other devices hear that the run is waiting for
+   * the person, or working again (0.31).
+   */
   private deskMoved(): void {
     this.broadcast()
     const sync = this.sync
@@ -4471,10 +4259,6 @@ export default class NanomuseCloud extends Service {
         return send(res, 200, await this.wearFace(String(body.description ?? ''), String(body.style ?? 'muse'), face))
       }
       if (req.method === 'POST' && route === '/sign-out') return send(res, 200, await this.signOut())
-      if (req.method === 'POST' && route === '/data/contribute') {
-        const body = await json(req)
-        return send(res, 200, await this.setContribute(body.on !== false))
-      }
       if (req.method === 'POST' && route === '/data/delete-samples') return send(res, 200, await this.deleteSamples())
       // Conversations synced between the account's devices (C7, C8): the switch, the delete, the main chat, the rows from elsewhere.
       if (route === '/sync/state' || route.startsWith('/sync/')) {
@@ -4563,7 +4347,6 @@ export default class NanomuseCloud extends Service {
         if (!this.asks.answer(String(body.id ?? ''), answer)) return send(res, 404, { error: { code: 'not_found', message: 'that question is no longer waiting' } })
         return send(res, 204)
       }
-      if (req.method === 'GET' && route === '/update') return send(res, 200, await this.update(url.searchParams.get('force') === '1'))
       if (req.method === 'GET' && route === '/approvals') return send(res, 200, { approvals: this.approvalDesk.list() })
       if (req.method === 'POST' && route === '/feedback') {
         const body = await json(req)
@@ -4696,7 +4479,7 @@ export default class NanomuseCloud extends Service {
         const viaCloud = body.cloud === true
         if (!this.faceId()) return send(res, 409, { error: { code: 'no_face', message: 'No drawn face to animate' } })
         if (!(await this.videoEndpoint({ cloud: viaCloud }))) {
-          const signedOut = viaCloud && relayMediaEnabled(this.relay.origin) && (!this.signedInCache || !this.state.account)
+          const signedOut = viaCloud && (!this.signedInCache || !this.state.account)
           return send(res, signedOut ? 401 : 409, { error: { code: signedOut ? 'signed_out' : 'no_video_model', message: signedOut ? 'Sign in to use the relay' : 'No video model to draw clips with' } })
         }
         const started = await this.motion.animateAll(body.force === true, viaCloud)

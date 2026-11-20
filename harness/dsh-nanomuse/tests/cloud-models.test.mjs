@@ -1,6 +1,6 @@
 // Settings → Models (0.1.41, "Choice"), the host's half, through `NanomuseCloud` itself: the
-// resolution order of the four slots (the person's choice, then the chat provider's defaults,
-// then nanoMuse Cloud, then the first own row that can), `GET /models` for the page, the
+// resolution order of the four slots (the person's choice, then the chat row's first model for
+// the slot, then nanoMuse Cloud, then the first own row that can), `GET /models` for the page, the
 // "Use it for" card's offer and `POST /providers/adopt`, the hands' environment for the MCP
 // client, and the own-provider image shapes with a fake fetch. No Electron, no relay, no
 // network: the same in-memory context as cloud-providers.test.mjs.
@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { Service } from '@deepseek-ai/cordis'
-import NanomuseCloud, { API_PREFIX, LLM_ROW, PROVIDER_ID, TOKEN_REF, relayMediaEnabled } from '../lib/cloud.js'
+import NanomuseCloud, { API_PREFIX, LLM_ROW, PROVIDER_ID, TOKEN_REF } from '../lib/cloud.js'
 import { editImage, generateImage, imageShapeOf } from '../lib/images.js'
 import { clientConfig } from '../lib/hands-tools.js'
 
@@ -78,9 +78,9 @@ async function cloud({ signedIn = false, defaultModel, baseURL = 'https://relay.
   const fake = fakeContext({ defaultModel })
   if (signedIn) {
     await fake.ctx.credentials.set(TOKEN_REF, 'account-key')
-    await writeFile(statePath, JSON.stringify({ account: { id: 'acct-1', channel: 'email', hint: 'a***@example.org', member: false, region: 'intl' }, models: ACCOUNT_MODELS, update: { checkedAt: Date.now() } }))
+    await writeFile(statePath, JSON.stringify({ account: { id: 'acct-1', channel: 'email', hint: 'a***@example.org', member: false, region: 'intl' }, models: ACCOUNT_MODELS }))
   } else {
-    await writeFile(statePath, JSON.stringify({ update: { checkedAt: Date.now() } }))
+    await writeFile(statePath, JSON.stringify({}))
   }
   const svc = new NanomuseCloud(fake.ctx, { baseURL, deviceName: 'test-desktop', statePath })
   svc.hub.start = () => undefined
@@ -99,7 +99,7 @@ async function cloud({ signedIn = false, defaultModel, baseURL = 'https://relay.
   return { svc, api, state, statePath, home, ...fake, done: () => rm(home, { recursive: true, force: true }) }
 }
 
-const BAILIAN_MODELS = ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen3-vl-plus', 'qwen-image-3.0', 'wan2.2-i2v-flash']
+const SERVER_MODELS = ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen3-vl-plus', 'qwen-image-3.0', 'wan2.2-i2v-flash']
 
 test('Cloud refresh persists capacity-only changes and preserves editable model limits', async () => {
   const out = await cloud({ signedIn: true })
@@ -132,38 +132,33 @@ test('Cloud refresh persists capacity-only changes and preserves editable model 
   } finally { await out.done() }
 })
 
-test('the public Cloud ignores retired media models left in an older local snapshot', async () => {
-  assert.equal(relayMediaEnabled('https://cloud.nanomuse.cn/'), false)
-  assert.equal(relayMediaEnabled('https://relay.example/v1'), true)
+test('the relay\'s media models are offered whatever the relay is', async () => {
   const out = await cloud({ signedIn: true, baseURL: 'https://cloud.nanomuse.cn' })
   try {
     const view = (await out.api('GET', '/models')).body
-    assert.deepEqual(view.slots.image.options, [])
-    assert.deepEqual(view.slots.video.options, [])
-    assert.equal(await out.svc.imageEndpoint(), undefined)
-    assert.equal(await out.svc.imageEndpoint({ cloud: true }), undefined)
-    assert.equal(await out.svc.videoEndpoint(), undefined)
-    assert.equal(await out.svc.videoEndpoint({ cloud: true }), undefined)
-    assert.doesNotMatch(out.svc.capabilities().join(','), /image|video/)
-    await out.svc.profile.wearLocal({ avatar: 'face', faceId: 'abcdef' })
-    const animate = await out.api('POST', '/media/animate', { cloud: true })
-    assert.equal(animate.status, 409)
-    assert.equal(animate.body.error.code, 'no_video_model', 'signed in without video is not signed out')
+    assert.deepEqual(view.slots.image.options.map((o) => o.id), ['qwen-image-3.0'])
+    assert.deepEqual(view.slots.video.options.map((o) => o.id), ['wan2.2-i2v-flash'])
+    assert.equal((await out.svc.imageEndpoint())?.model, 'qwen-image-3.0')
+    assert.equal((await out.svc.imageEndpoint({ cloud: true }))?.model, 'qwen-image-3.0')
+    assert.equal((await out.svc.videoEndpoint())?.model, 'wan2.2-i2v-flash')
+    assert.equal((await out.svc.videoEndpoint({ cloud: true }))?.model, 'wan2.2-i2v-flash')
+    assert.match(out.svc.capabilities().join(','), /image/)
+    assert.match(out.svc.capabilities().join(','), /video/)
   } finally {
     await out.done()
   }
 })
 
-test('the public Cloud asks for a media provider, not an account sign-in', async () => {
+test('signed out, the studio asks for a sign-in whatever the relay is', async () => {
   const out = await cloud({ baseURL: 'https://cloud.nanomuse.cn' })
   try {
     const estimate = await out.api('GET', '/studio/estimate')
-    assert.equal(estimate.status, 409)
-    assert.equal(estimate.body.error.code, 'no_image_model')
+    assert.equal(estimate.status, 401)
+    assert.equal(estimate.body.error.code, 'signed_out')
     await out.svc.profile.wearLocal({ avatar: 'face', faceId: 'abcdef' })
     const animate = await out.api('POST', '/media/animate', { cloud: true })
-    assert.equal(animate.status, 409)
-    assert.equal(animate.body.error.code, 'no_video_model')
+    assert.equal(animate.status, 401)
+    assert.equal(animate.body.error.code, 'signed_out')
   } finally {
     await out.done()
   }
@@ -228,25 +223,25 @@ test('asking the relay for clips distinguishes signed out from a signed-in relay
   }
 })
 
-test('the hands order: the choice, else the chat provider’s defaults.hands when it sees pictures, else the account’s gui model, else the first own sighted model', async () => {
+test('the hands order: the choice, else the chat row’s first sighted model, else the account’s gui model, else the first own sighted model', async () => {
   const out = await cloud({ signedIn: true })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
-    // the stock DeepSeek row had no key, so the saved row became the chat default: the hands follow the chat provider
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'deepseek-v4.1-flash' })
-    assert.deepEqual(out.svc.handsChoice(), { provider: 'bailian', model: 'qwen3.8-27b' })
+    // the stock DeepSeek row had no key, so the saved row became the chat default: the hands follow the chat row's first sighted model
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision'] })
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'deepseek-v4.1-flash' })
+    assert.deepEqual(out.svc.handsChoice(), { provider: 'custom', model: 'deepseek-v4.1-flash' })
     // chat back to the account: the hands go back to the account's gui model (no explicit choice)
     await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: PROVIDER_ID })
     assert.deepEqual(out.svc.handsChoice(), { provider: PROVIDER_ID, model: 'qwen3.8-27b' })
     // an explicit choice wins over both
-    await out.api('POST', '/hands-model', { model: 'qwen3-vl-plus', provider: 'bailian' })
-    assert.deepEqual(out.svc.handsChoice(), { provider: 'bailian', model: 'qwen3-vl-plus' })
-    await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: 'bailian' })
-    assert.deepEqual(out.svc.handsChoice(), { provider: 'bailian', model: 'qwen3-vl-plus' })
+    await out.api('POST', '/hands-model', { model: 'qwen3-vl-plus', provider: 'custom' })
+    assert.deepEqual(out.svc.handsChoice(), { provider: 'custom', model: 'qwen3-vl-plus' })
+    await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: 'custom' })
+    assert.deepEqual(out.svc.handsChoice(), { provider: 'custom', model: 'qwen3-vl-plus' })
     const view = (await out.api('GET', '/models')).body
     assert.equal(view.slots.hands.chosen, true)
-    assert.deepEqual(view.slots.hands.options.map((o) => [o.provider, o.id]), [[PROVIDER_ID, 'qwen3.8-27b'], ['bailian', 'qwen3-vl-plus'], ['bailian', 'qwen3.8-27b']])
+    assert.deepEqual(view.slots.hands.options.map((o) => [o.provider, o.id]), [[PROVIDER_ID, 'qwen3.8-27b'], ['custom', 'deepseek-v4.1-flash'], ['custom', 'qwen3-vl-plus'], ['custom', 'qwen3.8-27b']])
     // the hands' environment for the MCP client carries the row's base and key; the file next to cloud.json says the same
     const env = await out.svc.handsEnv()
     assert.equal(env.NANOMUSE_GUI_ENABLED, '1')
@@ -290,27 +285,33 @@ test('signed out, the hands take the first own sighted model; a local server wit
 
 test('the hands never list an Anthropic or native-Gemini row; the page names them in one sentence', async () => {
   const out = await cloud({ signedIn: true })
-  const server = await modelsServer(['claude-sonnet-5-5'])
   try {
-    await out.api('POST', '/providers/save', { id: 'anthropic', apiKey: 'sk-ant', baseURL: server.url })
+    // rows saved before the catalogue slimmed down, still on file: the runtime only speaks
+    // OpenAI's shape, so they never drive the hands, whatever they list
+    out.svc.state = {
+      ...out.svc.state,
+      providers: {
+        anthropic: { id: 'anthropic', provider: 'anthropic', label: 'Anthropic Claude', protocol: 'anthropic', baseURL: 'https://api.anthropic.com', keyRef: 'NANOMUSE_KEY_ANTHROPIC', capabilities: ['chat', 'vision'], models: [{ id: 'claude-sonnet-5-5', name: 'claude-sonnet-5-5', vision: true, kind: 'chat' }], at: 1 },
+        gemini: { id: 'gemini', provider: 'gemini', label: 'Google Gemini', protocol: 'gemini', baseURL: 'https://generativelanguage.googleapis.com/v1beta', keyRef: 'NANOMUSE_KEY_GEMINI', capabilities: ['chat', 'vision'], models: [{ id: 'gemini-3.8-flash', name: 'gemini-3.8-flash', vision: true, kind: 'chat' }], at: 2 },
+      },
+    }
     const view = (await out.api('GET', '/models')).body
     assert.deepEqual(view.slots.hands.options.map((o) => o.provider), [PROVIDER_ID])
-    assert.deepEqual(view.handsExcluded, ['Anthropic Claude'])
+    assert.deepEqual(view.handsExcluded, ['Anthropic Claude', 'Google Gemini'])
     assert.deepEqual(out.svc.handsChoice(), { provider: PROVIDER_ID, model: 'qwen3.8-27b' })
   } finally {
-    await server.close()
     await out.done()
   }
 })
 
-test('the image order: the choice, else the chat provider’s defaults.image, else the account, else the first own image row; a removed row drops the choice', async () => {
+test('the image order: the choice, else the chat row’s first image model, else the account, else the first own image row; a removed row drops the choice', async () => {
   const out = await cloud({ signedIn: true })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
-    // chat is bailian now (the stock default had no key): pictures follow it, DashScope's shape
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
+    // chat is the own row now (the stock default had no key): pictures follow it, OpenAI's shape
     let ep = await out.svc.imageEndpoint()
-    assert.deepEqual([ep.instanceId, ep.model, ep.shape, ep.label], ['bailian', 'qwen-image-3.0', 'dashscope', 'Alibaba Cloud Bailian'])
+    assert.deepEqual([ep.instanceId, ep.model, ep.shape, ep.label], ['custom', 'qwen-image-3.0', 'openai', 'My server'])
     assert.equal(ep.apiKey, 'sk-test')
     // chat back to the account: pictures through the account
     await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: PROVIDER_ID })
@@ -318,24 +319,24 @@ test('the image order: the choice, else the chat provider’s defaults.image, el
     assert.deepEqual([ep.instanceId, ep.model, ep.shape], [PROVIDER_ID, 'qwen-image-3.0', 'cloud'])
     assert.equal(ep.apiKey, 'account-key')
     // an explicit choice wins; `cloud: true` asks for the account whatever the choice
-    const set = await out.api('POST', '/image-model', { model: 'qwen-image-3.0', provider: 'bailian' })
+    const set = await out.api('POST', '/image-model', { model: 'qwen-image-3.0', provider: 'custom' })
     assert.equal(set.status, 200)
     assert.equal(set.body.chosen, true)
-    assert.equal(set.body.provider, 'bailian')
-    assert.deepEqual((await out.state()).media, { imageModel: 'qwen-image-3.0', imageProvider: 'bailian' })
-    assert.equal((await out.svc.imageEndpoint()).instanceId, 'bailian')
+    assert.equal(set.body.provider, 'custom')
+    assert.deepEqual((await out.state()).media, { imageModel: 'qwen-image-3.0', imageProvider: 'custom' })
+    assert.equal((await out.svc.imageEndpoint()).instanceId, 'custom')
     assert.equal((await out.svc.imageEndpoint({ cloud: true })).instanceId, PROVIDER_ID)
     // the Media page and the studio's estimate say who draws and that the account bills nothing
     const media = await out.svc.media()
-    assert.deepEqual(media.image, { source: 'provider', label: 'Alibaba Cloud Bailian', model: 'qwen-image-3.0', reason: '' })
+    assert.deepEqual(media.image, { source: 'provider', label: 'My server', model: 'qwen-image-3.0', reason: '' })
     const est = (await out.api('GET', '/studio/estimate')).body
     assert.equal(est.source, 'provider')
-    assert.equal(est.label, 'Alibaba Cloud Bailian')
+    assert.equal(est.label, 'My server')
     assert.equal(est.unlimited, true)
     assert.equal(est.affordable, true)
-    assert.equal((await out.api('POST', '/image-model', { model: 'nope', provider: 'bailian' })).status, 400)
+    assert.equal((await out.api('POST', '/image-model', { model: 'nope', provider: 'custom' })).status, 400)
     // the row goes: the choice with it, back to the account
-    await out.api('POST', '/providers/remove', { id: 'bailian' })
+    await out.api('POST', '/providers/remove', { id: 'custom' })
     assert.deepEqual((await out.state()).media, {})
     assert.equal((await out.svc.imageEndpoint()).instanceId, PROVIDER_ID)
   } finally {
@@ -348,9 +349,9 @@ test('signed out, an own image row draws without an account: the studio does not
   const out = await cloud()
   const server = await modelsServer(['gpt-5.4', 'gpt-image-2.5-flare'])
   try {
-    await out.api('POST', '/providers/save', { id: 'openai', apiKey: 'sk-openai', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-own', baseURL: server.url, label: 'My server', capabilities: ['chat', 'image'] })
     const ep = await out.svc.imageEndpoint()
-    assert.deepEqual([ep.instanceId, ep.model, ep.shape], ['openai', 'gpt-image-2.5-flare', 'openai'])
+    assert.deepEqual([ep.instanceId, ep.model, ep.shape], ['custom', 'gpt-image-2.5-flare', 'openai'])
     const est = await out.api('GET', '/studio/estimate')
     assert.equal(est.status, 200)
     assert.equal(est.body.source, 'provider')
@@ -366,15 +367,15 @@ test('signed out, an own image row draws without an account: the studio does not
   }
 })
 
-test('the video order: the choice, else the chat provider, else the account, else the first own Model Studio key; `off` keeps the face still; an old choice without a source still works', async () => {
+test('the video order: the choice, else the chat row, else the account, else the first own video key; `off` keeps the face still; an old choice without a source still works', async () => {
   const out = await cloud({ signedIn: true })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
     assert.equal((await out.svc.videoEndpoint()).instanceId, PROVIDER_ID)
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
-    // chat is bailian: clips follow it, the catalogue's default on the row's host
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
+    // chat is the own row: clips follow it, the row's first video model on the row's host
     let ep = await out.svc.videoEndpoint()
-    assert.deepEqual([ep.instanceId, ep.model], ['bailian', 'wan2.2-i2v-flash'])
+    assert.deepEqual([ep.instanceId, ep.model], ['custom', 'wan2.2-i2v-flash'])
     assert.ok(ep.host.startsWith('http://127.0.0.1:'))
     assert.equal(ep.apiKey, 'sk-test')
     await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: PROVIDER_ID })
@@ -382,11 +383,11 @@ test('the video order: the choice, else the chat provider, else the account, els
     // the choice: the account's model by name, the own row by name, off
     const options = (await out.api('GET', '/providers/models?cap=video')).body.options
     assert.deepEqual(options.slice(0, 1), [{ provider: PROVIDER_ID, providerLabel: 'nanoMuse Cloud', id: 'wan2.2-i2v-flash', name: 'Wan', recommended: true }])
-    assert.ok(options.some((o) => o.provider === 'bailian' && o.id === 'wan2.2-i2v-flash'))
-    const set = await out.api('POST', '/video-model', { model: 'wan2.2-i2v-flash', provider: 'bailian' })
+    assert.ok(options.some((o) => o.provider === 'custom' && o.id === 'wan2.2-i2v-flash'))
+    const set = await out.api('POST', '/video-model', { model: 'wan2.2-i2v-flash', provider: 'custom' })
     assert.equal(set.status, 200)
-    assert.equal(set.body.provider, 'bailian')
-    assert.equal((await out.svc.videoEndpoint()).instanceId, 'bailian')
+    assert.equal(set.body.provider, 'custom')
+    assert.equal((await out.svc.videoEndpoint()).instanceId, 'custom')
     assert.equal((await out.svc.videoEndpoint({ cloud: true })).instanceId, PROVIDER_ID)
     await out.api('POST', '/video-model', { model: 'off' })
     assert.equal(await out.svc.videoEndpoint(), undefined)
@@ -404,9 +405,9 @@ test('the video order: the choice, else the chat provider, else the account, els
 
 test('Automatic: an empty model drops the stored choice and the slot follows the order again; the view says what the order gives while a choice is in force', async () => {
   const out = await cloud({ signedIn: true })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
     await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: PROVIDER_ID })
     // nothing stored: every dependent row is automatic and `auto` is the row's own value
     let view = (await out.api('GET', '/models')).body
@@ -415,13 +416,13 @@ test('Automatic: an empty model drops the stored choice and the slot follows the
       assert.deepEqual(view.slots[slot].auto, { provider: PROVIDER_ID, providerLabel: 'nanoMuse Cloud', model: view.slots[slot].model }, slot)
     }
     // explicit choices on the own row; `auto` still names what the order would give (the account)
-    await out.api('POST', '/hands-model', { model: 'qwen3-vl-plus', provider: 'bailian' })
-    await out.api('POST', '/image-model', { model: 'qwen-image-3.0', provider: 'bailian' })
-    await out.api('POST', '/video-model', { model: 'wan2.2-i2v-flash', provider: 'bailian' })
+    await out.api('POST', '/hands-model', { model: 'qwen3-vl-plus', provider: 'custom' })
+    await out.api('POST', '/image-model', { model: 'qwen-image-3.0', provider: 'custom' })
+    await out.api('POST', '/video-model', { model: 'wan2.2-i2v-flash', provider: 'custom' })
     view = (await out.api('GET', '/models')).body
     for (const slot of ['hands', 'image', 'video']) {
       assert.equal(view.slots[slot].chosen, true, slot)
-      assert.equal(view.slots[slot].provider, 'bailian', slot)
+      assert.equal(view.slots[slot].provider, 'custom', slot)
       assert.equal(view.slots[slot].auto.provider, PROVIDER_ID, slot)
     }
     assert.equal(view.slots.hands.auto.model, 'qwen3.8-27b')
@@ -430,7 +431,7 @@ test('Automatic: an empty model drops the stored choice and the slot follows the
     assert.equal((await out.api('POST', '/hands-model', { model: '' })).status, 200)
     assert.deepEqual(out.svc.handsChoice(), { provider: PROVIDER_ID, model: 'qwen3.8-27b' })
     assert.equal(JSON.parse(await readFile(join(out.home, 'hands.json'), 'utf8')).model, 'qwen3.8-27b')
-    assert.equal((await out.svc.imageEndpoint()).instanceId, 'bailian')
+    assert.equal((await out.svc.imageEndpoint()).instanceId, 'custom')
     assert.equal((await out.api('POST', '/image-model', { model: '' })).status, 200)
     assert.equal((await out.svc.imageEndpoint()).instanceId, PROVIDER_ID)
     assert.equal((await out.api('POST', '/media', { videoModel: '' })).status, 200)
@@ -442,10 +443,10 @@ test('Automatic: an empty model drops the stored choice and the slot follows the
     assert.equal(out.state().media?.imageModel, undefined)
     assert.equal(out.state().media?.videoModel, undefined)
     // the order moves with chat again: chat to the own row, the three follow it
-    await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: 'bailian' })
-    assert.equal(out.svc.handsChoice().provider, 'bailian')
-    assert.equal((await out.svc.imageEndpoint()).instanceId, 'bailian')
-    assert.equal((await out.svc.videoEndpoint()).instanceId, 'bailian')
+    await out.api('POST', '/chat-model', { model: 'deepseek-v4.1-flash', provider: 'custom' })
+    assert.equal(out.svc.handsChoice().provider, 'custom')
+    assert.equal((await out.svc.imageEndpoint()).instanceId, 'custom')
+    assert.equal((await out.svc.videoEndpoint()).instanceId, 'custom')
   } finally {
     await server.close()
     await out.done()
@@ -454,25 +455,25 @@ test('Automatic: an empty model drops the stored choice and the slot follows the
 
 test('the "Use it for" card: the offer names the slots the row can take and the model each gets; Use it switches the ticked ones through the same setters, the rest stays', async () => {
   const out = await cloud({ signedIn: true, defaultModel: { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' } })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
-    const saved = await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
-    assert.deepEqual(saved.body.offer, { chat: 'deepseek-v4.1-flash', hands: 'qwen3.8-27b', image: 'qwen-image-3.0', video: 'wan2.2-i2v-flash' })
+    const saved = await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
+    assert.deepEqual(saved.body.offer, { chat: 'deepseek-v4.1-flash', hands: 'deepseek-v4.1-flash', image: 'qwen-image-3.0', video: 'wan2.2-i2v-flash' })
     // the account had a default already: nothing moved by the save itself
     assert.deepEqual(out.selection.current, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' })
     assert.deepEqual(out.svc.handsChoice(), { provider: PROVIDER_ID, model: 'qwen3.8-27b' })
     // Not now is the browser doing nothing; Use it with hands and image ticked
-    const adopted = await out.api('POST', '/providers/adopt', { id: 'bailian', slots: ['hands', 'image', 'nope'] })
+    const adopted = await out.api('POST', '/providers/adopt', { id: 'custom', slots: ['hands', 'image', 'nope'] })
     assert.equal(adopted.status, 200)
-    assert.deepEqual(adopted.body.done, { hands: 'qwen3.8-27b', image: 'qwen-image-3.0' })
+    assert.deepEqual(adopted.body.done, { hands: 'deepseek-v4.1-flash', image: 'qwen-image-3.0' })
     assert.deepEqual(out.selection.current, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' })
-    assert.deepEqual(out.svc.handsChoice(), { provider: 'bailian', model: 'qwen3.8-27b' })
-    assert.equal((await out.svc.imageEndpoint()).instanceId, 'bailian')
+    assert.deepEqual(out.svc.handsChoice(), { provider: 'custom', model: 'deepseek-v4.1-flash' })
+    assert.equal((await out.svc.imageEndpoint()).instanceId, 'custom')
     assert.equal((await out.svc.videoEndpoint()).instanceId, PROVIDER_ID)
     // all four
-    await out.api('POST', '/providers/adopt', { id: 'bailian', slots: ['chat', 'hands', 'image', 'video'] })
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'deepseek-v4.1-flash' })
-    assert.equal((await out.svc.videoEndpoint()).instanceId, 'bailian')
+    await out.api('POST', '/providers/adopt', { id: 'custom', slots: ['chat', 'hands', 'image', 'video'] })
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'deepseek-v4.1-flash' })
+    assert.equal((await out.svc.videoEndpoint()).instanceId, 'custom')
     assert.equal((await out.api('POST', '/providers/adopt', { id: 'nobody', slots: ['chat'] })).status, 404)
   } finally {
     await server.close()
@@ -482,14 +483,19 @@ test('the "Use it for" card: the offer names the slots the row can take and the 
 
 test('the offer of a chat-only row is chat alone; a row with vision but no listed image model offers no image', async () => {
   const out = await cloud()
-  const server = await modelsServer(['deepseek-flash', 'deepseek-reasoner'])
+  const ollama = await modelsServer(['qwen3:8b', 'qwen3:32b'])
+  const gateway = await modelsServer(['deepseek-flash', 'deepseek-reasoner'])
   try {
-    const saved = await out.api('POST', '/providers/save', { id: 'deepseek', apiKey: 'sk-ds', baseURL: server.url })
-    // deepseek-flash is the catalogue's hands default too: chat and hands, never image or video
+    // Ollama is chat only: the catalogue's chat default, nothing else
+    const local = await out.api('POST', '/providers/save', { id: 'ollama', baseURL: ollama.url })
+    assert.deepEqual(local.body.offer, { chat: 'qwen3:8b' })
+    // a hand-made row with vision ticked: every listed model is sighted, so the first is both chat and hands; no image or video
+    const saved = await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-own', baseURL: gateway.url, label: 'My server', capabilities: ['chat', 'vision'] })
     assert.deepEqual(saved.body.offer, { chat: 'deepseek-flash', hands: 'deepseek-flash' })
     assert.deepEqual(out.svc.slotOffer('nobody'), {})
   } finally {
-    await server.close()
+    await ollama.close()
+    await gateway.close()
     await out.done()
   }
 })
@@ -665,20 +671,20 @@ test('picking the chat model moves the main chat and only it; the same pick twic
 
 test('the "Use it for" card moves the main chat to the own key too; a main chat on Cloud for one turn comes back to the pick instead', async () => {
   const out = await cloud({ signedIn: true, defaultModel: { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' } })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
     const sessions = fakeSessions({ 's-main': { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' } })
     out.svc.sessionCtx = sessions.ctx
     out.svc.sync = { state: { mainSession: 's-main' }, isCleared: () => false }
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-own', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-own', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
     assert.deepEqual(sessions.moved, [])
-    const adopted = await out.api('POST', '/providers/adopt', { id: 'bailian', slots: ['chat'] })
+    const adopted = await out.api('POST', '/providers/adopt', { id: 'custom', slots: ['chat'] })
     assert.equal(adopted.status, 200)
     assert.equal(sessions.moved.length, 1)
     assert.equal(sessions.moved[0].sessionId, 's-main')
-    assert.equal(sessions.moved[0].provider, 'bailian')
+    assert.equal(sessions.moved[0].provider, 'custom')
     // held on the account for one turn: the hold's way back becomes the new pick, the session is not touched mid-turn
-    out.svc.cloudOnce.set('s-main', { provider: 'bailian', model: sessions.moved[0].model, at: 1 })
+    out.svc.cloudOnce.set('s-main', { provider: 'custom', model: sessions.moved[0].model, at: 1 })
     assert.equal((await out.api('POST', '/chat-model', { model: 'deepseek-v4.1', provider: PROVIDER_ID })).status, 200)
     assert.equal(sessions.moved.length, 1)
     assert.deepEqual(out.svc.cloudOnce.get('s-main'), { provider: PROVIDER_ID, model: 'deepseek-v4.1', at: 1 })

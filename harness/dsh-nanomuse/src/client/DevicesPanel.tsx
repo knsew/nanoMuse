@@ -20,7 +20,7 @@ import { useLive, type LiveDevice } from './live.ts'
 import { MoreButton } from './ui.tsx'
 import { DeviceConversationPanel } from './DeviceConversationPanel.tsx'
 
-const DOWNLOAD_URL = 'https://nanomuse.cn/dl/'
+const DOWNLOAD_URL = 'https://github.com/knsew/nanoMuse/releases'
 
 function ago(t: Translate, seconds: number): string {
   if (!seconds) return ''

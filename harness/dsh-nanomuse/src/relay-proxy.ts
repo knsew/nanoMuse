@@ -32,7 +32,7 @@ const RETURNED = ['content-type', 'cache-control', 'x-nanomuse-request', 'x-requ
 export const MAX_BODY = 24 * 1024 * 1024
 
 export interface RelayProxyOptions {
-  /** The relay's origin, `https://cloud.nanomuse.cn`. */
+  /** The relay's origin, `https://relay.example`. */
   origin: () => string
   /** The account's key right now; '' when signed out (every request is then a 401). */
   token: () => Promise<string | undefined>

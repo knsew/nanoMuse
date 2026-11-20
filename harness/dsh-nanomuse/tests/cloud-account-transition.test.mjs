@@ -55,7 +55,6 @@ async function fixture(t) {
   for (const name of ['writeProvider', 'adoptDefaultModel', 'writeHands', 'publishConnectors', 'releaseChatRoute']) svc[name] = async () => {}
   svc.profile.pull = async () => {}
   svc.profile.reset = async () => {}
-  svc.events.forget = () => {}
   svc.broadcast = () => {}
   svc.status = async () => ({ signedIn: Boolean(await svc.token()) && Boolean(svc.state.account) })
   svc.kept = { clear() { calls.keptClears += 1 }, async flush() {} }

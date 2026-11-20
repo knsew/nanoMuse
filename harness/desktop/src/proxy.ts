@@ -9,9 +9,6 @@
 /** The schemes a proxy address may carry: a plain or TLS HTTP proxy, SOCKS5 with local or remote name lookup. */
 export const PROXY_SCHEMES = ["http", "https", "socks5", "socks5h"] as const;
 
-/** The relay every build knows (own-key installs read the star policy from it too). */
-export const DEFAULT_RELAY_HOST = "cloud.nanomuse.cn";
-
 /** Never through a proxy: the Host's own loopback, the operator's server, the connectors' callback. */
 const LOOPBACK = ["localhost", "127.0.0.1", "::1"];
 
@@ -52,11 +49,11 @@ function hostOf(text: string): string {
 }
 
 /**
- * The NO_PROXY list: loopback, the relay every build knows, and the relay hosts the plugin
- * reported (its `config.baseURL` — a self-hosted or showcase relay), each once, in order.
+ * The NO_PROXY list: loopback and the relay hosts the plugin reported (its
+ * `config.baseURL` — a self-hosted relay), each once, in order.
  */
 export function noProxyList(relayHosts: readonly string[]): string[] {
-  const out = [...LOOPBACK, DEFAULT_RELAY_HOST];
+  const out = [...LOOPBACK];
   for (const entry of relayHosts) {
     const host = hostOf(entry);
     if (host && !out.includes(host)) out.push(host);

@@ -21,7 +21,7 @@ import { SignIn } from './SignIn.tsx'
 type Phase = 'loading' | 'signedOut' | 'signedIn'
 
 /** Where the privacy policy is when the relay did not name one. */
-const PRIVACY_URL = 'https://nanomuse.cn/privacy/'
+const PRIVACY_URL = 'https://github.com/knsew/nanoMuse'
 
 /** `GET nanomuse/cloud/sync/state`: the switch, the relay's counts, the main chat and the synced sessions (see `sync.ts`). */
 export interface SyncView {
@@ -140,7 +140,6 @@ export function makeCloudSection(t: Translate, part: 'account' | 'data' = 'accou
     // a key saved or removed, a model picked: the status (ready, the models) is read again, quietly
     const refreshStatus = useCallback(() => { void call<CloudStatus>('status').then(apply).catch(() => undefined) }, [apply])
     const [notice, setNotice] = useState<string | undefined>()
-    const setContribute = (on: boolean) => void run(async () => { setNotice(undefined); apply(await call<CloudStatus>('data/contribute', { on })) })
     const deleteSamples = () => {
       if (!window.confirm(t('dataDeleteConfirm'))) return
       void run(async () => {
@@ -167,12 +166,7 @@ export function makeCloudSection(t: Translate, part: 'account' | 'data' = 'accou
       const lookWord = look.avatar === 'face' ? t('lookFace') : look.avatar === 'emoji' ? t('lookEmoji', { emoji: look.emoji }) : t('lookDragon')
       const dataControls = a.contribute
         ? h('div', null,
-            h('div', { style: { ...row, justifyContent: 'space-between' } },
-              h('span', null, t('dataImprove')),
-              h(Switch, { checked: a.contribute.on, onChange: setContribute, disabled: busy, label: t('dataImprove') })),
             h('div', { style: muted },
-              t('dataWhy'), ' ',
-              a.contribute.defaultOn === undefined ? '' : t(a.contribute.defaultOn ? 'dataDefaultOn' : 'dataDefaultOff'), ' ',
               a.contribute.samples > 0 ? t('dataKept', { n: a.contribute.samples }) : '', ' ',
               h('a', { href: a.contribute.privacyUrl || PRIVACY_URL, target: '_blank', rel: 'noopener noreferrer' }, t('dataPrivacy'))),
             // the record's figures (relay 0.29): what is held of this account, own-key turns among it

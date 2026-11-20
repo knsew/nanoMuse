@@ -1,10 +1,10 @@
 // The proxy for the model providers (src/proxy.ts): what the Host's environment gets for a
 // setting — nothing for none, the two HTTP variables (ALL_PROXY too for SOCKS), NO_PROXY with
-// loopback, the default relay and the relay the plugin reported, and NODE_USE_ENV_PROXY so
-// Node's fetch reads them. Run after `tsc -p tsconfig.json`.
+// loopback and the relay the plugin reported, and NODE_USE_ENV_PROXY so Node's fetch reads them.
+// Run after `tsc -p tsconfig.json`.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_RELAY_HOST, maskProxyUrl, noProxyList, PROXY_SCHEMES, proxyEnv, trustedRelayHosts, validProxyUrl } from "../out/proxy.js";
+import { maskProxyUrl, noProxyList, PROXY_SCHEMES, proxyEnv, trustedRelayHosts, validProxyUrl } from "../out/proxy.js";
 
 test("an address is one of the four schemes with a host, trailing slash dropped", () => {
   assert.deepEqual([...PROXY_SCHEMES], ["http", "https", "socks5", "socks5h"]);
@@ -26,11 +26,11 @@ test("the screen never shows the password", () => {
   assert.equal(maskProxyUrl(""), "");
 });
 
-test("NO_PROXY is loopback, the default relay and the plugin's relays, each once", () => {
-  assert.deepEqual(noProxyList([]), ["localhost", "127.0.0.1", "::1", DEFAULT_RELAY_HOST]);
+test("NO_PROXY is loopback and the plugin's relays, each once", () => {
+  assert.deepEqual(noProxyList([]), ["localhost", "127.0.0.1", "::1"]);
   assert.deepEqual(noProxyList(["https://cloud.nanomuse.cn", "https://Relay.Example:8790/", "relay.example", "", "not a host at all??"]), ["localhost", "127.0.0.1", "::1", "cloud.nanomuse.cn", "relay.example"]);
   // a bare 127.0.0.1:8790 (a self-hosted relay next to the app) adds nothing: loopback is there already
-  assert.deepEqual(noProxyList(["http://127.0.0.1:8790"]), ["localhost", "127.0.0.1", "::1", DEFAULT_RELAY_HOST]);
+  assert.deepEqual(noProxyList(["http://127.0.0.1:8790"]), ["localhost", "127.0.0.1", "::1"]);
 });
 
 test("extra relay exceptions come only from trusted process configuration", () => {
@@ -51,7 +51,7 @@ test("an HTTP proxy sets the two variables, NO_PROXY and the Node switch", () =>
   assert.deepEqual(env, {
     HTTP_PROXY: "http://proxy.example:8080",
     HTTPS_PROXY: "http://proxy.example:8080",
-    NO_PROXY: "localhost,127.0.0.1,::1,cloud.nanomuse.cn,relay.example",
+    NO_PROXY: "localhost,127.0.0.1,::1,relay.example",
     NODE_USE_ENV_PROXY: "1",
   });
   assert.equal("ALL_PROXY" in env, false, "ALL_PROXY is for SOCKS only");
@@ -62,6 +62,6 @@ test("a SOCKS proxy sets ALL_PROXY as well, for the runtime's httpx", () => {
   assert.equal(env.HTTP_PROXY, "socks5h://127.0.0.1:1080");
   assert.equal(env.HTTPS_PROXY, "socks5h://127.0.0.1:1080");
   assert.equal(env.ALL_PROXY, "socks5h://127.0.0.1:1080");
-  assert.equal(env.NO_PROXY, "localhost,127.0.0.1,::1,cloud.nanomuse.cn");
+  assert.equal(env.NO_PROXY, "localhost,127.0.0.1,::1");
   assert.equal(env.NODE_USE_ENV_PROXY, "1");
 });

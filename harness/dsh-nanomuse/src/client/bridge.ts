@@ -8,28 +8,6 @@
 export type PermissionKind = 'accessibility' | 'screen' | 'microphone'
 export type PermissionState = 'granted' | 'denied' | 'not-determined' | 'not-needed'
 
-export interface WindowsUpdateState {
-  currentVersion: string
-  phase: 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'verifying' | 'ready' | 'failed' | 'installing'
-  version: string | null
-  progress: number | null
-  source: 'mirror' | 'github' | null
-  failure: 'check' | 'download' | 'restart' | null
-  checkedAt: number | null
-  /** Absent in the previous shell, which only downloads on request. */
-  autoDownload?: boolean
-  paused?: 'disabled' | 'metered' | 'unknown' | null
-}
-
-export interface WindowsUpdateBridge {
-  snapshot(): Promise<WindowsUpdateState | null>
-  subscribe(listener: (state: WindowsUpdateState) => void): () => void
-  check(): Promise<WindowsUpdateState | null>
-  download(): Promise<WindowsUpdateState | null>
-  restart(): Promise<WindowsUpdateState | null>
-  setAutoDownload?(enabled: boolean): Promise<WindowsUpdateState | null>
-}
-
 /** App behaviour, as the shell keeps it: the values, the quick-chat key's name, what this platform can do. */
 export interface DesktopPrefs {
   openAtLogin: boolean
@@ -48,7 +26,7 @@ export interface DesktopPrefs {
   proxyMasked?: string
   /** The proxy the running Host was started with; differs from `proxy` until a restart. */
   proxyApplied?: string
-  /** The relay hosts the shell keeps off the proxy (the plugin's `config.baseURL`), besides the default relay and loopback. */
+  /** The relay hosts the shell keeps off the proxy (the plugin's `config.baseURL`), besides loopback. */
   relayHosts?: string[]
   supports: { openAtLogin: boolean; menuBar: boolean; quickChat: boolean }
 }
@@ -73,9 +51,7 @@ export interface OverlayHands {
 
 export interface HarnessBridge {
   platform: string
-  /** Absent from older shells; null snapshots keep the existing external update path. */
-  updates?: WindowsUpdateBridge
-  /** `appImage` (1.0.0): the Linux build runs from an AppImage, so an update should be one too. */
+  /** `appImage` (1.0.0): the Linux build runs from an AppImage. */
   info(): Promise<{ version: string; platform: string; arch: string; appImage?: boolean }>
   // `helper` since 0.1.38: true when "nanoMuse Computer Use" (the shell's helper app) holds the
   // grants — the rows to switch on in the panes are its, and a grant needs no app restart

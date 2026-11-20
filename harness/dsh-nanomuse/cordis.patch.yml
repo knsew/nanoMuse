@@ -80,7 +80,7 @@
     - id: nanomuse-cloud
       name: dsh-nanomuse/cloud
       config:
-        baseURL: !!js process.env.NANOMUSE_CLOUD_URL || 'https://cloud.nanomuse.cn'
+        baseURL: !!js process.env.NANOMUSE_CLOUD_URL || ''
         deviceName: ''
         statePath: ''
 

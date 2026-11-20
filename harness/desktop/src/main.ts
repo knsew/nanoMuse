@@ -23,8 +23,6 @@ import { closedDuringLoad } from "./load-close";
 import { rotateLogIfNeeded } from "./log-rotate";
 import { HostWork } from "./host-work";
 import { ProtectedExit, type ExitDialog, type ExitIntent, type WorkItem, type WorkSource } from "./protected-exit";
-import { WindowsUpdates, RestartNsisUpdater } from "./windows-updates";
-import { windowsNetworkCost } from "./windows-network-cost";
 
 /**
  * nanoMuse Desktop — the nanoMuse desktop, built on DeepSeek Harness.
@@ -45,9 +43,9 @@ import { windowsNetworkCost } from "./windows-network-cost";
  * (docs/desktop.md, docs/harness.md).
  */
 
-const RELEASES_PAGE = "https://github.com/nano-muse/nanoMuse/releases/latest";
-const ISSUES_PAGE = "https://github.com/nano-muse/nanoMuse/issues";
-const DOCS_PAGE = "https://nanomuse.cn/docs/desktop";
+const RELEASES_PAGE = "https://github.com/knsew/nanoMuse/releases/latest";
+const ISSUES_PAGE = "https://github.com/knsew/nanoMuse/issues";
+const DOCS_PAGE = "https://github.com/knsew/nanoMuse";
 const HARNESS_PAGE = "https://github.com/deepseek-ai/deepseek-harness";
 
 const zh = (app.getLocale() || "").toLowerCase().startsWith("zh");
@@ -83,7 +81,7 @@ const T = {
   newChat: zh ? "新聊天" : "New chat",
   quickChat: zh ? "快速唤起" : "Quick chat",
   quitApp: zh ? "退出 nanoMuse" : "Quit nanoMuse",
-  // the protected exit: what a real quit (later, a restart-update) would end
+  // the protected exit: what a real quit or restart would end
   exitBusyTitle: zh ? "有工作还在进行" : "Work is still in progress",
   exitBusyLead: zh ? "现在退出会结束这些工作：" : "Quitting now would end this work:",
   restartBusyLead: zh ? "现在重启更新会结束这些工作：" : "Restarting to update now would end this work:",
@@ -493,9 +491,8 @@ async function restartHost(): Promise<void> {
 
 /** The Host's work routes, once the Host is up; until then nothing answers and the exit reads as idle. */
 let hostWork: HostWork | null = null;
-/** The one protected exit, reused by both update installation intents. */
+/** The one protected exit. */
 let exitGuard: ProtectedExit | null = null;
-let windowsUpdates: WindowsUpdates | null = null;
 
 const workSource: WorkSource = {
   busy: async (strict) => {
@@ -549,13 +546,11 @@ function protectedQuit(intent: ExitIntent = "quit"): void {
     app.quit();
     return;
   }
-  const exit = windowsUpdates && intent === "quit" ? windowsUpdates.quit() : exitGuard.requestExit(intent);
+  const exit = exitGuard.requestExit(intent);
   void exit.then(() => {
     // Keep running after the last window closed with no tray to come back through: the
     // window comes back, or the app would stay alive with nothing on screen to reach it by.
-    // An update being installed is on its way out (the library quits after the installer
-    // has started), so it is not read as kept running.
-    if (!quitting && windowsUpdates?.snapshot().phase !== "installing" && !mainWindow && !tray) void showWindow();
+    if (!quitting && !mainWindow && !tray) void showWindow();
   });
 }
 
@@ -738,7 +733,6 @@ interface Prefs {
   openAtLogin: boolean;
   menuBar: boolean;
   quickChat: boolean;
-  autoDownloadUpdates?: boolean;
   /** The person's own quick-chat combination (an Electron accelerator); absent means the platform's default. */
   quickChatKey?: string;
   /** The proxy for the model providers (`http://host:port`, `socks5://host:port`); absent means none. */
@@ -948,17 +942,6 @@ function registerBridge(): void {
   // process that takes the screenshots has to start again — the helper when it is in use,
   // the whole app otherwise.
   ipcMain.handle("nanomuse:relaunch", () => relaunchNow());
-  ipcMain.handle("nanomuse:updates:snapshot", () => windowsUpdates?.snapshot() ?? null);
-  ipcMain.handle("nanomuse:updates:auto-download", async (_e, enabled: boolean) => {
-    await windowsUpdates?.setAutoDownload(enabled);
-    return windowsUpdates?.snapshot() ?? null;
-  });
-  for (const action of ["check", "download", "restart"] as const) {
-    ipcMain.handle(`nanomuse:updates:${action}`, async () => {
-      await windowsUpdates?.[action]();
-      return windowsUpdates?.snapshot() ?? null;
-    });
-  }
   ipcMain.handle("nanomuse:permissions:settings", (_e, kind: PermissionKind | "files") => {
     if (process.platform === "darwin" && typeof kind === "string" && kind in PERMISSION_PANES) void shell.openExternal(PERMISSION_PANES[kind]);
   });
@@ -1901,7 +1884,7 @@ function about(): void {
 
 function buildMenu(): void {
   const help: Electron.MenuItemConstructorOptions[] = [
-    { label: T.website, click: () => void shell.openExternal("https://nanomuse.cn/") },
+    { label: T.website, click: () => void shell.openExternal("https://github.com/knsew/nanoMuse") },
     { label: T.docs, click: () => void shell.openExternal(DOCS_PAGE) },
     { label: T.releases, click: () => void shell.openExternal(RELEASES_PAGE) },
     { label: T.issue, click: () => void shell.openExternal(ISSUES_PAGE) },
@@ -1984,7 +1967,7 @@ if (!app.requestSingleInstanceLock({ version: app.getVersion() })) {
     applicationName: "nanoMuse",
     applicationVersion: app.getVersion(),
     copyright: "GPL-3.0-or-later · the nanoMuse community · built on DeepSeek Harness (MIT)",
-    website: "https://nanomuse.cn/",
+    website: "https://github.com/knsew/nanoMuse",
   });
   app.whenReady().then(async () => {
     registerBridge();
@@ -2001,30 +1984,6 @@ if (!app.requestSingleInstanceLock({ version: app.getVersion() })) {
     if (!screenshotFlag) void ensureMacPermissionsAtLaunch().catch((exc: unknown) => log(`permissions: ${String(exc)}`));
     try {
       await boot();
-      if (process.platform === "win32" && process.arch === "x64" && app.isPackaged && !screenshotFlag) {
-        windowsUpdates = new WindowsUpdates({
-          currentVersion: app.getVersion(), supported: true,
-          autoDownload: prefs.autoDownloadUpdates !== false,
-          saveAutoDownload: (enabled) => {
-            const next = { ...prefs, autoDownloadUpdates: enabled };
-            writePrefs(next, true);
-            prefs = next;
-          },
-          networkCost: windowsNetworkCost,
-          createUpdater: (canQuit) => {
-            const updater = new RestartNsisUpdater(canQuit);
-            updater.logger = { info: (line) => log(`update: ${line}`), warn: (line) => log(`update: ${line}`), error: (line) => log(`update: ${line}`) };
-            return updater;
-          },
-          handoff: async (intent, install) => !quitting && !sessionEnding && !!exitGuard && exitGuard.requestExit(intent, install ? () => {
-            if (quitting || sessionEnding) throw new Error("The system is ending the session");
-            install();
-          } : undefined),
-          cancelHandoff: async () => { await exitGuard?.cancelHandoff(); },
-        });
-        windowsUpdates.subscribe((state) => { mainWindow?.webContents.send("nanomuse:updates:state", state); });
-        windowsUpdates.start();
-      }
     } catch (exc) {
       await reportStartupFailure(exc);
       app.quit();
@@ -2045,9 +2004,6 @@ if (!app.requestSingleInstanceLock({ version: app.getVersion() })) {
     globalShortcut.unregisterAll();
     if (quitting) return;
     quitting = true;
-    windowsUpdates?.dispose();
-    // This cleanup never requests installation. Only the explicit protected
-    // quit or restart above can hand a verified package to the installer.
     log(`quit: the exit ${exitGuard?.approval === "user" ? "went through the protected exit with the person's say-so" : "did not go through the protected exit (the system, a crash, or a Host that was not up)"}`);
     if (startWatch) {
       // a Host still starting goes with the app; the log says it was alive

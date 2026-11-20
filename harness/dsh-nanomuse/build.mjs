@@ -35,7 +35,7 @@ const PLATFORM_MODULES = [
 await rm(new URL('./lib/', import.meta.url), { recursive: true, force: true })
 
 await build({
-  entryPoints: ['src/index.ts', 'src/admit.ts', 'src/cloud.ts', 'src/cloud-llm.ts', 'src/relay.ts', 'src/reach.ts', 'src/hub.ts', 'src/profile.ts', 'src/actions.ts', 'src/task.ts', 'src/persistent-turns.ts', 'src/persistent-task-endpoint.ts', 'src/device-conversations.ts', 'src/device-chat.ts', 'src/device-chat-drafts.ts', 'src/work.ts', 'src/sync.ts', 'src/rooms.ts', 'src/rooms-tools.ts', 'src/capability-skill.ts', 'src/skills.ts', 'src/skills-policy.ts', 'src/connectors.ts', 'src/connectors-tools.ts', 'src/hands-tools.ts', 'src/images.ts', 'src/desk.ts', 'src/phone-approvals.ts', 'src/avatar-flow.ts', 'src/fences.ts', 'src/video.ts', 'src/motion.ts', 'src/own-clip.ts', 'src/record.ts', 'src/provenance.ts', 'src/relay-proxy.ts', 'src/events.ts', 'src/hands-check.ts', 'src/firstrun.ts', 'src/nudges.ts', 'src/providers.ts', 'src/trajectory.ts', 'src/refusals.ts', 'src/coding.ts', 'src/coding-readers.ts', 'src/coding-runner.ts', 'src/coding-timeline.ts', 'src/coding-protocol.ts', 'src/windows-pwsh-sandbox.ts', 'src/windows-acl-runner.ts', 'src/windows-console-host.ts'],
+  entryPoints: ['src/index.ts', 'src/admit.ts', 'src/cloud.ts', 'src/cloud-llm.ts', 'src/relay.ts', 'src/reach.ts', 'src/hub.ts', 'src/profile.ts', 'src/actions.ts', 'src/task.ts', 'src/persistent-turns.ts', 'src/persistent-task-endpoint.ts', 'src/device-conversations.ts', 'src/device-chat.ts', 'src/device-chat-drafts.ts', 'src/work.ts', 'src/sync.ts', 'src/rooms.ts', 'src/rooms-tools.ts', 'src/capability-skill.ts', 'src/skills.ts', 'src/skills-policy.ts', 'src/connectors.ts', 'src/connectors-tools.ts', 'src/hands-tools.ts', 'src/images.ts', 'src/desk.ts', 'src/phone-approvals.ts', 'src/avatar-flow.ts', 'src/fences.ts', 'src/video.ts', 'src/motion.ts', 'src/own-clip.ts', 'src/provenance.ts', 'src/relay-proxy.ts', 'src/hands-check.ts', 'src/firstrun.ts', 'src/nudges.ts', 'src/providers.ts', 'src/trajectory.ts', 'src/refusals.ts', 'src/coding.ts', 'src/coding-readers.ts', 'src/coding-runner.ts', 'src/coding-timeline.ts', 'src/coding-protocol.ts', 'src/windows-pwsh-sandbox.ts', 'src/windows-acl-runner.ts', 'src/windows-console-host.ts'],
   outdir: 'lib',
   format: 'esm',
   platform: 'node',
@@ -47,10 +47,9 @@ await build({
   chunkNames: 'chunks/[name]-[hash]',
   sourcemap: true,
   packages: 'external',
-  // The bundle's own version, baked in: `BUNDLE_VERSION` (cloud.ts) is what the update check
-  // compares with the latest release and what the device tells the hub. Left to the
-  // environment, nothing set it in the packaged app and every install ran as 0.0.0, so every
-  // release read as newer (0.1.41).
+  // The bundle's own version, baked in: `BUNDLE_VERSION` (cloud.ts) is what the device
+  // tells the hub. Left to the environment, nothing set it in the packaged app and every
+  // install ran as 0.0.0 (0.1.41).
   define: { 'process.env.NANOMUSE_VERSION': JSON.stringify(pkg.version) },
   logLevel: 'warning',
 })

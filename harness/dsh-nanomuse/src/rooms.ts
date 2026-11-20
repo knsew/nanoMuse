@@ -28,7 +28,7 @@
 import { avatarFence, avatarMemoryLine } from './avatar-flow.ts'
 import { FENCE_FEED, FENCE_GOAL, FENCE_GOAL_UPDATE, findFences, goalCategory, goalCheckPrompt, goalCreationNote, goalHomeNote, goalOpener, parseFeedDraft, parseGoalBlock, parseGoalUpdate, parseIdeas, type GoalBlock, type GoalUpdateBlock, type IdeaKind, type StaticIdea } from './fences.ts'
 import { afterTurn, boundTo, currentSuggestions, dismissChooser, FIRST_RUN_EMPTY, pickName, promptAddendum, readFirstRun, startConversation, type FirstRunState } from './firstrun.ts'
-import { DEFAULT_NUDGES, dueAsk, LEDGER_EMPTY, NUDGES_EVERY_MS, NUDGES_ORIGIN, NUDGES_TIMEOUT_MS, readLedger, readNudges, recordAsk, recordDay, recordStarred, recordTask, type Ask, type Moment, type NudgeLedger, type NudgesPolicy, type NudgesView } from './nudges.ts'
+import { DEFAULT_NUDGES, dueAsk, LEDGER_EMPTY, NUDGES_EVERY_MS, NUDGES_TIMEOUT_MS, readLedger, readNudges, recordAsk, recordDay, recordStarred, recordTask, type Ask, type Moment, type NudgeLedger, type NudgesPolicy, type NudgesView } from './nudges.ts'
 import { homeDir, homeWorkspace } from './home.ts'
 import { packageAssetsDir } from './profile.ts'
 import { describeCall, ownWords, parseArgs } from './steps.ts'
@@ -714,14 +714,15 @@ export default class NanomuseRooms extends Service {
     await this.askNudge('tasks', this.nudges.ledger.tasks)
   }
 
-  /** The policy, from the relay at most once a day; the last good copy stays when the network does not answer. */
+  /** The policy, from the relay at most once a day; the last good copy stays when the network does not answer. Without a relay account there is no fetch: the built-in policy stands. */
   private async refreshNudges(force = false): Promise<void> {
     if (this.fetchingNudges) return
     if (!force && Date.now() - this.nudges.fetchedAt < NUDGES_EVERY_MS) return
     this.fetchingNudges = true
     try {
       const status = await this.ctx.nanomuseCloud.status().catch(() => undefined)
-      const origin = (status?.baseURL || NUDGES_ORIGIN).replace(/\/+$/, '')
+      if (!status?.baseURL) return
+      const origin = status.baseURL.replace(/\/+$/, '')
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), NUDGES_TIMEOUT_MS)
       try {

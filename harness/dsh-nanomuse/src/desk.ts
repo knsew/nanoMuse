@@ -1,8 +1,7 @@
 /**
  * The desk behind the hands (0.1.34): the approvals and holds the chat's cards and
  * the capsule answer (shared contracts C1 and C2 of this release), what the account's
- * connectors look like to the other devices (C3), and the update check the
- * About row runs (nanomuse.cn/dl/index.json first, GitHub releases as the fallback).
+ * connectors look like to the other devices (C3), and the model rules (C4).
  *
  * No Cordis here: `cloud.ts` owns the wiring, this file owns the shapes and
  * the decisions so the tests can drive them without a host.
@@ -512,180 +511,6 @@ export function readSharedConnectors(raw: unknown): SharedConnector[] {
   return out
 }
 
-// ---- the update check (B5) ---------------------------------------------------------
-
-export const RELEASES_API = 'https://api.github.com/repos/nano-muse/nanoMuse/releases/latest'
-export const RELEASES_INDEX = 'https://nanomuse.cn/dl/index.json'
-export const RELEASES_PAGE = 'https://github.com/nano-muse/nanoMuse/releases'
-
-export interface ReleaseAsset {
-  name: string
-  url: string
-  size: number
-}
-
-export interface UpdateInfo {
-  /** What runs here. */
-  current: string
-  /** The newest release's version, `0.1.34`; empty when nothing could be read. */
-  latest: string
-  newer: boolean
-  /** The release's page, for "What's new". */
-  page: string
-  assets: ReleaseAsset[]
-  notes: string
-  source: 'github' | 'nanomuse.cn' | 'none'
-  checkedAt: number
-  error?: string
-}
-
-/**
- * `-1`, `0` or `1` for `a` against `b`; `v` prefixes and pre-release tags (`-rc.1`) are read,
- * and so is a label in front of the number (`dsh-nanomuse 0.1.41`, `nanoMuse Desktop 0.1.41`):
- * the first dotted number in the string is the version.
- */
-export function compareVersions(a: string, b: string): number {
-  const parse = (v: string) => {
-    const m = /(?:^|[^\d.])v?(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?/.exec(v.trim())
-    return { nums: (m?.[1] ?? '0').split('.').map((n) => Number(n) || 0), pre: m?.[2] ?? '' }
-  }
-  const x = parse(a)
-  const y = parse(b)
-  for (let i = 0; i < Math.max(x.nums.length, y.nums.length); i++) {
-    const d = (x.nums[i] ?? 0) - (y.nums[i] ?? 0)
-    if (d !== 0) return d < 0 ? -1 : 1
-  }
-  if (x.pre === y.pre) return 0
-  if (!x.pre) return 1
-  if (!y.pre) return -1
-  return comparePre(x.pre, y.pre)
-}
-
-/**
- * Pre-release tags identifier by identifier (SemVer 11.4): numbers as numbers, so `rc.10`
- * is after `rc.9`; a number before a word; the shorter tag first when they agree so far.
- */
-function comparePre(a: string, b: string): number {
-  const xs = a.split('.')
-  const ys = b.split('.')
-  for (let i = 0; i < Math.max(xs.length, ys.length); i++) {
-    const x = xs[i]
-    const y = ys[i]
-    if (x === undefined) return -1
-    if (y === undefined) return 1
-    const xn = /^\d+$/.test(x)
-    const yn = /^\d+$/.test(y)
-    if (xn && yn) {
-      const d = Number(x) - Number(y)
-      if (d !== 0) return d < 0 ? -1 : 1
-    } else if (xn !== yn) {
-      return xn ? -1 : 1
-    } else if (x !== y) {
-      return x < y ? -1 : 1
-    }
-  }
-  return 0
-}
-
-/**
- * The desktop installer for this computer, when the release has one. Linux gets the `.deb`
- * first, the one docs/desktop.md prefers, unless the running app is an AppImage (`appImage`,
- * from the shell's `info()`): then the AppImage, so the person stays on what they chose.
- */
-export function pickAsset(assets: ReleaseAsset[], platform: string, arch: string, appImage = false): ReleaseAsset | undefined {
-  const cpu = arch === 'arm64' ? 'arm64' : 'x64'
-  const linux = [new RegExp(`^nanoMuse-Desktop-.*-linux-${cpu}\\.deb$`, 'i'), new RegExp(`^nanoMuse-Desktop-.*-linux-${cpu}\\.AppImage$`, 'i')]
-  const wanted: RegExp[] =
-    platform === 'darwin'
-      ? [new RegExp(`^nanoMuse-Desktop-.*-mac-${cpu}\\.dmg$`, 'i'), new RegExp(`^nanoMuse-Desktop-.*-mac-${cpu}\\.zip$`, 'i')]
-      : platform === 'win32'
-        ? [/^nanoMuse-Desktop-.*-win-x64\.exe$/i]
-        : appImage
-          ? linux.reverse()
-          : linux
-  for (const re of wanted) {
-    const hit = assets.find((a) => re.test(a.name))
-    if (hit) return hit
-  }
-  return undefined
-}
-
-type Fetch = (url: string, init?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>
-
-/**
- * The latest release, from the mirror's index on nanomuse.cn first (reachable from the
- * mainland, no rate limit), then GitHub's API when the index does not answer. Each
- * request has 5 s (C2). Never throws: a failed check is an `UpdateInfo` with
- * `source: 'none'` and an `error`.
- */
-export async function checkForUpdate(current: string, fetchImpl: Fetch = fetch as unknown as Fetch, timeoutMs = 5000): Promise<UpdateInfo> {
-  const now = Date.now()
-  const base: UpdateInfo = { current, latest: '', newer: false, page: RELEASES_PAGE, assets: [], notes: '', source: 'none', checkedAt: now }
-  const errors: string[] = []
-  const get = async (url: string): Promise<unknown> => {
-    const ctl = new AbortController()
-    const timer = setTimeout(() => ctl.abort(), timeoutMs)
-    try {
-      const res = await fetchImpl(url, { headers: { accept: 'application/json', 'user-agent': 'nanoMuse-Desktop' }, signal: ctl.signal })
-      if (!res.ok) throw new Error(`${res.status}`)
-      return await res.json()
-    } finally {
-      clearTimeout(timer)
-    }
-  }
-  try {
-    const index = (await get(RELEASES_INDEX)) as { repo?: string; releases?: { tag?: string; assets?: { name?: string; size?: number }[] }[] }
-    const rel = (index.releases ?? []).find((r) => r.tag)
-    const latest = String(rel?.tag ?? '').replace(/^v/, '')
-    if (!rel || !latest) throw new Error('no release')
-    const repo = index.repo || 'nano-muse/nanoMuse'
-    return {
-      ...base,
-      latest,
-      newer: compareVersions(latest, current) > 0,
-      page: `https://github.com/${repo}/releases/tag/${rel.tag}`,
-      assets: (rel.assets ?? []).flatMap((a) => (a.name ? [{ name: a.name, url: `https://github.com/${repo}/releases/download/${rel.tag}/${a.name}`, size: Number(a.size ?? 0) || 0 }] : [])),
-      source: 'nanomuse.cn',
-    }
-  } catch (error: unknown) {
-    errors.push(`nanomuse.cn: ${error instanceof Error ? error.message : String(error)}`)
-  }
-  try {
-    const rel = (await get(RELEASES_API)) as { tag_name?: string; html_url?: string; body?: string; assets?: { name?: string; browser_download_url?: string; size?: number }[] }
-    const latest = String(rel.tag_name ?? '').replace(/^v/, '')
-    if (!latest) throw new Error('no tag')
-    return {
-      ...base,
-      latest,
-      newer: compareVersions(latest, current) > 0,
-      page: rel.html_url || `${RELEASES_PAGE}/tag/v${latest}`,
-      assets: (rel.assets ?? []).flatMap((a) => (a.name && a.browser_download_url ? [{ name: a.name, url: a.browser_download_url, size: Number(a.size ?? 0) || 0 }] : [])),
-      notes: String(rel.body ?? '').slice(0, 4000),
-      source: 'github',
-    }
-  } catch (error: unknown) {
-    errors.push(`github: ${error instanceof Error ? error.message : String(error)}`)
-  }
-  return { ...base, error: errors.join('; ') }
-}
-
-/** One check a day, at most, by itself; the About row may ask any time. */
-export const UPDATE_EVERY_MS = 24 * 60 * 60_000
-/** A check that could not read either source is tried again after an hour, not a day. */
-export const UPDATE_RETRY_MS = 60 * 60_000
-
-/**
- * Whether a cached check still answers for the bundle that runs now: made by this very
- * version, and younger than a day; a failed one (`source: 'none'`, nothing read) is good for
- * an hour only, so a network that was down at start does not leave "Could not check" on the
- * About row for the rest of the day. A cache made by another version is no answer at all.
- */
-export function updateCacheFresh(cached: UpdateInfo | undefined, current: string, now = Date.now()): boolean {
-  if (!cached || cached.current !== current) return false
-  const ttl = cached.source === 'none' ? UPDATE_RETRY_MS : UPDATE_EVERY_MS
-  return now - cached.checkedAt < ttl
-}
-
 // ---- models (C4) --------------------------------------------------------------------
 
 /** What the relay says a model is for; absent on an older relay means chat. */
@@ -694,10 +519,10 @@ export function modelFor(m: { kind: string; for?: string[] }): ('chat' | 'gui')[
   return list.length ? list : m.kind === 'chat' ? ['chat'] : []
 }
 
-/** The current hosted fallback; a relay's lane-specific recommendation wins. */
-export const DEFAULT_CHAT_MODEL = 'Qwen/Qwen3.6-27B-FP8'
-/** The current hosted fallback for the hands. */
-export const DEFAULT_HANDS_MODEL = 'Qwen/Qwen3.6-27B-FP8'
+/** The local relay's fallback; a relay's lane-specific recommendation wins. */
+export const DEFAULT_CHAT_MODEL = 'halogen-qwen3.8-flash-next'
+/** The local relay's fallback for the hands. */
+export const DEFAULT_HANDS_MODEL = 'halogen-qwen3.8-flash-next'
 const LEGACY_CHAT_MODEL = 'deepseek-v4.1-flash'
 const LEGACY_HANDS_MODEL = 'qwen3.8-27b'
 

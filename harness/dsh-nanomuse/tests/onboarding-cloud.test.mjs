@@ -48,9 +48,17 @@ test('Cloud shows ready only when signed in', () => {
   assert.match(signedIn, />Use this</)
 })
 
-test('OpenAI API keys remain available alongside subscription sign-in and in the keys-only panel', () => {
-  assert.match(bundle.renderProviders(undefined), />OpenAI</)
-  assert.match(bundle.renderProviders(['first', 'rest', 'local', 'custom']), />OpenAI</)
+test('the ways-on panel offers the local servers and a hand-made endpoint; no cloud vendor is listed', () => {
+  const all = bundle.renderProviders(undefined)
+  assert.match(all, />Ollama</)
+  assert.match(all, />LM Studio</)
+  assert.match(all, />vLLM</)
+  assert.match(all, />Any OpenAI-compatible endpoint</)
+  assert.doesNotMatch(all, />OpenAI</)
+  const grouped = bundle.renderProviders(['first', 'rest', 'local', 'custom'])
+  assert.match(grouped, />Ollama</)
+  assert.match(grouped, />Any OpenAI-compatible endpoint</)
+  assert.doesNotMatch(grouped, />OpenAI</)
 })
 
 test('first-run prefill waits for its chat and preserves drafts', (t) => {

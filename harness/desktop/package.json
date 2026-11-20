@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.9",
   "description": "nanoMuse Desktop: the nanoMuse desktop built on DeepSeek Harness. The harness's web app in a window of our own, with nanoMuse's account, face, Hands and Reach as plugins and the runtime for the hands bundled.",
-  "homepage": "https://nanomuse.cn/",
+  "homepage": "https://github.com/knsew/nanoMuse",
   "license": "GPL-3.0-or-later",
   "engines": {
     "node": ">=22"
@@ -17,8 +17,7 @@
     "start": "tsc -p tsconfig.json && electron .",
     "smoke": "node scripts/smoke.mjs",
     "dist": "tsc -p tsconfig.json && electron-builder --config electron-builder.yml --publish never",
-    "dist:dir": "tsc -p tsconfig.json && electron-builder --config electron-builder.yml --dir",
-    "check:update-feed": "node scripts/update-feed-check.mjs"
+    "dist:dir": "tsc -p tsconfig.json && electron-builder --config electron-builder.yml --dir"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
@@ -32,8 +31,7 @@
     "email": "lgy0404@users.noreply.github.com"
   },
   "dependencies": {
-    "@computer-use/nut-js": "4.2.0",
-    "electron-updater": "^6.8.11"
+    "@computer-use/nut-js": "4.2.0"
   },
   "optionalDependencies": {
     "@computer-use/mac-screen-capture-permissions": "1.0.2",

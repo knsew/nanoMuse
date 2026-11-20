@@ -1,10 +1,8 @@
-// The stage's desk: approvals raced against the chat card, holds of the hands, the
-// update check, what the other devices see of the connectors, the model rules.
+// The stage's desk: approvals raced against the chat card, holds of the hands, what the
+// other devices see of the connectors, the model rules.
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
-import { BUNDLE_VERSION } from '../lib/cloud.js'
-import { ApprovalDesk, HoldDesk, checkForUpdate, compareVersions, pickAsset, pickChatModel, pickHandsModel, readSharedConnectors, sharedConnectors, takesImages } from '../lib/desk.js'
+import { ApprovalDesk, HoldDesk, pickChatModel, pickHandsModel, readSharedConnectors, sharedConnectors, takesImages } from '../lib/desk.js'
 
 const req = (callId, sessionId = 's1') => ({ agent: { id: 'a1', session: { id: sessionId } }, toolName: 'bash', callId, reason: 'rm -rf build', displayReason: { en: 'Remove the build folder', zh: '删除 build 目录' } })
 
@@ -159,90 +157,6 @@ test('a hold pauses the hands until Done, and a second take-over only refreshes 
   desk.done(h2.id)
 })
 
-test('versions compare numerically, with pre-releases below the release', () => {
-  assert.equal(compareVersions('0.1.34', '0.1.33'), 1)
-  assert.equal(compareVersions('v0.1.33', '0.1.33'), 0)
-  assert.equal(compareVersions('0.1.9', '0.1.10'), -1)
-  assert.equal(compareVersions('0.2.0-rc.2', '0.2.0'), -1)
-  assert.equal(compareVersions('0.1.34', '0.1.34-rc.1'), 1)
-  // pre-release identifiers: numbers as numbers (rc.10 after rc.9), a number before a word,
-  // the shorter tag first; build metadata (+sha) is not part of the order
-  assert.equal(compareVersions('0.2.0-rc.10', '0.2.0-rc.9'), 1)
-  assert.equal(compareVersions('0.2.0-rc.1', '0.2.0-rc.1.1'), -1)
-  assert.equal(compareVersions('0.2.0-1', '0.2.0-alpha'), -1)
-  assert.equal(compareVersions('0.2.0-alpha', '0.2.0-beta'), -1)
-  assert.equal(compareVersions('0.2.0+build.7', '0.2.0'), 0)
-  assert.equal(compareVersions('0.2.0-rc.1+build.7', '0.2.0-rc.1'), 0)
-  // a labelled version reads as its number: 0.1.40 compared "dsh-nanomuse 0.1.40" as 0 and
-  // offered the installed release as an update
-  assert.equal(compareVersions('0.1.40', 'dsh-nanomuse 0.1.40'), 0)
-  assert.equal(compareVersions('dsh-nanomuse 0.1.41', 'v0.1.40'), 1)
-  assert.equal(compareVersions('nanoMuse-Desktop-0.1.40', '0.1.41'), -1)
-})
-
-test('the update check compares the bare bundle version, so the installed release is not offered again', async () => {
-  const mirror = { repo: 'nano-muse/nanoMuse', releases: [{ tag: 'v0.1.40', assets: [] }] }
-  const fetchMirror = async () => ({ ok: true, status: 200, json: async () => mirror })
-  const same = await checkForUpdate(BUNDLE_VERSION, fetchMirror)
-  assert.equal(same.current, BUNDLE_VERSION)
-  // the host bundle carries package.json's version: it read the environment until 0.1.41,
-  // which nothing set in the packaged app, so every install ran as 0.0.0 and saw every
-  // release as newer
-  const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
-  assert.equal(BUNDLE_VERSION, pkg.version)
-  assert.equal(same.newer, compareVersions('0.1.40', BUNDLE_VERSION) > 0)
-  const installed = await checkForUpdate('0.1.40', fetchMirror)
-  assert.equal(installed.newer, false)
-  const labelled = await checkForUpdate('dsh-nanomuse 0.1.40', fetchMirror)
-  assert.equal(labelled.newer, false)
-})
-
-test('the installer for this computer is picked from the release', () => {
-  const assets = ['nanoMuse-Desktop-0.1.34-linux-x64.AppImage', 'nanoMuse-Desktop-0.1.34-linux-x64.deb', 'nanoMuse-Desktop-0.1.34-mac-arm64.dmg', 'nanoMuse-Desktop-0.1.34-mac-x64.zip', 'nanoMuse-Desktop-0.1.34-win-x64.exe', 'nanoMuse-0.1.34-arm64.apk'].map((name) => ({ name, url: `https://x/${name}`, size: 1 }))
-  assert.equal(pickAsset(assets, 'darwin', 'arm64')?.name, 'nanoMuse-Desktop-0.1.34-mac-arm64.dmg')
-  assert.equal(pickAsset(assets, 'darwin', 'x64')?.name, 'nanoMuse-Desktop-0.1.34-mac-x64.zip')
-  assert.equal(pickAsset(assets, 'win32', 'x64')?.name, 'nanoMuse-Desktop-0.1.34-win-x64.exe')
-  assert.equal(pickAsset(assets, 'linux', 'x64')?.name, 'nanoMuse-Desktop-0.1.34-linux-x64.deb', 'the .deb is the one the docs prefer')
-  assert.equal(pickAsset(assets, 'linux', 'x64', true)?.name, 'nanoMuse-Desktop-0.1.34-linux-x64.AppImage', 'an AppImage install stays an AppImage')
-  assert.equal(pickAsset(assets, 'linux', 'arm64'), undefined)
-})
-
-test('the update check reads the nanomuse.cn index first, GitHub second, and never throws (C2)', async () => {
-  const github = { tag_name: 'v0.1.34', html_url: 'https://github.com/nano-muse/nanoMuse/releases/tag/v0.1.34', body: 'notes', assets: [{ name: 'nanoMuse-Desktop-0.1.34-win-x64.exe', browser_download_url: 'https://dl/x.exe', size: 5 }] }
-  const mirror = { repo: 'nano-muse/nanoMuse', releases: [{ tag: 'v0.1.33', assets: [{ name: 'nanoMuse-Desktop-0.1.33-linux-x64.AppImage', size: 3 }] }] }
-  // both answer: the index wins, and GitHub is not asked at all
-  const asked = []
-  const both = async (url) => { asked.push(url); return { ok: true, status: 200, json: async () => (url.includes('github') ? github : mirror) } }
-  const a = await checkForUpdate('0.1.33', both)
-  assert.equal(a.source, 'nanomuse.cn')
-  assert.equal(a.latest, '0.1.33')
-  assert.equal(a.newer, false)
-  assert.equal(a.assets[0].url, 'https://github.com/nano-muse/nanoMuse/releases/download/v0.1.33/nanoMuse-Desktop-0.1.33-linux-x64.AppImage')
-  assert.deepEqual(asked, ['https://nanomuse.cn/dl/index.json'])
-
-  // the index does not answer: GitHub
-  const b = await checkForUpdate('0.1.33', async (url) => (url.includes('nanomuse.cn') ? { ok: false, status: 502, json: async () => ({}) } : { ok: true, status: 200, json: async () => github }))
-  assert.equal(b.source, 'github')
-  assert.equal(b.latest, '0.1.34')
-  assert.equal(b.newer, true)
-  assert.equal(b.assets[0].url, 'https://dl/x.exe')
-
-  const c = await checkForUpdate('0.1.33', async () => { throw new Error('offline') })
-  assert.equal(c.source, 'none')
-  assert.equal(c.latest, '')
-  assert.match(c.error, /nanomuse\.cn: offline; github: offline/)
-})
-
-test('each update request gives up after the timeout (5 s by default)', async () => {
-  // a fetch that never resolves until aborted
-  const hang = (url, init) => new Promise((_, reject) => { init.signal.addEventListener('abort', () => reject(new Error('aborted'))) })
-  const started = Date.now()
-  const info = await checkForUpdate('0.1.33', hang, 30)
-  assert.equal(info.source, 'none')
-  assert.match(info.error, /aborted/)
-  assert.ok(Date.now() - started < 2000)
-})
-
 test('shared connectors carry what and where, never how', () => {
   const rows = sharedConnectors([
     { service: 'notion', id: 'cn_1', label: 'Notion', url: 'https://mcp.notion.com/mcp', auth: 'oauth', state: 'ok', connectedAt: 1, updatedAt: 2 },
@@ -269,10 +183,10 @@ test('shared connectors carry what and where, never how', () => {
 
 test('the chat and hands defaults follow the relay lane recommendation, with old menus supported', () => {
   const current = [
-    { id: 'Qwen/Qwen3.6-27B-FP8', kind: 'chat', recommended: true, recommendedFor: ['chat', 'gui'], inputModalities: ['text', 'image'], for: ['chat', 'gui'] },
+    { id: 'halogen-qwen3.8-flash-next', kind: 'chat', recommended: true, recommendedFor: ['chat', 'gui'], inputModalities: ['text', 'image'], for: ['chat', 'gui'] },
   ]
-  assert.equal(pickChatModel(current)?.id, 'Qwen/Qwen3.6-27B-FP8')
-  assert.equal(pickHandsModel(current)?.id, 'Qwen/Qwen3.6-27B-FP8')
+  assert.equal(pickChatModel(current)?.id, 'halogen-qwen3.8-flash-next')
+  assert.equal(pickHandsModel(current)?.id, 'halogen-qwen3.8-flash-next')
   const models = [
     { id: 'deepseek-v4.1-flash', kind: 'chat', recommended: false, inputModalities: ['text', 'image'], for: ['chat'] },
     { id: 'deepseek-v4', kind: 'chat', recommended: true, inputModalities: ['text', 'image'], for: ['chat'] },

@@ -167,22 +167,23 @@ test('signed in, the account counts: its chat, gui, image and video models are t
   }
 })
 
-test('GET /providers: the catalogue grouped by region — Bailian first in mainland China, OpenRouter then OpenAI elsewhere — the same groups the browser half shows', async () => {
+test('GET /providers: the slimmed catalogue — local servers and a hand-made endpoint, no region-first vendor — the same groups the browser half shows', async () => {
   const out = await cloud()
   try {
     const cn = await out.api('GET', '/providers?lang=zh')
     assert.equal(cn.status, 200)
     assert.equal(cn.body.region, 'cn')
-    assert.ok(cn.body.catalogue.length >= 15)
+    assert.deepEqual(cn.body.catalogue.map((p) => p.id), ['ollama', 'lm-studio', 'vllm', 'custom'])
     const cnGroups = waysOn(cn.body.catalogue, cn.body.region)
-    assert.deepEqual(cnGroups.first.map((p) => p.id), ['bailian'])
+    assert.deepEqual(cnGroups.first.map((p) => p.id), [])
+    assert.deepEqual(cnGroups.rest.map((p) => p.id), [])
     assert.deepEqual(cnGroups.local.map((p) => p.id), ['ollama', 'lm-studio', 'vllm'])
     assert.equal(cnGroups.custom.id, 'custom')
     const en = await out.api('GET', '/providers?lang=en')
     assert.equal(en.body.region, 'global')
     const enGroups = waysOn(en.body.catalogue, en.body.region)
-    assert.deepEqual(enGroups.first.map((p) => p.id), ['openrouter', 'openai'])
-    assert.ok(!enGroups.rest.some((p) => p.id === 'bailian'))
+    assert.deepEqual(enGroups.first.map((p) => p.id), [])
+    assert.deepEqual(enGroups.rest.map((p) => p.id), [])
     // the view's shape, as the browser half reads it
     for (const key of ['region', 'catalogue', 'configured', 'capabilities', 'cloud', 'chatgpt', 'hands', 'chat']) assert.ok(key in en.body, key)
     assert.deepEqual(Object.keys(en.body.chatgpt).sort(), ['label', 'login', 'proxy', 'runtime', 'signedIn'])
@@ -205,53 +206,61 @@ test('POST /providers/save: the key goes to the credential store under its name;
   const out = await cloud()
   const server = await modelsServer(['qwen3.8-27b', 'deepseek-v4.1-flash', 'qwen-image-3.0', 'wan2.2-i2v-flash'])
   try {
-    const bad = await out.api('POST', '/providers/save', { id: 'bailian', apiKey: '' })
-    assert.equal(bad.status, 400)
-    assert.equal(bad.body.error.code, 'no_key')
-    assert.equal((await out.api('POST', '/providers/save', { id: 'nobody', apiKey: 'sk-x' })).status, 404)
+    // no catalogue entry needs a key any more: a local server saves without one
+    const keyless = await out.api('POST', '/providers/save', { id: 'vllm', baseURL: server.url })
+    assert.equal(keyless.status, 200)
+    assert.equal(keyless.body.keyRef, '')
+    await out.api('POST', '/providers/remove', { id: 'vllm' })
+    // a removed entry is not in the catalogue any more
+    for (const id of ['nobody', 'bailian', 'deepseek', 'opencode-go']) {
+      const gone = await out.api('POST', '/providers/save', { id, apiKey: 'sk-x' })
+      assert.equal(gone.status, 404, id)
+      assert.equal(gone.body.error.code, 'unknown_provider', id)
+    }
     // an address with user:pass@ would be kept and shown as typed: refused with the reason, nothing written
-    const userinfo = await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-x', baseURL: server.url.replace('://', '://user:pass@') })
+    const userinfo = await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-x', baseURL: server.url.replace('://', '://user:pass@') })
     assert.equal(userinfo.status, 400)
     assert.equal(userinfo.body.error.code, 'url_userinfo')
     assert.match(userinfo.body.error.message, /user name or password/)
-    const saved = await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-secret-1234', baseURL: server.url, lang: 'zh' })
+    const saved = await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-secret-1234', baseURL: server.url, label: 'My gateway', capabilities: ['chat', 'vision', 'image', 'video'] })
     assert.equal(saved.status, 200)
-    assert.equal(saved.body.provider, 'bailian')
-    assert.equal(saved.body.keyRef, 'NANOMUSE_KEY_BAILIAN')
-    assert.equal(saved.body.label, '阿里云百炼')
+    assert.equal(saved.body.provider, 'custom')
+    assert.equal(saved.body.keyRef, 'NANOMUSE_KEY_CUSTOM')
+    assert.equal(saved.body.label, 'My gateway')
     assert.deepEqual(saved.body.capabilities, ['chat', 'vision', 'image', 'video'])
-    assert.deepEqual(saved.body.models.map((m) => [m.id, m.kind, m.vision]), [['deepseek-v4.1-flash', 'chat', false], ['qwen-image-3.0', 'image', false], ['qwen3.8-27b', 'chat', true], ['wan2.2-i2v-flash', 'video', false]])
+    // a hand-made row with vision ticked marks every listed model sighted
+    assert.deepEqual(saved.body.models.map((m) => [m.id, m.kind, m.vision]), [['deepseek-v4.1-flash', 'chat', true], ['qwen-image-3.0', 'image', true], ['qwen3.8-27b', 'chat', true], ['wan2.2-i2v-flash', 'video', true]])
     assert.ok(!JSON.stringify(saved.body).includes('sk-secret'))
     // where the key is, and where it is not
-    assert.equal(out.credentials.get('NANOMUSE_KEY_BAILIAN'), 'sk-secret-1234')
+    assert.equal(out.credentials.get('NANOMUSE_KEY_CUSTOM'), 'sk-secret-1234')
     const text = await readFile(out.statePath, 'utf8')
     assert.ok(!text.includes('sk-secret'))
     const state = await out.state()
-    assert.equal(state.providers.bailian.keyRef, 'NANOMUSE_KEY_BAILIAN')
-    assert.equal(state.providers.bailian.baseURL, server.url)
-    const row = out.settings[LLM_ROW].providers.bailian
-    assert.equal(row.apiKeyEnv, 'NANOMUSE_KEY_BAILIAN')
+    assert.equal(state.providers.custom.keyRef, 'NANOMUSE_KEY_CUSTOM')
+    assert.equal(state.providers.custom.baseURL, server.url)
+    const row = out.settings[LLM_ROW].providers.custom
+    assert.equal(row.apiKeyEnv, 'NANOMUSE_KEY_CUSTOM')
     assert.equal(row.apiKey, undefined)
     assert.deepEqual(row.models.map((m) => m.id), ['deepseek-v4.1-flash', 'qwen3.8-27b'])
     // the rule, now: everything, from one key
     assert.deepEqual(out.svc.capabilities(), ['chat', 'vision', 'image', 'video'])
     assert.equal((await out.svc.media()).image.source, 'provider')
-    // the pickers: only the sighted model for the hands, both chat models for the chat
-    assert.deepEqual(out.svc.handsOptions().map((o) => [o.provider, o.id]), [['bailian', 'qwen3.8-27b']])
+    // the pickers: every sighted model for the hands, both chat models for the chat
+    assert.deepEqual(out.svc.handsOptions().map((o) => [o.provider, o.id]), [['custom', 'deepseek-v4.1-flash'], ['custom', 'qwen-image-3.0'], ['custom', 'qwen3.8-27b'], ['custom', 'wan2.2-i2v-flash']])
     assert.deepEqual(out.svc.chatOptions().map((o) => o.id), ['deepseek-v4.1-flash', 'qwen3.8-27b'])
-    // new chats answer through it (the stock DeepSeek default had no key); the catalogue's chat default is picked
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'deepseek-v4.1-flash' })
+    // new chats answer through it (the stock DeepSeek default had no key); the first listed chat model is picked
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'deepseek-v4.1-flash' })
     // the hands model from the row, by the route the picker uses; hands.json carries the row's key for the runtime
-    const picked = await out.api('POST', '/hands-model', { model: 'qwen3.8-27b', provider: 'bailian' })
-    assert.deepEqual(picked.body, { provider: 'bailian', model: 'qwen3.8-27b' })
+    const picked = await out.api('POST', '/hands-model', { model: 'qwen3.8-27b', provider: 'custom' })
+    assert.deepEqual(picked.body, { provider: 'custom', model: 'qwen3.8-27b' })
     const hands = JSON.parse(await readFile(join(out.home, 'hands.json'), 'utf8'))
     assert.equal(hands.model, 'qwen3.8-27b')
     assert.equal(hands.base_url, server.url)
-    assert.equal((await out.api('POST', '/hands-model', { model: 'deepseek-v4.1-flash', provider: 'bailian' })).status, 400)
-    // a second save of the same provider replaces the row and the key, never doubles it
-    const again = await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-second', baseURL: server.url })
+    assert.equal((await out.api('POST', '/hands-model', { model: 'nope', provider: 'custom' })).status, 400)
+    // a second save of the same row replaces the row and the key, never doubles it
+    const again = await out.api('POST', '/providers/save', { id: 'custom', row: 'custom', apiKey: 'sk-second', baseURL: server.url })
     assert.equal(again.status, 200)
-    assert.equal(out.credentials.get('NANOMUSE_KEY_BAILIAN'), 'sk-second')
+    assert.equal(out.credentials.get('NANOMUSE_KEY_CUSTOM'), 'sk-second')
     assert.equal(Object.keys((await out.state()).providers).length, 1)
   } finally {
     await server.close()
@@ -263,19 +272,19 @@ test('POST /providers/remove: the row, its credential and the choices that point
   const out = await cloud()
   const server = await modelsServer(['qwen3.8-27b', 'deepseek-v4.1-flash'])
   try {
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-secret', baseURL: server.url })
-    await out.api('POST', '/hands-model', { model: 'qwen3.8-27b', provider: 'bailian' })
-    assert.equal((await out.state()).handsProvider, 'bailian')
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-secret', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision'] })
+    await out.api('POST', '/hands-model', { model: 'qwen3.8-27b', provider: 'custom' })
+    assert.equal((await out.state()).handsProvider, 'custom')
     assert.equal((await out.api('POST', '/providers/remove', { id: 'nobody' })).status, 404)
-    const removed = await out.api('POST', '/providers/remove', { id: 'bailian' })
+    const removed = await out.api('POST', '/providers/remove', { id: 'custom' })
     assert.equal(removed.status, 200)
     assert.deepEqual(removed.body, { cloudModelsOn: false }, 'the account was never switched off, so nothing to say')
     const state = await out.state()
-    assert.equal(state.providers.bailian, undefined)
+    assert.equal(state.providers.custom, undefined)
     assert.equal(state.handsProvider, undefined)
     assert.equal(state.handsModel, undefined)
-    assert.equal(out.credentials.has('NANOMUSE_KEY_BAILIAN'), false)
-    assert.equal(out.settings[LLM_ROW].providers.bailian, undefined)
+    assert.equal(out.credentials.has('NANOMUSE_KEY_CUSTOM'), false)
+    assert.equal(out.settings[LLM_ROW].providers.custom, undefined)
     assert.deepEqual(out.svc.handsChoice(), { provider: '', model: '' })
     assert.deepEqual(out.svc.capabilities(), [])
     await assert.rejects(readFile(join(out.home, 'hands.json')))
@@ -291,30 +300,18 @@ test('POST /providers/remove: the row, its credential and the choices that point
   }
 })
 
-test('the thinking level for an own key: the saved row declares the vendor’s documented levels per model, OpenRouter’s from its list; a row saved before the catalogue knew them gets them at the next start', async () => {
+test('the thinking level for an own key: the saved row declares the catalogue’s documented levels per model; a row saved before the catalogue knew them gets them at the next start', async () => {
   const out = await cloud()
-  const deepseek = await modelsServer(['deepseek-flash', 'deepseek-v4-pro'])
-  const openrouter = await modelsServer([
-    { id: 'z-ai/glm-5.3', reasoning: { default_effort: 'max', default_enabled: true, mandatory: true, supported_efforts: ['max', 'high', 'low'] } },
-    { id: 'unbiased/pareto-26.10-preview' },
-  ])
+  const ollama = await modelsServer(['gpt-oss-120b', 'qwen3:8b'])
   try {
-    await out.api('POST', '/providers/save', { id: 'deepseek', apiKey: 'sk-secret', baseURL: deepseek.url })
-    const row = out.settings[LLM_ROW].providers.deepseek
+    await out.api('POST', '/providers/save', { id: 'ollama', baseURL: ollama.url })
+    const row = out.settings[LLM_ROW].providers.ollama
     assert.deepEqual(row.models.map((m) => [m.id, m.reasoningEfforts, m.compat]), [
-      ['deepseek-flash', { low: 'low', high: 'high', max: 'max' }, { thinkingFormat: 'deepseek', supportsReasoningEffort: true }],
-      ['deepseek-v4-pro', { low: 'low', high: 'high', max: 'max' }, { thinkingFormat: 'deepseek', supportsReasoningEffort: true }],
+      ['gpt-oss-120b', { low: 'low', medium: 'medium', high: 'high' }, { thinkingFormat: 'openai', supportsReasoningEffort: true }],
+      ['qwen3:8b', undefined, undefined],
     ])
     // never `off`: with no level picked nothing is sent, which is the vendor's default
-    assert.ok(row.models.every((m) => !('off' in m.reasoningEfforts)))
-    // OpenRouter: the levels its own list gives, kept in cloud.json so a restart can write them again
-    await out.api('POST', '/providers/save', { id: 'openrouter', apiKey: 'sk-or', baseURL: openrouter.url, models: 'z-ai/glm-5.3' })
-    const or = out.settings[LLM_ROW].providers.openrouter
-    assert.deepEqual(or.models.map((m) => [m.id, m.reasoningEfforts, m.compat]), [
-      ['z-ai/glm-5.3', { low: 'low', high: 'high', max: 'max' }, { thinkingFormat: 'openrouter' }],
-      ['unbiased/pareto-26.10-preview', undefined, undefined],
-    ])
-    assert.deepEqual((await out.state()).providers.openrouter.models[0].reasoning, { levels: ['low', 'high', 'max'], default: 'max' })
+    assert.ok(row.models.filter((m) => m.reasoningEfforts).every((m) => !('off' in m.reasoningEfforts)))
     // a key saved by an older build: the adapter's row has no levels; the next start writes them
     const stale = JSON.parse(JSON.stringify(out.settings[LLM_ROW].providers))
     for (const p of Object.values(stale)) for (const m of p.models) { delete m.reasoningEfforts; delete m.compat }
@@ -325,12 +322,10 @@ test('the thinking level for an own key: the saved row declares the vendor’s d
     again.refresh = async () => again.status()
     await again[Service.init]()
     await new Promise((r) => setTimeout(r, 20))
-    assert.deepEqual(fake.settings[LLM_ROW].providers.deepseek.models[0].reasoningEfforts, { low: 'low', high: 'high', max: 'max' })
-    assert.deepEqual(fake.settings[LLM_ROW].providers.openrouter.models[0].compat, { thinkingFormat: 'openrouter' })
-    assert.equal(fake.settings[LLM_ROW].providers.openrouter.models[1].reasoningEfforts, undefined)
+    assert.deepEqual(fake.settings[LLM_ROW].providers.ollama.models[0].reasoningEfforts, { low: 'low', medium: 'medium', high: 'high' })
+    assert.equal(fake.settings[LLM_ROW].providers.ollama.models[1].reasoningEfforts, undefined)
   } finally {
-    await deepseek.close()
-    await openrouter.close()
+    await ollama.close()
     await out.done()
   }
 })
@@ -339,12 +334,12 @@ test('the chosen hands model falls back when its row goes: an own sighted model 
   const out = await cloud({ signedIn: true })
   const server = await modelsServer(['qwen3.8-27b'])
   try {
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-secret', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-secret', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision'] })
     // the account's model stays the default; the own one is offered next to it
-    assert.deepEqual(out.svc.handsOptions().map((o) => [o.provider, o.id]), [[PROVIDER_ID, 'qwen3.8-27b'], ['bailian', 'qwen3.8-27b']])
-    await out.api('POST', '/hands-model', { model: 'qwen3.8-27b', provider: 'bailian' })
-    assert.deepEqual(out.svc.handsChoice(), { provider: 'bailian', model: 'qwen3.8-27b' })
-    await out.api('POST', '/providers/remove', { id: 'bailian' })
+    assert.deepEqual(out.svc.handsOptions().map((o) => [o.provider, o.id]), [[PROVIDER_ID, 'qwen3.8-27b'], ['custom', 'qwen3.8-27b']])
+    await out.api('POST', '/hands-model', { model: 'qwen3.8-27b', provider: 'custom' })
+    assert.deepEqual(out.svc.handsChoice(), { provider: 'custom', model: 'qwen3.8-27b' })
+    await out.api('POST', '/providers/remove', { id: 'custom' })
     assert.deepEqual(out.svc.handsChoice(), { provider: PROVIDER_ID, model: 'qwen3.8-27b' })
     // the account keeps the rule's four even with the row gone
     assert.deepEqual(out.svc.capabilities(), ['chat', 'vision', 'image', 'video'])
@@ -501,12 +496,12 @@ test('several hand-made endpoints at once (#294): each save without `row` adds a
     assert.equal(third.body.id, 'custom')
     assert.deepEqual(Object.keys((await out.state()).providers).sort(), ['custom', 'custom-2'])
     // a vendor's row is still one per vendor: saving its key again replaces it
-    const vendor = await modelsServer(['deepseek-v4.1-flash'])
+    const vendor = await modelsServer(['served-model'])
     try {
-      await out.api('POST', '/providers/save', { id: 'deepseek', apiKey: 'sk-d1', baseURL: vendor.url })
-      await out.api('POST', '/providers/save', { id: 'deepseek', apiKey: 'sk-d2', baseURL: vendor.url })
-      assert.deepEqual(Object.keys((await out.state()).providers).sort(), ['custom', 'custom-2', 'deepseek'])
-      assert.equal(out.credentials.get('NANOMUSE_KEY_DEEPSEEK'), 'sk-d2')
+      await out.api('POST', '/providers/save', { id: 'vllm', apiKey: 'sk-d1', baseURL: vendor.url })
+      await out.api('POST', '/providers/save', { id: 'vllm', apiKey: 'sk-d2', baseURL: vendor.url })
+      assert.deepEqual(Object.keys((await out.state()).providers).sort(), ['custom', 'custom-2', 'vllm'])
+      assert.equal(out.credentials.get('NANOMUSE_KEY_VLLM'), 'sk-d2')
     } finally {
       await vendor.close()
     }
@@ -538,34 +533,15 @@ test('a row written before the endpoint list (#294) carries no id of its own: it
   }
 })
 
-test('OpenCode Go is written as the adapter’s catalog route (no api, no base URL), with the models the adapter lists, and stays that route after a restart', async () => {
+test('a removed catalogue entry cannot be saved: OpenCode Go answers 404 unknown_provider and nothing is written', async () => {
   const out = await cloud()
-  // the adapter's catalog knows two Go models; a typed id it does not list is left out
-  out.ctx.get = ((inner) => (name) => name === 'llm' ? { ...inner('llm'), discoverModels: async (ns, { provider }) => (ns === LLM_ROW && provider === 'opencode-go' ? [{ id: 'deepseek-v4.1-flash' }, { id: 'grok-4.7' }] : []) } : inner(name))(out.ctx.get)
   try {
     const saved = await out.api('POST', '/providers/save', { id: 'opencode-go', apiKey: 'sk-go-secret', models: 'grok-4.7, gpt-6-luna' })
-    assert.equal(saved.status, 200)
-    assert.equal(saved.body.catalogRoute, true)
-    assert.deepEqual(saved.body.models.map((m) => m.id), ['grok-4.7', 'deepseek-v4.1-flash'])
-    const written = out.settings[LLM_ROW].providers['opencode-go']
-    assert.deepEqual(written, {
-      displayName: 'OpenCode Go',
-      apiKeyEnv: 'NANOMUSE_KEY_OPENCODE_GO',
-      models: [{ id: 'grok-4.7', displayName: 'grok-4.7', input: ['text'] }, { id: 'deepseek-v4.1-flash', displayName: 'deepseek-v4.1-flash', input: ['text'] }],
-    })
-    assert.equal((await out.state()).providers['opencode-go'].catalogRoute, true)
-    // a host restart reads the row back from cloud.json and compares it with the adapter's:
-    // the catalog route must be what it reads, or the refresh would write a hand-declared route
-    // (api + baseURL), which sends no session id
-    const fake = fakeContext()
-    fake.settings[LLM_ROW].providers = JSON.parse(JSON.stringify(out.settings[LLM_ROW].providers))
-    const again = new NanomuseCloud(fake.ctx, { baseURL: 'https://relay.invalid', deviceName: 'test-desktop', statePath: out.statePath })
-    again.hub.start = () => undefined
-    again.refresh = async () => again.status()
-    await again[Service.init]()
-    await new Promise((r) => setTimeout(r, 20))
-    assert.deepEqual(fake.settings[LLM_ROW].providers['opencode-go'], written)
-    assert.equal((await again.providersView('en')).configured[0].catalogRoute, true)
+    assert.equal(saved.status, 404)
+    assert.equal(saved.body.error.code, 'unknown_provider')
+    assert.deepEqual((await out.state()).providers ?? {}, {})
+    assert.equal(out.credentials.has('NANOMUSE_KEY_OPENCODE_GO'), false)
+    assert.equal(out.settings[LLM_ROW].providers['opencode-go'], undefined)
   } finally {
     await out.done()
   }
@@ -576,25 +552,26 @@ test('a trimmed model catalog (#525): editing llm-pi-ai models or saving with ca
   const bulk = Array.from({ length: 158 }, (_, i) => `extra-model-${String(i + 1).padStart(3, '0')}`)
   const server = await modelsServer(['glm-5.1', 'gpt-5.4', 'kimi-k2.5', 'qwen-image-3.0', ...bulk])
   try {
-    // 1. Save a provider whose gateway lists 161 chat models + 1 image model
-    const saved = await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-first', baseURL: server.url })
+    // 1. Save a hand-made endpoint whose gateway lists 161 chat models + 1 image model
+    const saved = await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-first', baseURL: server.url, label: 'Gateway', capabilities: ['chat', 'vision', 'image'] })
     assert.equal(saved.status, 200)
     assert.equal(out.svc.chatOptions().length, 161)
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'extra-model-001' })
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'extra-model-001' })
 
     // 2. Trim the model catalog in llm-pi-ai settings down to 3 models
-    out.settings[LLM_ROW].providers.bailian.models = [
+    out.settings[LLM_ROW].providers.custom.models = [
       { id: 'glm-5.1', displayName: 'glm-5.1', input: ['text'] },
       { id: 'gpt-5.4', displayName: 'gpt-5.4', input: ['text', 'image'] },
       { id: 'kimi-k2.5', displayName: 'kimi-k2.5', input: ['text', 'image'] },
     ]
     assert.deepEqual(out.svc.chatOptions().map((o) => o.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
-    assert.deepEqual(out.svc.handsOptions().map((o) => o.id), ['gpt-5.4', 'kimi-k2.5'])
+    // a hand-made row with vision ticked marks every model sighted, so the kept image model is listed for the hands too
+    assert.deepEqual(out.svc.handsOptions().map((o) => o.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5', 'qwen-image-3.0'])
     assert.deepEqual(out.svc.imageOptions().map((o) => o.id), ['qwen-image-3.0'])
     const view = await out.svc.providersView('en')
     assert.deepEqual(view.configured[0].models.filter((m) => m.kind === 'chat').map((m) => m.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
     await new Promise((r) => setTimeout(r, 20))
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'glm-5.1' }, 'default chat selection moves off a trimmed-out model')
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'glm-5.1' }, 'default chat selection moves off a trimmed-out model')
 
     // 3. Restart the host: refreshOwnRows keeps the 3 trimmed models instead of restoring all 161
     const fake = fakeContext({ defaultModel: out.selection.current })
@@ -604,14 +581,14 @@ test('a trimmed model catalog (#525): editing llm-pi-ai models or saving with ca
     again.refresh = async () => again.status()
     await again[Service.init]()
     await new Promise((r) => setTimeout(r, 20))
-    assert.deepEqual(fake.settings[LLM_ROW].providers.bailian.models.map((m) => m.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
+    assert.deepEqual(fake.settings[LLM_ROW].providers.custom.models.map((m) => m.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
     assert.deepEqual(again.chatOptions().map((o) => o.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
 
     // 4. Re-saving the provider key without new models keeps the trimmed catalog
-    const rekeyed = await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-second', baseURL: server.url })
+    const rekeyed = await out.api('POST', '/providers/save', { id: 'custom', row: 'custom', apiKey: 'sk-second', baseURL: server.url })
     assert.equal(rekeyed.status, 200)
     assert.deepEqual(rekeyed.body.models.filter((m) => m.kind === 'chat').map((m) => m.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
-    assert.deepEqual(out.settings[LLM_ROW].providers.bailian.models.map((m) => m.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
+    assert.deepEqual(out.settings[LLM_ROW].providers.custom.models.map((m) => m.id), ['glm-5.1', 'gpt-5.4', 'kimi-k2.5'])
 
     // 5. Explicit catalogOnly on POST /providers/save saves only the typed chat models
     const customOnly = await out.api('POST', '/providers/save', {
@@ -624,8 +601,9 @@ test('a trimmed model catalog (#525): editing llm-pi-ai models or saving with ca
       catalogOnly: true,
     })
     assert.equal(customOnly.status, 200)
+    assert.equal(customOnly.body.id, 'custom-2')
     assert.deepEqual(customOnly.body.models.map((m) => m.id), ['glm-5.1', 'kimi-k2.5'])
-    assert.deepEqual(out.settings[LLM_ROW].providers.custom.models.map((m) => m.id), ['glm-5.1', 'kimi-k2.5'])
+    assert.deepEqual(out.settings[LLM_ROW].providers[customOnly.body.id].models.map((m) => m.id), ['glm-5.1', 'kimi-k2.5'])
   } finally {
     await server.close()
     await out.done()
@@ -809,30 +787,6 @@ test('a late refresh of a removed row is cleaned up without deleting a legitimat
       await server.close()
       await out.done()
     }
-  }
-})
-
-test('an empty catalog-route model list keeps its override after key update and restart (#889)', async () => {
-  const out = await cloud()
-  const baseGet = out.ctx.get
-  out.ctx.get = (name) => name === 'llm' ? { listProviders: () => [], discoverModels: async () => [{ id: 'go-model' }] } : baseGet(name)
-  try {
-    const saved = await out.api('POST', '/providers/save', { id: 'opencode-go', apiKey: 'first-key' })
-    assert.equal(saved.status, 200)
-    out.svc.chatOptions()
-    out.settings[LLM_ROW].providers['opencode-go'].models = []
-    out.emit('settings/document-updated', LLM_ROW, 1)
-    await out.svc.busy
-    const rekeyed = await out.api('POST', '/providers/save', { id: 'opencode-go', row: 'opencode-go', apiKey: 'next-key' })
-    assert.equal(rekeyed.status, 200)
-    assert.equal(rekeyed.body.customModels, true)
-    assert.equal(out.settings[LLM_ROW].providers['opencode-go'], undefined)
-    const again = await restartForCatalog(out)
-    assert.equal(again.settings[LLM_ROW].providers['opencode-go'], undefined)
-    await out.svc.busy
-    await out.svc.stateWrites
-  } finally {
-    await out.done()
   }
 })
 

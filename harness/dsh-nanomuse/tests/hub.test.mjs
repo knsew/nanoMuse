@@ -315,7 +315,7 @@ test('a ping is sent on the interval; a relay that answers nothing for two pings
 })
 
 test('hello names the model only as two plain ids; a key, a URL or a sentence is left out', () => {
-  assert.deepEqual(helloLlm('cloud', 'Qwen/Qwen3.6-27B-FP8'), { provider: 'cloud', model: 'Qwen/Qwen3.6-27B-FP8' })
+  assert.deepEqual(helloLlm('cloud', 'halogen-qwen3.8-flash-next'), { provider: 'cloud', model: 'halogen-qwen3.8-flash-next' })
   assert.deepEqual(helloLlm('openrouter', 'anthropic/claude-sonnet-4.5:beta'), { provider: 'openrouter', model: 'anthropic/claude-sonnet-4.5:beta' })
   assert.equal(helloLlm('', 'gpt-5'), undefined)
   assert.equal(helloLlm('custom', ''), undefined)

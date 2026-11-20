@@ -13,119 +13,58 @@ import {
 
 const catalogue = parseCatalogue(JSON.parse(readFileSync(new URL('../assets/providers.json', import.meta.url), 'utf8')))
 
-test('the catalogue parses as shipped: every row has an id, a protocol, regions and chat; the extras survive', () => {
-  assert.ok(catalogue.length >= 15)
+test('the catalogue parses as shipped: the four local entries, every row with an id, a protocol, regions and chat; the extras survive', () => {
+  assert.deepEqual(catalogue.map((p) => p.id), ['ollama', 'lm-studio', 'vllm', 'custom'])
   for (const p of catalogue) {
     assert.match(p.id, /^[a-z][a-z0-9-]*$/)
     assert.ok(p.regions.length >= 1, p.id)
-    assert.ok(p.capabilities.includes('chat'), p.id)
+    assert.deepEqual(p.capabilities, ['chat'], p.id)
   }
-  const openai = catalogue.find((p) => p.id === 'openai')
-  assert.deepEqual(capabilitiesForAuth(openai, 'oauth-chatgpt'), ['chat', 'vision'])
-  assert.deepEqual(capabilitiesForAuth(openai, 'key'), ['chat', 'vision', 'image'])
-  const moonshot = catalogue.find((p) => p.id === 'moonshot')
-  assert.equal(baseUrlFor(moonshot, 'cn'), 'https://api.moonshot.cn/v1')
-  assert.equal(baseUrlFor(moonshot, 'global'), 'https://api.moonshot.ai/v1')
+  // a sign-in that gives less than the key does (the shape, on a row of the same kind)
+  const keyed = { capabilities: ['chat', 'vision', 'image'], auth_capabilities: { 'oauth-chatgpt': ['chat', 'vision'] } }
+  assert.deepEqual(capabilitiesForAuth(keyed, 'oauth-chatgpt'), ['chat', 'vision'])
+  assert.deepEqual(capabilitiesForAuth(keyed, 'key'), ['chat', 'vision', 'image'])
+  // a second edition outside mainland China (the shape, on a row of the same kind)
+  const twoEditions = { base_url: 'https://api.example.cn/v1', base_url_global: 'https://api.example.ai/v1' }
+  assert.equal(baseUrlFor(twoEditions, 'cn'), 'https://api.example.cn/v1')
+  assert.equal(baseUrlFor(twoEditions, 'global'), 'https://api.example.ai/v1')
+  assert.equal(baseUrlFor(catalogue.find((p) => p.id === 'ollama'), 'global'), 'http://127.0.0.1:11434/v1')
   assert.equal(catalogue.find((p) => p.id === 'custom').user_capabilities, true)
   // malformed rows are dropped, not thrown on
   assert.deepEqual(parseCatalogue({ providers: [{ id: 'Bad Id' }, null, { id: 'ok', protocol: 'weird', capabilities: ['chat', 'nope'] }] }).map((p) => [p.id, p.protocol, p.capabilities]), [['ok', 'openai', ['chat']]])
   assert.deepEqual(parseCatalogue('nonsense'), [])
 })
 
-test('API Route is offered for own-key chat without unverified media capabilities', () => {
-  const provider = catalogue.find((p) => p.id === 'api-route')
-  assert.ok(provider)
-  assert.equal(baseUrlFor(provider, 'global'), 'https://global.api-route.com/v1')
-  assert.equal(provider.defaults.chat, 'gpt-6.1-sol')
-  assert.deepEqual(capabilitiesForAuth(provider, 'key'), ['chat'])
-  assert.ok(waysOn(catalogue, 'global').rest.some((p) => p.id === 'api-route'))
-  for (const capability of ['vision', 'image', 'video']) {
-    assert.ok(!providersWith(catalogue, capability, 'global').some((p) => p.id === 'api-route'))
+test('the slimmed catalogue offers no cloud vendor: no entry carries vision, image or video, and no key is needed for a local server', () => {
+  for (const p of catalogue) {
+    assert.ok(!p.capabilities.includes('vision') && !p.capabilities.includes('image') && !p.capabilities.includes('video'), p.id)
+    assert.ok(!providersWith(catalogue, 'vision', 'global').some((x) => x.id === p.id), p.id)
   }
-})
-
-test('Opper is offered for own-key chat without unverified media capabilities', () => {
-  const provider = catalogue.find((p) => p.id === 'opper')
-  assert.ok(provider)
-  assert.equal(baseUrlFor(provider, 'global'), 'https://api.opper.ai/v3/compat')
-  assert.equal(provider.defaults.chat, 'claude-sonnet-4-6')
-  assert.deepEqual(capabilitiesForAuth(provider, 'key'), ['chat'])
-  assert.ok(waysOn(catalogue, 'global').rest.some((p) => p.id === 'opper'))
-  for (const capability of ['vision', 'image', 'video']) {
-    assert.ok(!providersWith(catalogue, capability, 'global').some((p) => p.id === 'opper'))
-  }
-})
-
-test('AtmoRouter is offered for own-key chat without unverified media capabilities', () => {
-  const provider = catalogue.find((p) => p.id === 'atmorouter')
-  assert.ok(provider)
-  assert.equal(baseUrlFor(provider, 'global'), 'https://atmorouter.dev/v1')
-  assert.equal(provider.defaults.chat, 'cc/claude-sonnet-4-6')
-  assert.deepEqual(capabilitiesForAuth(provider, 'key'), ['chat'])
-  assert.ok(waysOn(catalogue, 'global').rest.some((p) => p.id === 'atmorouter'))
-  for (const capability of ['vision', 'image', 'video']) {
-    assert.ok(!providersWith(catalogue, capability, 'global').some((p) => p.id === 'atmorouter'))
-  }
-})
-
-test('UberLLM is offered for own-key chat without unverified media capabilities', () => {
-  const provider = catalogue.find((p) => p.id === 'uberllm')
-  assert.ok(provider)
-  assert.equal(baseUrlFor(provider, 'global'), 'https://api.uberllm.dev/v1')
-  assert.equal(provider.defaults.chat, 'openai/gpt-5.4-mini')
-  assert.deepEqual(capabilitiesForAuth(provider, 'key'), ['chat'])
-  assert.ok(waysOn(catalogue, 'global').rest.some((p) => p.id === 'uberllm'))
-  for (const capability of ['vision', 'image', 'video']) {
-    assert.ok(!providersWith(catalogue, capability, 'global').some((p) => p.id === 'uberllm'))
-  }
-})
-
-test('TrustedRouter is offered for own-key chat without unverified media capabilities', () => {
-  const provider = catalogue.find((p) => p.id === 'trustedrouter')
-  assert.ok(provider)
-  assert.equal(baseUrlFor(provider, 'global'), 'https://api.trustedrouter.com/v1')
-  assert.equal(provider.defaults.chat, 'deepseek/deepseek-v4-flash')
-  assert.deepEqual(capabilitiesForAuth(provider, 'key'), ['chat'])
-  assert.ok(waysOn(catalogue, 'global').rest.some((p) => p.id === 'trustedrouter'))
-  for (const capability of ['vision', 'image', 'video']) {
-    assert.ok(!providersWith(catalogue, capability, 'global').some((p) => p.id === 'trustedrouter'))
-  }
-})
-
-test('Synap is offered for own-key chat without unverified media capabilities', () => {
-  const provider = catalogue.find((p) => p.id === 'synap')
-  assert.ok(provider)
-  assert.equal(baseUrlFor(provider, 'global'), 'https://synap402.com/v1')
-  assert.equal(provider.defaults.chat, 'qwen3-coder-30b')
-  assert.deepEqual(capabilitiesForAuth(provider, 'key'), ['chat'])
-  assert.ok(waysOn(catalogue, 'global').rest.some((p) => p.id === 'synap'))
-  for (const capability of ['vision', 'image', 'video']) {
-    assert.ok(!providersWith(catalogue, capability, 'global').some((p) => p.id === 'synap'))
-  }
+  assert.deepEqual(providersWith(catalogue, 'chat', 'global').map((p) => p.id), ['ollama', 'lm-studio', 'vllm'])
+  for (const id of ['ollama', 'lm-studio', 'vllm']) assert.ok(catalogue.find((p) => p.id === id).auth.includes('none'), id)
 })
 
 test('loadCatalogue reads the asset next to lib/ and gives an empty list for a missing file', async () => {
-  assert.ok((await loadCatalogue()).length >= 15)
+  assert.deepEqual((await loadCatalogue()).map((p) => p.id), ['ollama', 'lm-studio', 'vllm', 'custom'])
   assert.deepEqual(await loadCatalogue('/nonexistent/providers.json'), [])
 })
 
-test('ways on: the region first (Bailian in mainland China; OpenRouter then OpenAI elsewhere), a sign-in group, the rest by coverage, local servers, custom', () => {
+test('ways on: no region-first vendor any more, no sign-in group, nothing left over; local servers, custom', () => {
   const cn = waysOn(catalogue, 'cn')
-  assert.deepEqual(cn.first.map((p) => p.id), ['bailian'])
+  assert.deepEqual(cn.first.map((p) => p.id), [])
   assert.deepEqual(cn.signIn.map((p) => p.id), [])
+  assert.deepEqual(cn.rest.map((p) => p.id), [])
   assert.ok(!cn.rest.some((p) => p.regions.length && !p.regions.includes('cn')))
-  assert.ok(!cn.rest.some((p) => ['bailian', 'ollama', 'lm-studio', 'vllm', 'custom'].includes(p.id)))
   assert.deepEqual(cn.local.map((p) => p.id), ['ollama', 'lm-studio', 'vllm'])
   assert.equal(cn.custom.id, 'custom')
   // the ones that can do more first
   const coverage = cn.rest.map((p) => p.capabilities.length)
   assert.deepEqual(coverage, [...coverage].sort((a, b) => b - a))
   const global = waysOn(catalogue, 'global')
-  assert.deepEqual(global.first.map((p) => p.id), ['openrouter', 'openai'])
-  // OpenAI is already first, so the sign-in group does not repeat it; a client with the Claude flow would list Anthropic there
+  assert.deepEqual(global.first.map((p) => p.id), [])
   assert.deepEqual(global.signIn.map((p) => p.id), [])
-  assert.deepEqual(waysOn(catalogue, 'global', ['oauth-claude']).signIn.map((p) => p.id), ['anthropic'])
-  assert.ok(!global.rest.some((p) => p.id === 'bailian'))
+  assert.deepEqual(global.rest.map((p) => p.id), [])
+  assert.deepEqual(waysOn(catalogue, 'global', ['oauth-claude']).signIn.map((p) => p.id), [])
   // the region: the relay's word first, the UI language as the hint without one
   assert.equal(regionOf('cn', 'en'), 'cn')
   assert.equal(regionOf('intl', 'zh-CN'), 'global')
@@ -135,12 +74,15 @@ test('ways on: the region first (Bailian in mainland China; OpenRouter then Open
 
 test('the gate: capabilities are the union of what is configured; the unavailable sentence names the catalogue’s providers for the region', () => {
   assert.deepEqual([...capabilitiesOf([])], [])
-  assert.deepEqual([...capabilitiesOf([{ id: 'deepseek', label: 'DeepSeek', capabilities: ['chat', 'vision'] }, { id: 'chatgpt', label: 'ChatGPT', capabilities: ['chat', 'vision'] }])].sort(), ['chat', 'vision'])
-  assert.ok(capabilitiesOf([{ id: 'bailian', label: 'Bailian', capabilities: ['chat', 'vision', 'image', 'video'] }]).has('video'))
-  assert.deepEqual(providersWith(catalogue, 'video', 'cn').map((p) => p.id), ['bailian'])
+  assert.deepEqual([...capabilitiesOf([{ id: 'ollama', label: 'Ollama', capabilities: ['chat', 'vision'] }, { id: 'chatgpt', label: 'ChatGPT', capabilities: ['chat', 'vision'] }])].sort(), ['chat', 'vision'])
+  assert.ok(capabilitiesOf([{ id: 'custom', label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] }]).has('video'))
+  // the slimmed catalogue has no vision, image or video entry in either region
+  assert.deepEqual(providersWith(catalogue, 'video', 'cn').map((p) => p.id), [])
   assert.deepEqual(providersWith(catalogue, 'video', 'global').map((p) => p.id), [])
-  assert.ok(providersWith(catalogue, 'image', 'global').map((p) => p.id).includes('openrouter'))
-  assert.ok(!providersWith(catalogue, 'image', 'global').map((p) => p.id).includes('custom'))
+  assert.deepEqual(providersWith(catalogue, 'image', 'global').map((p) => p.id), [])
+  assert.deepEqual(providersWith(catalogue, 'vision', 'cn').map((p) => p.id), [])
+  assert.deepEqual(providersWith(catalogue, 'chat', 'global').map((p) => p.id), ['ollama', 'lm-studio', 'vllm'])
+  assert.ok(!providersWith(catalogue, 'chat', 'global').map((p) => p.id).includes('custom'))
   // which sentence: nothing when something has it; the capability's own; with only the ChatGPT sign-in, pictures and clips are not covered by it
   const nothing = { capabilities: [], configured: [], cloud: { signedIn: false }, chatgpt: { signedIn: false } }
   assert.equal(unavailableKey(nothing, 'chat'), 'ownKeyNoChat')
@@ -152,50 +94,46 @@ test('the gate: capabilities are the union of what is configured; the unavailabl
   assert.equal(unavailableKey(onlyChatGpt, 'image'), 'ownKeyChatGptNoMedia')
   assert.equal(unavailableKey(onlyChatGpt, 'video'), 'ownKeyChatGptNoMedia')
   assert.equal(unavailableKey(onlyChatGpt, 'vision'), null)
-  // a DeepSeek key beside the sign-in: the plain sentence again; the account signed in: not "only"
-  assert.equal(unavailableKey({ ...onlyChatGpt, configured: [{ provider: 'chatgpt' }, { provider: 'deepseek' }] }, 'image'), 'ownKeyNoImage')
+  // an Ollama row beside the sign-in: the plain sentence again; the account signed in: not "only"
+  assert.equal(unavailableKey({ ...onlyChatGpt, configured: [{ provider: 'chatgpt' }, { provider: 'ollama' }] }, 'image'), 'ownKeyNoImage')
   assert.equal(chatGptOnly({ ...onlyChatGpt, cloud: { signedIn: true } }), false)
   assert.equal(unavailableKey({ ...onlyChatGpt, capabilities: ['chat', 'vision', 'image', 'video'] }, 'video'), null)
   // the first run's own-key step: done with a key or a finished sign-in
   assert.equal(ownKeyStepDone(nothing), false)
   assert.equal(ownKeyStepDone(onlyChatGpt), true)
-  assert.equal(ownKeyStepDone({ configured: [{ provider: 'bailian' }], chatgpt: { signedIn: false } }), true)
+  assert.equal(ownKeyStepDone({ configured: [{ provider: 'custom' }], chatgpt: { signedIn: false } }), true)
 })
 
 test('models: the endpoint’s list sorted into chat, image and video by id; sighted by name or the hands default; the row carries only chat models and never a key', () => {
-  const bailian = catalogue.find((p) => p.id === 'bailian')
+  const ollama = catalogue.find((p) => p.id === 'ollama')
   assert.equal(kindOf('qwen-image-3.0'), 'image')
   assert.equal(kindOf('wan2.2-i2v-flash'), 'video')
   assert.equal(kindOf('deepseek-v4.1-flash'), 'chat')
-  assert.equal(sighted(bailian, 'qwen3.8-27b'), true)
-  assert.equal(sighted(bailian, 'qwen-vl-max'), true)
-  assert.equal(sighted(bailian, 'deepseek-v4-pro'), false)
-  assert.equal(sighted(catalogue.find((p) => p.id === 'ollama'), 'qwen3:8b'), false)
-  const listed = modelsOf(bailian, ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen-image-3.0', 'wan2.2-i2v-flash', 'qwen3.8-27b'])
+  // no catalogue entry sees pictures any more, so no catalogue model is sighted, whatever its name
+  assert.equal(sighted(ollama, 'qwen3:8b'), false)
+  assert.equal(sighted(ollama, 'qwen3-vl:8b'), false)
+  // the name and hands-default rules themselves, on an entry of the same shape
+  const sightedEntry = { capabilities: ['chat', 'vision'], defaults: { hands: 'qwen3.8-27b' } }
+  assert.equal(sighted(sightedEntry, 'qwen3.8-27b'), true)
+  assert.equal(sighted(sightedEntry, 'qwen-vl-max'), true)
+  assert.equal(sighted(sightedEntry, 'deepseek-v4-pro'), false)
+  const full = { id: 'full', capabilities: ['chat', 'vision', 'image', 'video'], defaults: { chat: 'deepseek-v4.1-flash', hands: 'qwen3.8-27b', image: 'qwen-image-3.0', video: 'wan2.2-i2v-flash' } }
+  const listed = modelsOf(full, ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen-image-3.0', 'wan2.2-i2v-flash', 'qwen3.8-27b'])
   assert.deepEqual(listed.map((m) => [m.id, m.kind, m.vision]), [['deepseek-v4.1-flash', 'chat', false], ['qwen3.8-27b', 'chat', true], ['qwen-image-3.0', 'image', false], ['wan2.2-i2v-flash', 'video', false]])
-  // no list from the endpoint: the catalogue's defaults stand in
-  assert.deepEqual(modelsOf(bailian, []).map((m) => m.id), ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen-image-3.0', 'wan2.2-i2v-flash'])
+  // no list from the endpoint: the catalogue's defaults stand in (Ollama's chat default; vLLM has none)
+  assert.deepEqual(modelsOf(ollama, []).map((m) => m.id), ['qwen3:8b'])
+  assert.deepEqual(modelsOf(catalogue.find((p) => p.id === 'vllm'), []).map((m) => m.id), [])
+  assert.deepEqual(modelsOf(full, []).map((m) => m.id), ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen-image-3.0', 'wan2.2-i2v-flash'])
   // a provider without image capability does not get an image model from a list that names one
-  const deepseek = catalogue.find((p) => p.id === 'deepseek')
-  assert.deepEqual(modelsOf(deepseek, ['deepseek-flash', 'some-image-model']).map((m) => m.id), ['deepseek-flash'])
-  const row = ownProviderRow({ provider: 'bailian', label: 'Alibaba Cloud Bailian', protocol: 'openai', baseURL: bailian.base_url, keyRef: keyRefFor('bailian'), capabilities: bailian.capabilities, models: listed, at: 1 })
+  assert.deepEqual(modelsOf(ollama, ['qwen3:8b', 'some-image-model']).map((m) => m.id), ['qwen3:8b'])
+  const vllm = catalogue.find((p) => p.id === 'vllm')
+  const row = ownProviderRow({ provider: 'vllm', label: 'vLLM', protocol: 'openai', baseURL: vllm.base_url, keyRef: keyRefFor('vllm'), capabilities: vllm.capabilities, models: listed, at: 1 })
   assert.equal(row.api, 'openai-completions')
-  assert.equal(row.apiKeyEnv, 'NANOMUSE_KEY_BAILIAN')
+  assert.equal(row.apiKeyEnv, 'NANOMUSE_KEY_VLLM')
   assert.equal(row.apiKey, undefined)
   assert.deepEqual(row.models.map((m) => [m.id, m.input]), [['deepseek-v4.1-flash', ['text']], ['qwen3.8-27b', ['text', 'image']]])
   // a local server without a key names no credential
   assert.equal('apiKeyEnv' in ownProviderRow({ provider: 'ollama', label: 'Ollama', protocol: 'openai', baseURL: 'http://127.0.0.1:11434/v1', keyRef: '', capabilities: ['chat'], models: [], at: 1 }), false)
-  // a vendor that wants a session id per conversation is written as the adapter's catalog route
-  // of the same id (pi-ai's OpenCode Go provider sends x-opencode-session): no api, no base URL
-  const go = catalogue.find((p) => p.id === 'opencode-go')
-  assert.equal(go.session_header, 'x-opencode-session')
-  assert.equal(catalogue.find((p) => p.id === 'opencode-zen').session_header, undefined)
-  const goRow = ownProviderRow({ provider: 'opencode-go', label: 'OpenCode Go', protocol: 'openai', baseURL: go.base_url, keyRef: keyRefFor('opencode-go'), capabilities: go.capabilities, models: modelsOf(go, ['deepseek-v4.1-flash', 'grok-4.7']), at: 1, catalogRoute: true }, go.reasoning)
-  assert.deepEqual(goRow, {
-    displayName: 'OpenCode Go',
-    apiKeyEnv: 'NANOMUSE_KEY_OPENCODE_GO',
-    models: [{ id: 'deepseek-v4.1-flash', displayName: 'deepseek-v4.1-flash', input: ['text'] }, { id: 'grok-4.7', displayName: 'grok-4.7', input: ['text'] }],
-  })
   // a session header that is no header name is not taken
   assert.equal(parseCatalogue({ providers: [{ id: 'x', protocol: 'openai', capabilities: ['chat'], regions: ['global'], auth: ['key'], session_header: 'Bad Header' }] })[0].session_header, undefined)
   // protocols → pi-ai apis; Gemini's compatible layer is OpenAI's shape
@@ -206,12 +144,11 @@ test('models: the endpoint’s list sorted into chat, image and video by id; sig
   assert.equal(keyRefFor('lm-studio'), 'NANOMUSE_KEY_LM_STUDIO')
 })
 
-test('listModels: OpenAI’s shape with the bearer, Anthropic’s with x-api-key, Gemini’s native with x-goog-api-key and no key in the address; a refusal or a hang gives an empty list', async () => {
+test('listModels: OpenAI’s shape with the bearer, Anthropic’s with x-api-key; a refusal or a hang gives an empty list', async () => {
   const calls = []
   const fetchImpl = async (url, init) => {
     calls.push([url, init.headers ?? {}])
     if (url.includes('anthropic')) return new Response(JSON.stringify({ data: [{ id: 'claude-sonnet-5-5' }] }), { status: 200 })
-    if (url.includes('googleapis.com/v1beta/models')) return new Response(JSON.stringify({ models: [{ name: 'models/gemini-3.8-flash' }] }), { status: 200 })
     if (url.includes('refuse')) return new Response('{"error":"no"}', { status: 401 })
     return new Response(JSON.stringify({ data: [{ id: 'b-model' }, { id: 'a-model' }] }), { status: 200 })
   }
@@ -220,10 +157,6 @@ test('listModels: OpenAI’s shape with the bearer, Anthropic’s with x-api-key
   assert.equal(calls[0][1].authorization, 'Bearer sk-x')
   assert.deepEqual(await listModels('anthropic', 'https://api.anthropic.com', 'sk-ant', fetchImpl), ['claude-sonnet-5-5'])
   assert.equal(calls[1][1]['x-api-key'], 'sk-ant')
-  assert.deepEqual(await listModels('gemini', 'https://generativelanguage.googleapis.com/v1beta', 'AIza', fetchImpl), ['gemini-3.8-flash'])
-  assert.equal(calls[2][0], 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=200')
-  assert.equal(calls[2][1]['x-goog-api-key'], 'AIza')
-  assert.ok(!calls[2][0].includes('AIza'))
   assert.deepEqual(await listModels('openai', 'https://refuse.example/v1', 'k', fetchImpl), [])
   assert.deepEqual(await listModels('openai', 'https://slow.example/v1', 'k', () => new Promise(() => undefined), 20), [])
 })
@@ -429,18 +362,14 @@ function rowOf(provider, protocol, baseURL, models) {
   return { provider, label: provider, protocol, baseURL, keyRef: keyRefFor(provider), capabilities: ['chat'], models: models.map((m) => (typeof m === 'string' ? { id: m, name: m, vision: false, kind: 'chat' } : m)), at: 1 }
 }
 
-test('the reasoning hint parses as shipped: the vendors that document a level carry one, the ones that do not carry none', () => {
+test('the reasoning hint parses as shipped: the servers that document a level carry one, the ones that do not carry none', () => {
   const byId = Object.fromEntries(catalogue.map((p) => [p.id, p]))
-  assert.equal(byId.deepseek.reasoning.wire, 'thinking+reasoning_effort')
-  assert.deepEqual(byId.deepseek.reasoning.rules[0], { models: '^deepseek-', levels: ['low', 'high', 'max'], default: 'high' })
-  assert.equal(byId.zhipu.reasoning.wire, 'thinking+reasoning_effort')
-  assert.equal(byId.openai.reasoning.wire, 'reasoning_effort')
-  assert.equal(byId.anthropic.reasoning.wire, 'output_config.effort')
-  assert.equal(byId.openrouter.reasoning.wire, 'reasoning.effort')
-  assert.equal(byId.openrouter.reasoning.listed, true)
-  for (const id of ['moonshot', 'siliconflow', 'volcengine', 'minimax', 'gemini', 'xai', 'groq', 'mistral', 'ollama', 'vllm']) assert.equal(byId[id].reasoning.wire, 'reasoning_effort', id)
-  // Bailian's switch is `enable_thinking`, which the harness would have to send on every call; local servers and `custom` document nothing
-  for (const id of ['bailian', 'lm-studio', 'custom']) assert.equal(byId[id].reasoning, undefined, id)
+  // Ollama and vLLM document `reasoning_effort` for gpt-oss; LM Studio and `custom` document nothing
+  for (const id of ['ollama', 'vllm']) {
+    assert.equal(byId[id].reasoning.wire, 'reasoning_effort', id)
+    assert.deepEqual(byId[id].reasoning.rules, [{ models: 'gpt-oss', levels: ['low', 'medium', 'high'] }], id)
+  }
+  for (const id of ['lm-studio', 'custom']) assert.equal(byId[id].reasoning, undefined, id)
   for (const p of catalogue) for (const rule of p.reasoning?.rules ?? []) assert.match(p.reasoning.doc, /^https:\/\//, `${p.id} ${rule.models}`)
   // malformed hints are dropped, not thrown on: an unknown wire, a pattern that does not compile, a rule without a level, a hint saying nothing
   assert.equal(parseReasoningHint({ wire: 'enable_thinking', rules: [{ models: '.', levels: ['high'] }] }), undefined)
@@ -457,69 +386,44 @@ test('the reasoning hint parses as shipped: the vendors that document a level ca
 })
 
 test('reasoningFor: the first matching rule, without regard to case; the list wins where the hint reads it; nothing for a model no rule names', () => {
-  const openai = catalogue.find((p) => p.id === 'openai').reasoning
-  assert.deepEqual(reasoningFor(openai, 'o3-mini'), { levels: ['low', 'medium', 'high'], default: 'medium' })
-  assert.deepEqual(reasoningFor(openai, 'gpt-5'), { levels: ['minimal', 'low', 'medium', 'high'], default: 'medium' })
-  assert.deepEqual(reasoningFor(openai, 'gpt-5.4-mini'), { levels: ['low', 'medium', 'high', 'xhigh'], default: 'none' })
-  assert.deepEqual(reasoningFor(openai, 'gpt-6.1-sol'), { levels: ['low', 'medium', 'high', 'xhigh'] })
-  assert.deepEqual(reasoningFor(openai, 'gpt-6-sol'), { levels: ['low', 'medium', 'high', 'xhigh'] })
-  assert.deepEqual(reasoningFor(openai, 'gpt-6-luna'), { levels: ['low', 'medium', 'high', 'xhigh'] })
-  assert.deepEqual(reasoningFor(openai, 'gpt-6-astra'), { levels: ['low', 'medium', 'high', 'xhigh'] })
-  assert.equal(reasoningFor(openai, 'gpt-4.1'), undefined)
-  assert.equal(reasoningFor(openai, 'gpt-image-2.5-flare'), undefined)
-  const minimax = catalogue.find((p) => p.id === 'minimax').reasoning
-  assert.deepEqual(reasoningFor(minimax, 'minimax-m3.1').levels, ['low', 'medium', 'high', 'xhigh', 'max'])
-  assert.equal(reasoningFor(minimax, 'MiniMax-M3'), undefined)
-  const anthropic = catalogue.find((p) => p.id === 'anthropic').reasoning
-  assert.deepEqual(reasoningFor(anthropic, 'claude-sonnet-5-5'), { levels: ['low', 'medium', 'high', 'xhigh', 'max'], default: 'high' })
-  assert.deepEqual(reasoningFor(anthropic, 'claude-opus-5-5').default, 'medium')
-  assert.deepEqual(reasoningFor(anthropic, 'claude-sonnet-4-6').levels, ['low', 'medium', 'high', 'max'])
-  assert.equal(reasoningFor(anthropic, 'claude-haiku-4-5'), undefined)
-  const openrouter = catalogue.find((p) => p.id === 'openrouter').reasoning
-  assert.deepEqual(reasoningFor(openrouter, 'z-ai/glm-5.3', { levels: ['low', 'high', 'max'], default: 'max' }), { levels: ['low', 'high', 'max'], default: 'max' })
-  assert.equal(reasoningFor(openrouter, 'z-ai/glm-5.3'), undefined)
-  assert.equal(reasoningFor(undefined, 'deepseek-flash'), undefined)
+  const ollama = catalogue.find((p) => p.id === 'ollama').reasoning
+  assert.deepEqual(reasoningFor(ollama, 'gpt-oss-120b'), { levels: ['low', 'medium', 'high'] })
+  assert.deepEqual(reasoningFor(ollama, 'GPT-OSS-20B'), { levels: ['low', 'medium', 'high'] })
+  assert.equal(reasoningFor(ollama, 'qwen3:8b'), undefined)
+  const vllm = catalogue.find((p) => p.id === 'vllm').reasoning
+  assert.deepEqual(reasoningFor(vllm, 'gpt-oss-120b'), { levels: ['low', 'medium', 'high'] })
+  // a hint that reads the endpoint's own list: what the list said wins; nothing listed, nothing offered
+  const listed = parseReasoningHint({ wire: 'reasoning.effort', listed: true })
+  assert.deepEqual(reasoningFor(listed, 'z-ai/glm-5.3', { levels: ['low', 'high', 'max'], default: 'max' }), { levels: ['low', 'high', 'max'], default: 'max' })
+  assert.equal(reasoningFor(listed, 'z-ai/glm-5.3'), undefined)
+  assert.equal(reasoningFor(undefined, 'qwen3:8b'), undefined)
 })
 
 test('the adapter row: the documented levels as reasoningEfforts, each sent as its own name, and the compat that puts pi-ai on the vendor wire', () => {
   const hint = (id) => catalogue.find((p) => p.id === id).reasoning
-  // DeepSeek: `thinking: {type: "enabled"}` beside `reasoning_effort`; no `off`, so nothing goes out until a level is picked
-  const deepseek = ownProviderRow(rowOf('deepseek', 'openai', 'https://api.deepseek.com/v1', ['deepseek-flash', 'deepseek-v4-pro']), hint('deepseek'))
-  assert.deepEqual(deepseek.models[0], { id: 'deepseek-flash', displayName: 'deepseek-flash', input: ['text'], reasoningEfforts: { low: 'low', high: 'high', max: 'max' }, compat: { thinkingFormat: 'deepseek', supportsReasoningEffort: true } })
-  assert.equal('off' in deepseek.models[0].reasoningEfforts, false)
-  // OpenAI's plain field; a model the vendor documents no level for shows no control
-  const openai = ownProviderRow(rowOf('openai', 'openai', 'https://api.openai.com/v1', ['gpt-5.4', 'gpt-4.1']), hint('openai'))
-  assert.deepEqual(openai.models[0].reasoningEfforts, { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh' })
-  assert.deepEqual(openai.models[0].compat, { thinkingFormat: 'openai', supportsReasoningEffort: true })
-  assert.deepEqual(openai.models[1], { id: 'gpt-4.1', displayName: 'gpt-4.1', input: ['text'] })
-  // Moonshot and xAI: pi-ai's own detection turns reasoning_effort off for their hosts; the model's compat turns it back on
-  const moonshot = ownProviderRow(rowOf('moonshot', 'openai', 'https://api.moonshot.cn/v1', ['kimi-k3', 'kimi-k2.6']), hint('moonshot'))
-  assert.deepEqual(moonshot.models[0].compat, { thinkingFormat: 'openai', supportsReasoningEffort: true })
-  assert.equal(moonshot.models[1].reasoningEfforts, undefined)
-  // OpenRouter: the nested object, levels from the endpoint's own list
-  const listed = { id: 'anthropic/claude-sonnet-5.5', name: 'anthropic/claude-sonnet-5.5', vision: true, kind: 'chat', reasoning: { levels: ['low', 'medium', 'high', 'xhigh', 'max'], default: 'high' } }
-  const openrouter = ownProviderRow(rowOf('openrouter', 'openai', 'https://openrouter.ai/api/v1', [listed, 'unbiased/pareto-26.10-preview']), hint('openrouter'))
-  assert.deepEqual(openrouter.models[0].reasoningEfforts, { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' })
-  assert.deepEqual(openrouter.models[0].compat, { thinkingFormat: 'openrouter' })
-  assert.equal(openrouter.models[1].reasoningEfforts, undefined)
-  // Anthropic: adaptive thinking with `output_config.effort`
-  const anthropic = ownProviderRow(rowOf('anthropic', 'anthropic', 'https://api.anthropic.com', ['claude-sonnet-5-5', 'claude-haiku-4-5']), hint('anthropic'))
-  assert.deepEqual(anthropic.models[0].compat, { forceAdaptiveThinking: true })
-  assert.deepEqual(Object.keys(anthropic.models[0].reasoningEfforts), ['low', 'medium', 'high', 'xhigh', 'max'])
-  assert.equal(anthropic.models[1].reasoningEfforts, undefined)
+  // Ollama's plain field; a model the catalogue documents no level for shows no control
+  const ollama = ownProviderRow(rowOf('ollama', 'openai', 'http://127.0.0.1:11434/v1', ['gpt-oss-120b', 'qwen3:8b']), hint('ollama'))
+  assert.deepEqual(ollama.models[0], { id: 'gpt-oss-120b', displayName: 'gpt-oss-120b', input: ['text'], reasoningEfforts: { low: 'low', medium: 'medium', high: 'high' }, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } })
+  assert.equal('off' in ollama.models[0].reasoningEfforts, false)
+  assert.deepEqual(ollama.models[1], { id: 'qwen3:8b', displayName: 'qwen3:8b', input: ['text'] })
+  // vLLM: the same wire for the same model
+  const vllm = ownProviderRow(rowOf('vllm', 'openai', 'http://127.0.0.1:8000/v1', ['gpt-oss-20b']), hint('vllm'))
+  assert.deepEqual(vllm.models[0].reasoningEfforts, { low: 'low', medium: 'medium', high: 'high' })
+  assert.deepEqual(vllm.models[0].compat, { thinkingFormat: 'openai', supportsReasoningEffort: true })
   // a wire that does not ride the row's API declares nothing, as does no hint at all (today's row, byte for byte)
-  assert.deepEqual(reasoningFields(hint('anthropic'), 'openai-completions', { id: 'claude-sonnet-5-5' }), {})
-  assert.deepEqual(reasoningFields(hint('deepseek'), 'anthropic-messages', { id: 'deepseek-flash' }), {})
-  const bare = rowOf('deepseek', 'openai', 'https://api.deepseek.com/v1', ['deepseek-flash'])
+  assert.deepEqual(reasoningFields(hint('ollama'), 'anthropic-messages', { id: 'gpt-oss-120b' }), {})
+  const anthropicWire = parseReasoningHint({ wire: 'output_config.effort', rules: [{ models: 'claude', levels: ['low', 'high'] }] })
+  assert.deepEqual(reasoningFields(anthropicWire, 'openai-completions', { id: 'claude-sonnet-5-5' }), {})
+  const bare = rowOf('ollama', 'openai', 'http://127.0.0.1:11434/v1', ['qwen3:8b'])
   assert.deepEqual(ownProviderRow(bare), ownProviderRow(bare, undefined))
-  assert.deepEqual(ownProviderRow(bare).models[0], { id: 'deepseek-flash', displayName: 'deepseek-flash', input: ['text'] })
+  assert.deepEqual(ownProviderRow(bare).models[0], { id: 'qwen3:8b', displayName: 'qwen3:8b', input: ['text'] })
   // image and video rows never carry a level
-  const zhipu = ownProviderRow({ ...rowOf('zhipu', 'openai', 'https://open.bigmodel.cn/api/paas/v4', ['glm-5.3']), models: [{ id: 'glm-5.3', name: 'glm-5.3', vision: false, kind: 'chat' }, { id: 'glm-image', name: 'glm-image', vision: false, kind: 'image' }] }, hint('zhipu'))
-  assert.equal(zhipu.models.length, 1)
-  assert.deepEqual(zhipu.models[0].compat, { thinkingFormat: 'deepseek', supportsReasoningEffort: true })
+  const mixed = ownProviderRow({ ...rowOf('ollama', 'openai', 'http://127.0.0.1:11434/v1', ['gpt-oss-120b']), models: [{ id: 'gpt-oss-120b', name: 'gpt-oss-120b', vision: false, kind: 'chat' }, { id: 'some-image', name: 'some-image', vision: false, kind: 'image' }] }, hint('ollama'))
+  assert.equal(mixed.models.length, 1)
+  assert.deepEqual(mixed.models[0].compat, { thinkingFormat: 'openai', supportsReasoningEffort: true })
 })
 
-test('listModelRows keeps what OpenRouter says about a model; modelsOf carries it only where the catalogue reads the list', async () => {
+test('listModelRows keeps what an endpoint’s list says about a model; modelsOf carries it only where the catalogue reads the list', async () => {
   const fetchImpl = async () => new Response(JSON.stringify({ data: [
     { id: 'z-ai/glm-5.3', reasoning: { default_effort: 'max', default_enabled: true, mandatory: true, supported_efforts: ['max', 'high', 'low'] } },
     { id: 'apodex/apodex-1.1-mini:free', reasoning: { mandatory: false } },
@@ -528,15 +432,16 @@ test('listModelRows keeps what OpenRouter says about a model; modelsOf carries i
   const rows = await listModelRows('openai', 'https://openrouter.ai/api/v1', 'sk-or', fetchImpl)
   assert.deepEqual(rows, [{ id: 'apodex/apodex-1.1-mini:free' }, { id: 'unbiased/pareto-26.10-preview' }, { id: 'z-ai/glm-5.3', reasoning: { levels: ['low', 'high', 'max'], default: 'max' } }])
   assert.deepEqual(await listModels('openai', 'https://openrouter.ai/api/v1', 'sk-or', fetchImpl), ['apodex/apodex-1.1-mini:free', 'unbiased/pareto-26.10-preview', 'z-ai/glm-5.3'])
-  const openrouter = catalogue.find((p) => p.id === 'openrouter')
-  const models = modelsOf(openrouter, rows)
+  // a hint that reads the endpoint's own list keeps what it said
+  const listed = { id: 'listed', capabilities: ['chat'], defaults: {}, reasoning: { doc: '', wire: 'reasoning.effort', rules: [], listed: true } }
+  const models = modelsOf(listed, rows)
   assert.deepEqual(models.find((m) => m.id === 'z-ai/glm-5.3').reasoning, { levels: ['low', 'high', 'max'], default: 'max' })
   assert.equal(models.find((m) => m.id === 'unbiased/pareto-26.10-preview').reasoning, undefined)
   // a provider whose hint has rules, not the list: what a gateway in front of it says is not kept
-  const deepseek = catalogue.find((p) => p.id === 'deepseek')
-  assert.equal(modelsOf(deepseek, [{ id: 'deepseek-flash', reasoning: { levels: ['low'] } }])[0].reasoning, undefined)
+  const ollama = catalogue.find((p) => p.id === 'ollama')
+  assert.equal(modelsOf(ollama, [{ id: 'gpt-oss-120b', reasoning: { levels: ['low'] } }])[0].reasoning, undefined)
   // ids alone still work
-  assert.deepEqual(modelsOf(deepseek, ['deepseek-flash']).map((m) => m.id), ['deepseek-flash'])
+  assert.deepEqual(modelsOf(ollama, ['qwen3:8b']).map((m) => m.id), ['qwen3:8b'])
 })
 
 const win32 = process.platform === 'win32'

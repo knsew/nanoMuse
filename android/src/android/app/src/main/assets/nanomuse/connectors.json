@@ -302,22 +302,6 @@
       }
     },
     {
-      "id": "sentry",
-      "name": "Sentry",
-      "category": "dev",
-      "url": "https://mcp.sentry.dev/mcp",
-      "auth": {
-        "kind": "oauth"
-      },
-      "docs": "https://docs.sentry.io/product/sentry-mcp/",
-      "icon": "sentry",
-      "color": "#362D59",
-      "about": {
-        "en": "Errors, issues and performance data from your projects.",
-        "zh": "你项目里的错误、问题与性能数据。"
-      }
-    },
-    {
       "id": "vercel",
       "name": "Vercel",
       "category": "dev",

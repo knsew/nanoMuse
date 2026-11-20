@@ -107,13 +107,13 @@ async function runHook(hooks, options, relayChunks = [{ type: 'finish', reason: 
   return { chunks, sent, relayCalled }
 }
 
-const BAILIAN_MODELS = ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen3-vl-plus', 'qwen-image-3.0', 'wan2.2-i2v-flash']
+const SERVER_MODELS = ['deepseek-v4.1-flash', 'qwen3.8-27b', 'qwen3-vl-plus', 'qwen-image-3.0', 'wan2.2-i2v-flash']
 
 test('the switch: off, the account leaves every slot and the chat default moves to the first own chat model; the sign-in stays; on again, it is back', async () => {
   const out = await cloud({ defaultModel: { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' } })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
     // the chat default was the account's already, so saving the row did not move it
     assert.deepEqual(out.selection.current, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' })
     let view = (await out.api('GET', '/models')).body
@@ -127,15 +127,15 @@ test('the switch: off, the account leaves every slot and the chat default moves 
     assert.equal(view.cloudModels, false)
     assert.equal((await out.state()).cloudModelsOff, true)
     assert.equal((await out.state()).account.id, 'acct-1', 'the account is kept')
-    // new chats answer through the own row's catalogue default
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'deepseek-v4.1-flash' })
+    // new chats answer through the own row's first chat model
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'deepseek-v4.1-flash' })
     for (const slot of ['chat', 'hands', 'image', 'video']) {
       assert.ok(view.slots[slot].options.every((o) => o.provider !== PROVIDER_ID), `${slot} lists no account model`)
-      assert.equal(view.slots[slot].provider, 'bailian', slot)
+      assert.equal(view.slots[slot].provider, 'custom', slot)
     }
-    assert.deepEqual(out.svc.handsChoice(), { provider: 'bailian', model: 'qwen3.8-27b' })
-    assert.equal((await out.svc.imageEndpoint()).instanceId, 'bailian')
-    assert.equal((await out.svc.videoEndpoint()).instanceId, 'bailian')
+    assert.deepEqual(out.svc.handsChoice(), { provider: 'custom', model: 'deepseek-v4.1-flash' })
+    assert.equal((await out.svc.imageEndpoint()).instanceId, 'custom')
+    assert.equal((await out.svc.videoEndpoint()).instanceId, 'custom')
     // the explicit one-time ask still reaches the account
     assert.equal((await out.svc.imageEndpoint({ cloud: true })).instanceId, PROVIDER_ID)
     assert.equal((await out.svc.videoEndpoint({ cloud: true })).instanceId, PROVIDER_ID)
@@ -151,7 +151,7 @@ test('the switch: off, the account leaves every slot and the chat default moves 
     assert.equal((await out.state()).cloudModelsOff, undefined)
     assert.ok(view.slots.chat.options.some((o) => o.provider === PROVIDER_ID))
     // the chat default is not moved back by itself: the person's choice stands
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'deepseek-v4.1-flash' })
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'deepseek-v4.1-flash' })
   } finally {
     await server.close()
     await out.done()
@@ -182,19 +182,19 @@ test('the switch is refused while the chat slot is the account’s and nothing o
 
 test('the switch goes off when an own chat model exists: the chat slot moves there; a chat slot already on an own row is left alone', async () => {
   const out = await cloud({ defaultModel: { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' } })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
     const res = await out.api('POST', '/cloud-models', { on: false })
     assert.equal(res.status, 200)
     assert.equal(res.body.cloudModels, false)
     assert.equal((await out.state()).cloudModelsOff, true)
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'deepseek-v4.1-flash' })
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'deepseek-v4.1-flash' })
     // on again, then the person picks an own model for chat: switching off touches nothing
     await out.api('POST', '/cloud-models', { on: true })
-    out.selection.current = { provider: 'bailian', model: 'qwen3.8-27b' }
+    out.selection.current = { provider: 'custom', model: 'qwen3.8-27b' }
     assert.equal((await out.api('POST', '/cloud-models', { on: false })).status, 200)
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'qwen3.8-27b' })
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'qwen3.8-27b' })
   } finally {
     await server.close()
     await out.done()
@@ -203,18 +203,18 @@ test('the switch goes off when an own chat model exists: the chat slot moves the
 
 test('off, then the last own key is removed: the account’s models come back on, the chat slot takes the account’s model, and the reply says so', async () => {
   const out = await cloud({ defaultModel: { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' } })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
     assert.equal((await out.api('POST', '/cloud-models', { on: false })).status, 200)
-    assert.deepEqual(out.selection.current, { provider: 'bailian', model: 'deepseek-v4.1-flash' })
+    assert.deepEqual(out.selection.current, { provider: 'custom', model: 'deepseek-v4.1-flash' })
 
-    const res = await out.api('POST', '/providers/remove', { id: 'bailian' })
+    const res = await out.api('POST', '/providers/remove', { id: 'custom' })
     assert.equal(res.status, 200)
     assert.deepEqual(res.body, { cloudModelsOn: true })
     const state = await out.state()
     assert.equal(state.cloudModelsOff, undefined, 'the switch is on again')
-    assert.equal(state.providers.bailian, undefined, 'the row is gone')
+    assert.equal(state.providers.custom, undefined, 'the row is gone')
     assert.equal(state.account.id, 'acct-1', 'the account is kept')
     // new chats answer through the account's recommended chat model, not dsh's stock default
     assert.deepEqual(out.selection.current, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' })
@@ -223,8 +223,8 @@ test('off, then the last own key is removed: the account’s models come back on
     assert.equal(view.slots.chat.provider, PROVIDER_ID)
 
     // a second own row removed while the switch is on, or while another own row still answers, says nothing
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
-    assert.deepEqual((await out.api('POST', '/providers/remove', { id: 'bailian' })).body, { cloudModelsOn: false })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
+    assert.deepEqual((await out.api('POST', '/providers/remove', { id: 'custom' })).body, { cloudModelsOn: false })
   } finally {
     await server.close()
     await out.done()
@@ -260,18 +260,18 @@ test('off with nothing of one’s own: every slot is empty, the chat default sta
 
 test('the llm/stream hook: on, the relay is called; off, a turn is refused with the cloud_off card, a side call goes to the own chat model, and a held session goes through', async () => {
   const out = await cloud({ defaultModel: { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash' } })
-  const server = await modelsServer(BAILIAN_MODELS)
+  const server = await modelsServer(SERVER_MODELS)
   try {
     assert.equal(typeof out.hooks['llm/stream'], 'function')
     // another provider: never ours to touch
-    let run = await runHook(out.hooks, { provider: 'bailian', model: 'deepseek-v4.1-flash', sessionId: 's1' })
+    let run = await runHook(out.hooks, { provider: 'custom', model: 'deepseek-v4.1-flash', sessionId: 's1' })
     assert.equal(run.relayCalled, true)
     // the account, switch on: the relay answers
     run = await runHook(out.hooks, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash', sessionId: 's1' })
     assert.equal(run.relayCalled, true)
     assert.deepEqual(run.chunks, [{ type: 'finish', reason: { kind: 'stop' } }])
 
-    await out.api('POST', '/providers/save', { id: 'bailian', apiKey: 'sk-test', baseURL: server.url })
+    await out.api('POST', '/providers/save', { id: 'custom', apiKey: 'sk-test', baseURL: server.url, label: 'My server', capabilities: ['chat', 'vision', 'image', 'video'] })
     await out.api('POST', '/cloud-models', { on: false })
     // a turn of a chat still on the account: refused here, nothing sent, the card's code
     run = await runHook(out.hooks, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash', sessionId: 's1' })
@@ -288,11 +288,11 @@ test('the llm/stream hook: on, the relay is called; off, a turn is refused with 
     run = await runHook(out.hooks, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash', sessionId: 's1', purpose: 'session-title' })
     assert.equal(run.relayCalled, false)
     assert.equal(run.sent.length, 1)
-    assert.equal(run.sent[0].provider, 'bailian')
+    assert.equal(run.sent[0].provider, 'custom')
     assert.equal(run.sent[0].model, 'deepseek-v4.1-flash')
     assert.equal(run.sent[0].purpose, 'session-title')
     // *Use nanoMuse Cloud this time* holds the session: that one goes through
-    out.svc.cloudOnce.set('s1', { provider: 'bailian', model: 'deepseek-v4.1-flash', at: Date.now() })
+    out.svc.cloudOnce.set('s1', { provider: 'custom', model: 'deepseek-v4.1-flash', at: Date.now() })
     run = await runHook(out.hooks, { provider: PROVIDER_ID, model: 'deepseek-v4.1-flash', sessionId: 's1' })
     assert.equal(run.relayCalled, true)
     // another session is still refused

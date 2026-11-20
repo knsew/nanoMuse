@@ -83,8 +83,6 @@ export const CATALOGUE: CatalogueEntry[] = [
     about: { en: 'Repositories, issues, pull requests and code search.', zh: '仓库、issue、PR 与代码搜索。' } },
   { id: 'gitlab', name: 'GitLab', category: 'dev', url: 'https://gitlab.com/api/v4/mcp', auth: { kind: 'oauth' }, docs: 'https://docs.gitlab.com/user/gitlab_duo/model_context_protocol/mcp_server/', color: '#FC6D26',
     about: { en: 'Projects, issues, merge requests and pipelines on gitlab.com.', zh: 'gitlab.com 上的项目、议题、合并请求与流水线。' } },
-  { id: 'sentry', name: 'Sentry', category: 'dev', url: 'https://mcp.sentry.dev/mcp', auth: { kind: 'oauth' }, docs: 'https://docs.sentry.io/product/sentry-mcp/', icon: 'sentry', color: '#362D59',
-    about: { en: 'Errors, issues and performance data from your projects.', zh: '你项目里的错误、问题与性能数据。' } },
   { id: 'vercel', name: 'Vercel', category: 'dev', url: 'https://mcp.vercel.com', auth: { kind: 'oauth' }, docs: 'https://vercel.com/docs/mcp/vercel-mcp', icon: 'vercel', color: '#000000',
     about: { en: 'Projects, deployments and logs.', zh: '项目、部署与日志。' } },
   { id: 'netlify', name: 'Netlify', category: 'dev', url: 'https://netlify-mcp.netlify.app/mcp', auth: { kind: 'oauth' }, docs: 'https://docs.netlify.com/build/build-with-ai/netlify-mcp-server/', icon: 'netlify', color: '#00C7B7',

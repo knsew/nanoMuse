@@ -1,8 +1,7 @@
 // The service's half of provenance (relay 0.31): the `nanomuse` provider row points at the
 // loopback door, a call the `llm/stream` hook lets through reaches the relay with the
-// session's run, turn and step and the relay's turn id is kept for the session; the
-// session's events become notes for the record (a decision, a stop, a hands run closing),
-// and the browser half's thumbs and stop reasons arrive through `POST /nanomuse/cloud/feedback`.
+// session's run, turn and step and the relay's turn id is kept for the session; and the
+// browser half's thumbs and stop reasons arrive through `POST /nanomuse/cloud/feedback`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -15,9 +14,9 @@ import NanomuseCloud, { API_PREFIX, LLM_ROW, PROVIDER_ID, TOKEN_REF } from '../l
 
 process.env.NANOMUSE_PY = join(tmpdir(), 'nanomuse-runtime-that-does-not-exist')
 
-/** A relay that answers `/v1/chat/completions` with a short stream and keeps the notes it is sent. */
+/** A relay that answers `/v1/chat/completions` with a short stream. */
 async function relay() {
-  const r = { calls: [], events: [] }
+  const r = { calls: [] }
   r.server = createServer((req, res) => {
     const chunks = []
     req.on('data', (c) => chunks.push(c))
@@ -27,10 +26,6 @@ async function relay() {
         r.calls.push({ headers: req.headers, body: JSON.parse(body) })
         res.writeHead(200, { 'content-type': 'text/event-stream', 'x-nanomuse-request': `req-${r.calls.length}` })
         res.end('data: {"choices":[{"delta":{"content":"Hi"}}]}\n\ndata: [DONE]\n\n')
-      } else if (req.url === '/v1/events') {
-        r.events.push({ headers: req.headers, body: JSON.parse(body) })
-        res.writeHead(202, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ kept: JSON.parse(body).events.length, dropped: 0 }))
       } else {
         res.writeHead(404).end()
       }
@@ -121,7 +116,7 @@ async function cloud(origin, { staleDoor = false, again } = {}) {
   if (again) Object.assign(fake.settings, structuredClone(again.settings))
   await fake.ctx.credentials.set(TOKEN_REF, 'account-key')
   if (staleDoor) fake.settings[LLM_ROW].providers[PROVIDER_ID] = { displayName: 'nanoMuse Cloud', api: 'openai-completions', baseURL: 'http://127.0.0.1:1/v1', apiKeyEnv: 'x', models: [{ id: 'deepseek-v4.1-flash' }] }
-  if (!again) await writeFile(statePath, JSON.stringify({ deviceId: 'pc-dsh-test01', account: { id: 'acct-1', channel: 'email', hint: 'a***@example.org', member: false, region: 'intl' }, models: ACCOUNT_MODELS, update: { checkedAt: Date.now() } }))
+  if (!again) await writeFile(statePath, JSON.stringify({ deviceId: 'pc-dsh-test01', account: { id: 'acct-1', channel: 'email', hint: 'a***@example.org', member: false, region: 'intl' }, models: ACCOUNT_MODELS }))
   const svc = new NanomuseCloud(fake.ctx, { baseURL: origin, deviceName: 'test-desktop', statePath })
   svc.hub.start = () => undefined
   svc.refresh = async () => svc.status()
@@ -256,47 +251,10 @@ test('the next start asks for the same door port, so the row is right as it is; 
   }
 })
 
-test('the session\'s events become notes: a tool\'s result closes its decision, a stop and an error end the turn, and the notes go up in one batch with the turn they are about', async () => {
+test('the browser half\'s thumb and stop reason: the relay\'s words only; anything else is a 400', async () => {
   const r = await relay()
   const out = await cloud(r.origin)
   try {
-    out.svc.provenance.noteTurn('s1', 'req-9', 'cloud')
-    out.emit('s1', 'turn/start', { turn: 5 })
-    out.emit('s1', 'tool/call', { callId: 'c1', name: 'bash', arguments: {} })
-    out.emit('s1', 'tool/result', { message: { role: 'tool', toolCallId: 'c1', isError: false, content: [] } })
-    out.emit('s1', 'tool/call', { callId: 'c2', name: 'write_file', arguments: {} })
-    out.emit('s1', 'tool/result', { message: { role: 'tool', toolCallId: 'c2', isError: true, content: [] } })
-    out.emit('s1', 'turn/end', { turn: 5, reason: { kind: 'aborted', reason: { kind: 'user' } } })
-    out.emit('s2', 'turn/end', { turn: 1, reason: { kind: 'error', error: { message: 'x', code: 'UNKNOWN' } } })
-    out.emit('s3', 'turn/end', { turn: 1, reason: { kind: 'completed' } })
-    out.emit('s4', 'turn/end', { turn: 1, reason: { kind: 'aborted', reason: { kind: 'hook', reason: 'handing over' } } })
-    assert.equal(out.svc.events.pending, 4)
-    await out.svc.events.flush()
-    assert.equal(r.events.length, 1)
-    assert.equal(r.events[0].headers['x-nanomuse-device'], 'pc-dsh-test01')
-    assert.equal(r.events[0].headers['x-nanomuse-platform'], 'desktop')
-    const notes = r.events[0].body.events
-    assert.deepEqual(notes.map((n) => n.kind), ['sentinel.decision', 'sentinel.decision', 'turn.ended', 'turn.ended'])
-    assert.deepEqual(notes[0].data, { tool: 'bash', policy: 'allow', decision: 'allow', by: 'policy', ok: true })
-    assert.equal(notes[0].turn, 'req-9')
-    assert.equal(notes[0].conversation, 's1')
-    assert.deepEqual(notes[1].data, { tool: 'write_file', policy: 'allow', decision: 'allow', by: 'policy', ok: false })
-    assert.deepEqual(notes[2].data, { ended: 'aborted', turn_no: 5 })
-    assert.deepEqual(notes[3].data, { ended: 'error', turn_no: 1 })
-    assert.equal(notes[3].conversation, 's2')
-    assert.equal(notes[3].turn, undefined, 'no call of that session was seen')
-  } finally {
-    await out.done()
-    await r.close()
-  }
-})
-
-test('the browser half\'s thumb and stop reason: the relay\'s words only, the turn number of the session; anything else is a 400', async () => {
-  const r = await relay()
-  const out = await cloud(r.origin)
-  try {
-    out.svc.provenance.noteTurn('s1', 'dsh-1-ab', 'own')
-    out.emit('s1', 'turn/start', { turn: 2 })
     assert.equal((await out.api('POST', '/feedback', { session: 's1', vote: 'down', reason: 'wrong' })).status, 204)
     assert.equal((await out.api('POST', '/feedback', { session: 's1', vote: '' })).status, 204)
     assert.equal((await out.api('POST', '/feedback', { session: 's1', stop_reason: 'changed_mind' })).status, 204)
@@ -305,32 +263,21 @@ test('the browser half\'s thumb and stop reason: the relay\'s words only, the tu
     assert.equal((await out.api('POST', '/feedback', { session: 's1', vote: 'up', reason: 'it was fine, really' })).status, 400)
     assert.equal((await out.api('POST', '/feedback', { session: 's1', stop_reason: 'because' })).status, 400)
     assert.equal((await out.api('POST', '/feedback', { vote: 'up' })).status, 400)
-    await out.svc.events.flush()
-    const notes = r.events[0].body.events
-    assert.deepEqual(notes.map((n) => [n.kind, n.data]), [
-      ['turn.feedback', { vote: 'down', reason: 'wrong', turn_no: 2 }],
-      ['turn.feedback', { vote: 'none', turn_no: 2 }],
-      ['turn.stopped', { reason: 'changed_mind', turn_no: 2 }],
-      ['turn.stopped', { reason: 'skipped', turn_no: 2 }],
-    ])
-    assert.ok(notes.every((n) => n.turn === 'dsh-1-ab' && n.source === 'own' && n.conversation === 's1'))
   } finally {
     await out.done()
     await r.close()
   }
 })
 
-test('a thumb on an earlier reply names that turn\'s own call; a Stop puts the question up until it is answered or the next turn starts', async () => {
+test('a Stop puts the question up until it is answered or the next turn starts', async () => {
   const r = await relay()
   const out = await cloud(r.origin)
   try {
     out.emit('s1', 'turn/start', { turn: 1 })
-    out.svc.provenance.noteTurn('s1', 'req-1', 'cloud')
     out.emit('s1', 'turn/start', { turn: 2 })
-    out.svc.provenance.noteTurn('s1', 'req-2', 'cloud')
     assert.equal((await out.api('POST', '/feedback', { session: 's1', turn_no: 1, vote: 'up' })).status, 204)
     assert.equal((await out.api('POST', '/feedback', { session: 's1', turn_no: 2, vote: 'down' })).status, 204)
-    assert.equal((await out.api('POST', '/feedback', { session: 's1', turn_no: 9, vote: 'up' })).status, 204, 'a turn never seen: the note still goes, without an id')
+    assert.equal((await out.api('POST', '/feedback', { session: 's1', turn_no: 9, vote: 'up' })).status, 204, 'a turn never seen: still accepted')
     // the question after a Stop
     assert.deepEqual(out.svc.live().stopped, [])
     out.emit('s1', 'turn/end', { turn: 2, reason: { kind: 'aborted', reason: { kind: 'user' } } })
@@ -340,14 +287,6 @@ test('a thumb on an earlier reply names that turn\'s own call; a Stop puts the q
     out.emit('s1', 'turn/end', { turn: 2, reason: { kind: 'aborted', reason: { kind: 'user' } } })
     out.emit('s1', 'turn/start', { turn: 3 })
     assert.deepEqual(out.svc.live().stopped, [], 'the next turn withdrew it')
-    await out.svc.events.flush()
-    const notes = r.events[0].body.events.filter((n) => n.kind === 'turn.feedback' || n.kind === 'turn.stopped')
-    assert.deepEqual(notes.map((n) => [n.kind, n.data.turn_no, n.turn]), [
-      ['turn.feedback', 1, 'req-1'],
-      ['turn.feedback', 2, 'req-2'],
-      ['turn.feedback', 9, undefined],
-      ['turn.stopped', 2, 'req-2'],
-    ])
   } finally {
     await out.done()
     await r.close()

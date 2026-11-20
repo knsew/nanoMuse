@@ -6,9 +6,9 @@
  * devices all arrive on it; a dropped stream reconnects by itself.
  */
 import { useSyncExternalStore } from 'react'
-import type { Grant, Hold, PendingApproval, SharedConnector, UpdateInfo } from '../desk.ts'
+import type { Grant, Hold, PendingApproval, SharedConnector } from '../desk.ts'
 
-export type { Grant, Hold, PendingApproval, SharedConnector, UpdateInfo }
+export type { Grant, Hold, PendingApproval, SharedConnector }
 
 export interface LiveProfile {
   rev: number
@@ -143,8 +143,6 @@ export interface Live {
   chatTasks: Record<string, string[]>
   /** The model the hands see the screen with; empty when the account has none. */
   handsModel: string
-  /** The last update check, or null before one ran. */
-  update: UpdateInfo | null
   /** The drawn face's clips and how their drawing goes (desk-b). */
   motion: LiveMotion
   /** The person's own clip as the face (#324): size, the mtime (`v`) its URL carries, whether a first frame was kept; null for none. */
@@ -222,7 +220,6 @@ const INITIAL: Live = {
   goneSchedules: [],
   chatTasks: {},
   handsModel: '',
-  update: null,
   motion: NO_MOTION,
   ownClip: null,
   ownClips: {},
@@ -250,7 +247,7 @@ function open(): void {
     try {
       const data = JSON.parse(event.data) as Partial<Omit<Live, 'streaming'>>
       // An older host (0.1.33) sends no approvals/holds; keep the defaults rather than undefined.
-      publish({ ...snapshot, ...data, profile: { ...DEFAULT_PROFILE, ...data.profile }, approvals: data.approvals ?? [], holds: data.holds ?? [], grants: data.grants ?? [], goneSchedules: data.goneSchedules ?? [], chatTasks: data.chatTasks ?? {}, handsModel: data.handsModel ?? '', update: data.update ?? null, motion: data.motion ?? NO_MOTION, ownClip: data.ownClip ?? null, ownClips: data.ownClips ?? {}, blackScreenAt: data.blackScreenAt ?? 0, streaming: true })
+      publish({ ...snapshot, ...data, profile: { ...DEFAULT_PROFILE, ...data.profile }, approvals: data.approvals ?? [], holds: data.holds ?? [], grants: data.grants ?? [], goneSchedules: data.goneSchedules ?? [], chatTasks: data.chatTasks ?? {}, handsModel: data.handsModel ?? '', motion: data.motion ?? NO_MOTION, ownClip: data.ownClip ?? null, ownClips: data.ownClips ?? {}, blackScreenAt: data.blackScreenAt ?? 0, streaming: true })
     } catch {
       // a malformed frame is skipped; the next snapshot replaces everything anyway
     }

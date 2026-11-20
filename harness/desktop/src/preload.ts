@@ -12,7 +12,6 @@
  * and the window's base colour following the theme.
  */
 import { contextBridge, ipcRenderer } from "electron";
-import type { WindowsUpdateState } from "./windows-updates";
 
 export type PermissionKind = "accessibility" | "screen" | "microphone";
 export type PermissionState = "granted" | "denied" | "not-determined" | "not-needed";
@@ -20,20 +19,7 @@ export type PermissionState = "granted" | "denied" | "not-determined" | "not-nee
 const bridge = {
   /** `darwin`, `win32`, `linux`. */
   platform: process.platform,
-  /** One Windows update state for the menu and settings; null in unsupported builds. */
-  updates: {
-    snapshot: (): Promise<WindowsUpdateState | null> => ipcRenderer.invoke("nanomuse:updates:snapshot"),
-    check: (): Promise<WindowsUpdateState | null> => ipcRenderer.invoke("nanomuse:updates:check"),
-    download: (): Promise<WindowsUpdateState | null> => ipcRenderer.invoke("nanomuse:updates:download"),
-    restart: (): Promise<WindowsUpdateState | null> => ipcRenderer.invoke("nanomuse:updates:restart"),
-    setAutoDownload: (enabled: boolean): Promise<WindowsUpdateState | null> => ipcRenderer.invoke("nanomuse:updates:auto-download", enabled),
-    subscribe: (listener: (state: WindowsUpdateState) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, state: WindowsUpdateState) => listener(state);
-      ipcRenderer.on("nanomuse:updates:state", handler);
-      return () => ipcRenderer.off("nanomuse:updates:state", handler);
-    },
-  },
-  /** The app's version, its platform and arch; `appImage` when the Linux build runs from an AppImage (so an update is offered as one). */
+  /** The app's version, its platform and arch; `appImage` when the Linux build runs from an AppImage. */
   info: (): Promise<{ version: string; platform: string; arch: string; appImage: boolean }> => ipcRenderer.invoke("nanomuse:info"),
   /** Where every permission the hands use stands right now; `helper` (0.1.38) when "nanoMuse Computer Use" holds them — the rows to switch on are its, and a grant needs no app restart. */
   permissions: (): Promise<Record<PermissionKind, PermissionState> & { helper?: boolean }> => ipcRenderer.invoke("nanomuse:permissions"),
@@ -97,7 +83,7 @@ export interface DesktopPrefs {
   proxyMasked: string;
   /** The proxy the running Host was started with; differs from `proxy` until a restart. */
   proxyApplied: string;
-  /** The relay hosts the plugin talks to (its `config.baseURL`): kept on NO_PROXY together with the default relay. */
+  /** The relay hosts the plugin talks to (its `config.baseURL`): kept on NO_PROXY together with loopback. */
   relayHosts?: string[];
   supports: { openAtLogin: boolean; menuBar: boolean; quickChat: boolean };
 }
