@@ -206,7 +206,11 @@ jobs:
           "$bt/aapt" dump badging "$apk" | grep -q "versionName='$version'" || {
             echo "the APK is not versionName $version" >&2; exit 1; }
           certs="$("$bt/apksigner" verify --print-certs "$apk")"
-          echo "$certs" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          # Display only: build-tools 37 renamed the apksigner label from
+          # "Signer #1 certificate" to "V2 Signer: certificate", so match
+          # the tail both formats share and never fail the step here; the
+          # fingerprint check below is the real gate.
+          echo "$certs" | grep -E "certificate (DN|SHA-256)" || true
           if echo "$certs" | grep -q "CN=Android Debug"; then
             echo "signed with the debug key" >&2; exit 1
           fi
