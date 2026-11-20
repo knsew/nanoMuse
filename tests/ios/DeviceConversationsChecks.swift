@@ -24,7 +24,7 @@ enum NanoMuseLocale { static let tag = "en" }
 @MainActor
 enum NanoMuseCloud {
     struct Account { let id: String }
-    static var baseURL = "https://relay.invalid"
+    static var baseURL: String? = "https://relay.invalid"
     static var isSignedIn = true
     static var account: Account? = Account(id: "account-a")
 }
